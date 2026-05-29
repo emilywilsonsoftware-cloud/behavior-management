@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Behavior Tracker — Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px;
+           background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+    .page-body { max-width: 1300px; margin: 0 auto; padding: 22px 16px 48px; }
+
+    /* Summary cards */
+    .sum-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+    .sum-card { background: white; border-radius: 9px; padding: 14px 18px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #e2e8f0; }
+    .sum-card.blue  { border-color: #3b82f6; } .sum-card.amber { border-color: #f59e0b; }
+    .sum-card.green { border-color: #10b981; } .sum-card.purple{ border-color: #8b5cf6; }
+    .sum-v { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+    .sum-l { font-size: 0.74rem; color: #64748b; margin-top: 3px; }
+
+    /* Filter panel */
+    .filter-card { background: white; border-radius: 9px; padding: 18px 20px;
+                   box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; }
+    .filter-title { font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
+                    letter-spacing: 0.07em; color: #1a56db; margin-bottom: 12px; }
+    .filter-grid  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .filter-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .filter-row   { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+
+    label.fl { display: block; font-size: 0.76rem; font-weight: 600; color: #374151; margin-bottom: 3px; }
+    input[type="text"], input[type="date"], select {
+      width: 100%; padding: 7px 10px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 0.86rem; }
+    input:focus, select:focus { outline: none; border-color: #1a56db;
+      box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+
+    .btn { padding: 7px 16px; border: none; border-radius: 6px;
+           font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #1a56db; color: white; }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-outline { background: white; color: #374151; border: 1px solid #d1d5db; }
+    .btn-outline:hover { background: #f9fafb; }
+    .btn-green { background: #166534; color: white; }
+    .btn-green:hover { background: #14532d; }
+
+    /* Results */
+    .results-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .res-count   { font-size: 0.84rem; color: #64748b; }
+
+    /* Table */
+    .tbl-wrap { background: white; border-radius: 9px; overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 880px; }
+    thead th { background: #1e3a5f; color: white; padding: 10px 11px; text-align: left;
+               font-weight: 600; font-size: 0.74rem; text-transform: uppercase;
+               letter-spacing: 0.04em; white-space: nowrap; cursor: pointer; user-select: none; }
+    thead th:hover { background: #1a3158; }
+    tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.08s; }
+    tbody tr:hover { background: #f0f7ff; }
+    tbody tr.resolved { opacity: 0.65; }
+    td { padding: 9px 11px; vertical-align: middle; }
+
+    .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700; }
+    .badge-major    { background:#fee2e2; color:#991b1b; }
+    .badge-minor    { background:#fef9c3; color:#854d0e; }
+    .badge-positive { background:#dcfce7; color:#166534; }
+    .badge-open     { background:#fef3c7; color:#92400e; }
+    .badge-resolved { background:#d1fae5; color:#065f46; }
+    .pts-neg { color:#dc2626; font-weight:700; }
+    .pts-pos { color:#166534; font-weight:700; }
+
+    .bal-pill { display:inline-block; padding:2px 7px; border-radius:11px; font-size:0.78rem; font-weight:700; }
+    .stu-link { color: #1d4ed8; text-decoration: none; }
+    .stu-link:hover { text-decoration: underline; }
+    .btn-sm { padding: 4px 10px; font-size: 0.76rem; }
+
+    /* Detail panel */
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; display:none; }
+    .overlay.open { display:block; }
+    .detail-panel { position:fixed; right:0; top:0; bottom:0; width:400px; background:white;
+                    box-shadow:-4px 0 20px rgba(0,0,0,0.15); z-index:101; overflow-y:auto;
+                    padding:22px; transform:translateX(100%); transition:transform 0.22s ease; }
+    .detail-panel.open { transform:translateX(0); }
+    .d-close { float:right; background:none; border:none; font-size:1.3rem; cursor:pointer; color:#6b7280; }
+    .d-title { font-size:1rem; font-weight:700; color:#1e3a5f; margin-bottom:14px; }
+    .d-row   { display:flex; gap:8px; margin-bottom:9px; }
+    .d-label { width:120px; font-size:0.76rem; color:#94a3b8; flex-shrink:0; padding-top:2px; }
+    .d-val   { font-size:0.84rem; font-weight:500; }
+    .d-hr    { border:none; border-top:1px solid #e5e7eb; margin:14px 0; }
+    textarea.d-notes { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:7px;
+                       font-size:0.84rem; min-height:72px; resize:vertical; }
+
+    .empty-msg { text-align:center; padding:36px; color:#94a3b8; font-size:0.9rem; }
+    #loading-bar { position:fixed; top:0; left:0; right:0; height:3px; background:#1a56db;
+                   display:none; z-index:200; }
+
+    @media (max-width:768px) {
+      .sum-row { grid-template-columns: 1fr 1fr; }
+      .filter-grid { grid-template-columns: 1fr; }
+      .detail-panel { width:100%; }
+    }
+  </style>
+</head>
+<body>
+<script>var navCurrentPage = 'report';</script>
+<?!= navHtml ?>
+
+<div id="loading-bar"></div>
+
+<div class="page-body">
+
+  <div class="sum-row">
+    <div class="sum-card blue">  <div class="sum-v" id="s-total">—</div><div class="sum-l">Total Shown</div></div>
+    <div class="sum-card amber"> <div class="sum-v" id="s-open">—</div> <div class="sum-l">Open</div></div>
+    <div class="sum-card green"> <div class="sum-v" id="s-res">—</div>  <div class="sum-l">Resolved</div></div>
+    <div class="sum-card purple"><div class="sum-v" id="s-pts">—</div>  <div class="sum-l">Avg Points Deducted</div></div>
+  </div>
+
+  <div class="filter-card">
+    <div class="filter-title">Filters</div>
+    <div class="filter-grid">
+      <div><label class="fl">Student Name</label><input type="text" id="f-stu" placeholder="Search..."></div>
+      <div><label class="fl">Teacher</label>
+           <select id="f-tch"><option value="">All Teachers</option></select></div>
+      <div><label class="fl">Infraction</label>
+           <select id="f-inf"><option value="">All Infractions</option></select></div>
+      <div><label class="fl">Severity</label>
+           <select id="f-sev">
+             <option value="All">All</option><option value="Major">Major</option>
+             <option value="Minor">Minor</option><option value="Positive">Positive</option>
+           </select></div>
+      <div><label class="fl">Status</label>
+           <select id="f-sta">
+             <option value="All">All</option><option value="Open">Open</option>
+             <option value="Resolved">Resolved</option>
+           </select></div>
+    </div>
+    <div class="filter-dates">
+      <div><label class="fl">Date From</label><input type="date" id="f-from"></div>
+      <div><label class="fl">Date To</label><input type="date" id="f-to"></div>
+    </div>
+    <div class="filter-row">
+      <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
+      <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-green" onclick="exportCsv()">Export CSV</button>
+    </div>
+  </div>
+
+  <div class="results-bar">
+    <span class="res-count" id="res-count">Loading...</span>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortBy('ID')">#</th>
+          <th onclick="sortBy('IncidentDate')">Date</th>
+          <th onclick="sortBy('StudentName')">Student</th>
+          <th onclick="sortBy('Grade')">Gr</th>
+          <th onclick="sortBy('InfractionType')">Infraction</th>
+          <th onclick="sortBy('Severity')">Sev</th>
+          <th onclick="sortBy('PointValue')">Pts Δ</th>
+          <th onclick="sortBy('CurrentPoints')">Balance</th>
+          <th onclick="sortBy('TeacherName')">Teacher</th>
+          <th onclick="sortBy('IncidentDate')">Time</th>
+          <th onclick="sortBy('Status')">Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-body"><tr><td colspan="12" class="empty-msg">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <button class="d-close" onclick="closeDetail()">×</button>
+  <div class="d-title" id="d-title">Referral Detail</div>
+  <div id="d-content"></div>
+</div>
+
+<script>
+var allRows = [], filteredRows = [], sortCol = 'IncidentDate', sortAsc = false, semPts = 100;
+var detailIdx = null;
+
+window.addEventListener('load', function() {
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(onDataLoaded)
+    .withFailureHandler(function(err) {
+      showLoading(false);
+      document.getElementById('tbl-body').innerHTML =
+        '<tr><td colspan="12" class="empty-msg" style="color:#dc2626;">Error: '+esc(err.message||err)+'</td></tr>';
+    })
+    .getReportData({});
+});
+
+function onDataLoaded(data) {
+  showLoading(false);
+  if (typeof updateNavUser === 'function') updateNavUser(data.user);
+  allRows = data.rows || [];
+  semPts  = data.semesterPoints || 100;
+
+  var tchSel = document.getElementById('f-tch');
+  (data.teacherOptions||[]).forEach(function(t) {
+    tchSel.innerHTML += '<option value="'+esc(t)+'">'+esc(t)+'</option>';
+  });
+  var infSel = document.getElementById('f-inf');
+  (data.infractionOptions||[]).forEach(function(t) {
+    infSel.innerHTML += '<option value="'+esc(t)+'">'+esc(t)+'</option>';
+  });
+
+  filteredRows = allRows.slice();
+  renderTable();
+  updateSummary();
+}
+
+function applyFilters() {
+  var stuName = document.getElementById('f-stu').value.trim().toLowerCase();
+  var tch     = document.getElementById('f-tch').value.toLowerCase();
+  var inf     = document.getElementById('f-inf').value;
+  var sev     = document.getElementById('f-sev').value;
+  var sta     = document.getElementById('f-sta').value;
+  var from    = document.getElementById('f-from').value;
+  var to      = document.getElementById('f-to').value;
+
+  filteredRows = allRows.filter(function(row) {
+    if (stuName && (row['StudentName']||'').toLowerCase().indexOf(stuName) < 0) return false;
+    if (tch     && (row['TeacherName']||'').toLowerCase().indexOf(tch) < 0)     return false;
+    if (inf     && row['InfractionType'] !== inf)                                return false;
+    if (sev && sev !== 'All' && row['Severity'] !== sev)                         return false;
+    if (sta && sta !== 'All' && row['Status']   !== sta)                         return false;
+    if (from && row['IncidentDate'] < from)                                      return false;
+    if (to   && row['IncidentDate'] > to)                                        return false;
+    return true;
+  });
+
+  renderTable();
+  updateSummary();
+}
+
+function clearFilters() {
+  ['f-stu','f-from','f-to'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['f-tch','f-inf'].forEach(function(id){ document.getElementById(id).selectedIndex=0; });
+  document.getElementById('f-sev').value = 'All';
+  document.getElementById('f-sta').value = 'All';
+  filteredRows = allRows.slice();
+  renderTable();
+  updateSummary();
+}
+
+function sortBy(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  var numCols = ['PointValue','CurrentPoints','ID','PointsBeforeReferral','PointsAfterReferral'];
+  filteredRows.sort(function(a, b) {
+    var av = a[col] !== undefined ? a[col] : '';
+    var bv = b[col] !== undefined ? b[col] : '';
+    if (numCols.indexOf(col) >= 0) { av = parseFloat(av)||0; bv = parseFloat(bv)||0; }
+    else { av = av.toString().toLowerCase(); bv = bv.toString().toLowerCase(); }
+    return av < bv ? (sortAsc?-1:1) : av > bv ? (sortAsc?1:-1) : 0;
+  });
+  renderTable();
+}
+
+function renderTable() {
+  document.getElementById('res-count').textContent =
+    filteredRows.length + ' referral' + (filteredRows.length!==1?'s':'') + ' shown';
+
+  if (filteredRows.length === 0) {
+    document.getElementById('tbl-body').innerHTML =
+      '<tr><td colspan="12" class="empty-msg">No referrals match the filters.</td></tr>';
+    return;
+  }
+
+  document.getElementById('tbl-body').innerHTML = filteredRows.map(function(row, idx) {
+    var sev      = (row['Severity']||'').toString();
+    var pts      = parseFloat(row['PointValue'])||0;
+    var ptsStr   = pts > 0 ? '+'+pts : pts.toString();
+    var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : '';
+    var balance  = parseInt(row['CurrentPoints'])||0;
+    var bPct     = semPts > 0 ? balance/semPts : 0;
+    var bColor   = bPct >= 0.7 ? '#166534' : bPct >= 0.4 ? '#b45309' : '#b91c1c';
+    var bBg      = bPct >= 0.7 ? '#dcfce7' : bPct >= 0.4 ? '#fef9c3' : '#fee2e2';
+    var status   = (row['Status']||'Open').toString();
+    var studentId = (row['StudentID']||'').toString();
+    return '<tr'+(status==='Resolved'?' class="resolved"':'')+'>' +
+      '<td style="color:#94a3b8;">'+esc(row['ID']||'')+'</td>' +
+      '<td style="white-space:nowrap;">'+esc(row['IncidentDate']||'')+'</td>' +
+      '<td><a class="stu-link" href="?page=student&id='+esc(studentId)+'">'+esc(row['StudentName']||'')+'</a></td>' +
+      '<td>'+esc(row['Grade']||'')+'</td>' +
+      '<td>'+esc(row['InfractionType']||'')+'</td>' +
+      '<td><span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></td>' +
+      '<td class="'+ptsCls+'">'+ptsStr+'</td>' +
+      '<td><span class="bal-pill" style="background:'+bBg+';color:'+bColor+';">'+balance+'</span></td>' +
+      '<td>'+esc(row['TeacherName']||'')+'</td>' +
+      '<td style="color:#64748b;white-space:nowrap;">'+esc(row['IncidentTime']||'')+'</td>' +
+      '<td><span class="badge badge-'+status.toLowerCase()+'">'+esc(status)+'</span></td>' +
+      '<td><button class="btn btn-outline btn-sm" onclick="openDetail('+idx+')">View</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function updateSummary() {
+  var total = filteredRows.length;
+  var open  = filteredRows.filter(function(r){ return r['Status'] !== 'Resolved'; }).length;
+  var totalDed = filteredRows.reduce(function(s,r){ var p=parseFloat(r['PointValue'])||0; return s+(p<0?Math.abs(p):0); }, 0);
+  setText('s-total', total);
+  setText('s-open',  open);
+  setText('s-res',   total - open);
+  setText('s-pts',   total > 0 ? (totalDed/total).toFixed(1) : '0');
+}
+
+function openDetail(idx) {
+  detailIdx = idx;
+  var row   = filteredRows[idx];
+  document.getElementById('d-title').textContent = 'Referral #'+(row['ID']||'')+' — '+(row['StudentName']||'');
+
+  var sev    = (row['Severity']||'').toString();
+  var pts    = parseFloat(row['PointValue'])||0;
+  var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
+
+  var fields = [
+    ['Student',     (row['StudentName']||'')+' (Grade '+(row['Grade']||'')+')'],
+    ['Student ID',  row['StudentID']||''],
+    ['Date / Time', (row['IncidentDate']||'')+' at '+(row['IncidentTime']||'')],
+    ['Submitted',   row['TimestampFormatted']||''],
+    ['Location',    row['Location']||''],
+    ['Infraction',  row['InfractionType']||''],
+    ['Severity',    '<span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span>'],
+    ['Points',      '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span> &nbsp;('+
+                    (row['PointsBeforeReferral']||0)+' → '+(row['PointsAfterReferral']||0)+')'],
+    ['Balance',     '<strong>'+(row['CurrentPoints']||0)+' pts</strong>'],
+    ['Redirections',row['Redirections']||'None'],
+    ['Motivation',  row['PossibleMotivation']||'—'],
+    ['Teacher',     row['TeacherName']||''],
+    ['Parent Notif.',row['ParentNotified']||''],
+    ['Teacher Notif.',row['TeacherNotified']||'']
+  ];
+
+  var html = fields.map(function(f) {
+    return '<div class="d-row"><div class="d-label">'+esc(f[0])+'</div>' +
+           '<div class="d-val">'+f[1]+'</div></div>';
+  }).join('');
+
+  if (row['Description']) {
+    html += '<hr class="d-hr"><div class="d-row"><div class="d-label">Description</div>' +
+            '<div class="d-val">'+esc(row['Description'])+'</div></div>';
+  }
+
+  html += '<hr class="d-hr">' +
+    '<div style="margin-bottom:6px;font-weight:600;font-size:0.82rem;">Status</div>' +
+    '<select id="d-status" style="width:100%;margin-bottom:10px;padding:7px;border:1px solid #d1d5db;border-radius:6px;">' +
+    '<option value="Open"'+(row['Status']==='Open'?' selected':'')+'>Open</option>' +
+    '<option value="Resolved"'+(row['Status']==='Resolved'?' selected':'')+'>Resolved</option>' +
+    '</select>' +
+    '<div style="margin-bottom:6px;font-weight:600;font-size:0.82rem;">Admin Notes</div>' +
+    '<textarea class="d-notes" id="d-notes">'+esc(row['AdminNotes']||'')+'</textarea>' +
+    '<button class="btn btn-primary" style="margin-top:10px;width:100%;" onclick="saveDetail()">Save Changes</button>' +
+    '<div id="d-save-msg" style="margin-top:7px;font-size:0.8rem;min-height:18px;"></div>';
+
+  document.getElementById('d-content').innerHTML = html;
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('detail-panel').classList.remove('open');
+  detailIdx = null;
+}
+
+function saveDetail() {
+  if (detailIdx === null) return;
+  var row    = filteredRows[detailIdx];
+  var status = document.getElementById('d-status').value;
+  var notes  = document.getElementById('d-notes').value;
+  var msg    = document.getElementById('d-save-msg');
+  msg.textContent = 'Saving...'; msg.style.color = '#1a56db';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        row['Status']     = status;
+        row['AdminNotes'] = notes;
+        msg.textContent = '✓ Saved'; msg.style.color = '#166534';
+        renderTable(); updateSummary();
+      } else {
+        msg.textContent = 'Error: '+(result.error||'Unknown'); msg.style.color = '#dc2626';
+      }
+    })
+    .withFailureHandler(function(err) {
+      msg.textContent = 'Error: '+(err.message||err); msg.style.color = '#dc2626';
+    })
+    .updateReferralRow(row['ID'], status, notes);
+}
+
+function exportCsv() {
+  if (filteredRows.length === 0) { alert('No data to export.'); return; }
+  var cols = ['ID','IncidentDate','IncidentTime','StudentName','Grade','InfractionType',
+              'Severity','PointValue','PointsBeforeReferral','PointsAfterReferral','CurrentPoints',
+              'Location','Redirections','PossibleMotivation','Description','TeacherName',
+              'ParentNotified','TeacherNotified','Status','AdminNotes'];
+  var csv = cols.join(',') + '\n' + filteredRows.map(function(row) {
+    return cols.map(function(c) {
+      var v = row[c] !== undefined ? row[c].toString() : '';
+      return '"' + v.replace(/"/g,'""') + '"';
+    }).join(',');
+  }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'referrals_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+}
+
+function showLoading(on) {
+  document.getElementById('loading-bar').style.display = on ? 'block' : 'none';
+}
+function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

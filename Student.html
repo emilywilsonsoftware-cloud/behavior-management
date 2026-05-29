@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Behavior Tracker — Students</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px;
+           background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+    .page-body { max-width: 1100px; margin: 0 auto; padding: 22px 16px 48px; }
+
+    /* Search panel */
+    .search-card { background: white; border-radius: 10px; padding: 22px 24px;
+                   box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 18px; }
+    .search-card h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; }
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    .filter-bar select { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+                         font-size: 0.86rem; color: #374151; background: white;
+                         cursor: pointer; flex: 1; min-width: 130px; }
+    .filter-bar select:focus { outline: none; border-color: #1d4ed8;
+                                box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .filter-count { font-size: 0.78rem; color: #94a3b8; white-space: nowrap; }
+    .search-row { display: flex; gap: 8px; }
+    .search-row input { flex: 1; padding: 9px 12px; border: 1px solid #d1d5db;
+                        border-radius: 6px; font-size: 0.93rem; }
+    .search-row input:focus { outline: none; border-color: #1d4ed8;
+                               box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .btn { padding: 9px 16px; border: none; border-radius: 6px; font-size: 0.88rem;
+           font-weight: 600; cursor: pointer; }
+    .btn-clear { background: white; border: 1px solid #d1d5db; color: #6b7280; }
+    .btn-clear:hover { background: #f9fafb; }
+
+    /* Search results list */
+    #search-results { margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 7px;
+                       overflow: hidden; display: none; background: white; }
+    .stu-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+               border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.1s; }
+    .stu-row:last-child { border-bottom: none; }
+    .stu-row:hover { background: #eff6ff; }
+    .stu-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+                  display: flex; align-items: center; justify-content: center;
+                  font-size: 0.8rem; font-weight: 800; color: white; }
+    .stu-info { flex: 1; min-width: 0; }
+    .stu-name { font-weight: 600; font-size: 0.9rem; }
+    .stu-sub  { font-size: 0.76rem; color: #64748b; }
+    .stu-pts  { text-align: right; flex-shrink: 0; }
+    .pts-val  { font-size: 0.9rem; font-weight: 700; }
+    .pts-pct  { font-size: 0.72rem; color: #94a3b8; }
+    .pts-hi { color: #166534; } .pts-md { color: #b45309; } .pts-lo { color: #dc2626; }
+
+    /* Profile area */
+    #profile-area { display: none; }
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; color: #1d4ed8;
+                background: none; border: none; font-size: 0.84rem; font-weight: 500;
+                cursor: pointer; padding: 0; margin-bottom: 14px; }
+    .back-btn:hover { text-decoration: underline; }
+
+    /* Profile header */
+    .profile-hdr { background: white; border-radius: 10px; padding: 20px 24px;
+                   box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px;
+                   display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+    .p-avatar { width: 60px; height: 60px; border-radius: 50%; flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 1.4rem; font-weight: 800; color: white; }
+    .p-info   { flex: 1; min-width: 180px; }
+    .p-name   { font-size: 1.3rem; font-weight: 800; }
+    .p-meta   { font-size: 0.83rem; color: #64748b; margin-top: 3px; }
+    .p-contact{ font-size: 0.8rem; color: #475569; margin-top: 7px;
+                display: flex; flex-wrap: wrap; gap: 10px; }
+    .p-contact a { color: #2563eb; text-decoration: none; }
+    .p-contact a:hover { text-decoration: underline; }
+    .pts-display { text-align: center; padding: 10px 20px; border-radius: 9px;
+                   border: 2px solid #e2e8f0; flex-shrink: 0; min-width: 110px; }
+    .pts-big   { font-size: 2rem; font-weight: 900; line-height: 1; }
+    .pts-lbl   { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
+    .pts-bar-o { background: #e2e8f0; border-radius: 4px; height: 6px; margin: 5px auto 0; width: 100px; overflow: hidden; }
+    .pts-bar-i { height: 100%; border-radius: 4px; }
+    .pts-pct2  { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; }
+
+    /* Summary badges */
+    .sum-badges { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 16px; }
+    .sum-b { background: white; border-radius: 8px; padding: 10px 14px; text-align: center;
+             min-width: 80px; box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+             border-top: 3px solid #e2e8f0; }
+    .sum-b.all  { border-color: #1d4ed8; } .sum-b.open { border-color: #f59e0b; }
+    .sum-b.maj  { border-color: #ef4444; } .sum-b.min  { border-color: #f59e0b; }
+    .sum-b.pos  { border-color: #10b981; }
+    .sum-v { font-size: 1.4rem; font-weight: 800; } .sum-l { font-size: 0.7rem; color: #64748b; }
+
+    /* Nine-weeks tabs */
+    .nw-tabs { display: flex; gap: 0; margin-bottom: 0; overflow-x: auto; }
+    .nw-tab  { padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+               border: 1px solid #e2e8f0; border-bottom: none; border-radius: 6px 6px 0 0;
+               background: #f8fafc; color: #64748b; white-space: nowrap; margin-right: 2px;
+               transition: background 0.1s; }
+    .nw-tab.active { background: white; color: #1d4ed8; border-color: #bfdbfe; }
+    .nw-tab:hover:not(.active) { background: #f1f5f9; }
+
+    /* Cards */
+    .card { background: white; border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.07); margin-bottom: 16px; overflow: hidden; }
+    .card-hdr { padding: 12px 18px 0; font-size: 0.74rem; font-weight: 700;
+                text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; }
+    .card-bdy { padding: 14px 18px 18px; }
+    .two-col  { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+    /* Referral table */
+    table { width: 100%; border-collapse: collapse; }
+    thead th { font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+               letter-spacing: 0.05em; color: #64748b; padding: 8px 10px;
+               border-bottom: 2px solid #e2e8f0; text-align: left; }
+    tbody td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.82rem; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f8fafc; }
+
+    .badge { display:inline-block; padding:2px 7px; border-radius:20px; font-size:0.7rem; font-weight:700; }
+    .badge-major    { background:#fee2e2; color:#991b1b; }
+    .badge-minor    { background:#fef9c3; color:#854d0e; }
+    .badge-positive { background:#dcfce7; color:#166534; }
+    .badge-open     { background:#fef3c7; color:#92400e; }
+    .badge-resolved { background:#d1fae5; color:#065f46; }
+    .pts-neg { color:#dc2626; font-weight:700; } .pts-pos { color:#166534; font-weight:700; }
+
+    /* NW summary mini-cards */
+    .nw-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
+    .nw-mini { background: #f8fafc; border-radius: 7px; padding: 9px 12px; text-align: center;
+               border: 1px solid #e2e8f0; min-width: 80px; }
+    .nw-mini.current { border-color: #bfdbfe; background: #eff6ff; }
+    .nw-mini-v { font-size: 1.3rem; font-weight: 800; color: #1e293b; }
+    .nw-mini-l { font-size: 0.7rem; color: #64748b; margin-top: 1px; }
+
+    .empty-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
+    .loading-msg { color: #94a3b8; padding: 24px; text-align: center; }
+
+    /* ── Parent contact editor (admin only) ── */
+    .contact-editor { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+    .contact-view { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .contact-edit-form { display: none; }
+    .contact-edit-form.open { display: block; }
+    .ce-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .ce-grid label { display: block; font-size: 0.76rem; font-weight: 600;
+                     color: #374151; margin-bottom: 3px; }
+    .ce-grid input { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
+                     border-radius: 5px; font-size: 0.86rem; font-family: inherit; }
+    .ce-grid input:focus { outline: none; border-color: #1d4ed8;
+                           box-shadow: 0 0 0 2px rgba(29,78,216,0.1); }
+    .ce-search { margin-bottom: 10px; position: relative; }
+    .ce-search input { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
+                       border-radius: 5px; font-size: 0.86rem; font-family: inherit; }
+    .ce-search input:focus { outline: none; border-color: #1d4ed8; }
+    .ce-search-results { position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
+                         background: white; border: 1px solid #d1d5db; border-top: none;
+                         border-radius: 0 0 6px 6px; max-height: 180px; overflow-y: auto;
+                         box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; }
+    .ce-search-item { padding: 8px 12px; cursor: pointer; font-size: 0.84rem;
+                      border-bottom: 1px solid #f1f5f9; }
+    .ce-search-item:last-child { border-bottom: none; }
+    .ce-search-item:hover { background: #f0f7ff; }
+    .ce-search-item .ce-si-name { font-weight: 600; color: #1e293b; }
+    .ce-search-item .ce-si-email { font-size: 0.76rem; color: #64748b; }
+    .ce-siblings { margin-top: 10px; padding: 10px 12px; background: #f8fafc;
+                   border: 1px solid #e2e8f0; border-radius: 6px; }
+    .ce-siblings-title { font-size: 0.76rem; font-weight: 600; color: #374151;
+                         margin-bottom: 8px; }
+    .ce-sibling-item { display: flex; align-items: center; gap: 8px;
+                       padding: 4px 0; font-size: 0.84rem; }
+    .ce-sibling-item input[type="checkbox"] { width: 15px; height: 15px;
+                                               accent-color: #1d4ed8; }
+    .ce-btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+    .ce-btn { padding: 7px 16px; border-radius: 6px; font-size: 0.84rem;
+              font-weight: 600; cursor: pointer; font-family: inherit; border: none; }
+    .ce-btn.primary { background: #1e3a5f; color: white; }
+    .ce-btn.primary:hover { background: #2a4d7a; }
+    .ce-btn.secondary { background: white; color: #374151; border: 1px solid #d1d5db; }
+    .ce-btn.secondary:hover { background: #f9fafb; }
+    .ce-btn.danger { background: white; color: #dc2626; border: 1px solid #fca5a5; }
+    .ce-btn.danger:hover { background: #fee2e2; }
+    .ce-msg { font-size: 0.8rem; font-weight: 600; min-height: 18px;
+              flex: 1; }
+    .ce-msg.ok  { color: #166534; }
+    .ce-msg.err { color: #dc2626; }
+    .ce-msg.ld  { color: #64748b; }
+
+    @media (max-width:680px) { .two-col { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<script>var navCurrentPage = 'student';</script>
+<?!= navHtml ?>
+
+<div class="page-body">
+
+  <!-- Search panel -->
+  <div class="search-card" id="search-panel">
+    <h2>Student Lookup</h2>
+    <div class="filter-bar">
+      <select id="filter-grade" onchange="onSearch(document.getElementById('stu-search').value)">
+        <option value="">All Grades</option>
+      </select>
+      <span class="filter-count" id="filter-count"></span>
+    </div>
+    <div class="search-row">
+      <input type="text" id="stu-search" placeholder="Search by name or student ID..."
+             oninput="onSearch(this.value)" autocomplete="off">
+      <button class="btn btn-clear" onclick="clearSearch()">✕ Clear</button>
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- Profile area (shown after selecting a student) -->
+  <div id="profile-area">
+    <button class="back-btn" onclick="showSearch()">← Back to Search</button>
+    <div id="profile-content"><div class="loading-msg">Loading...</div></div>
+  </div>
+
+</div>
+
+<script>
+var allStudents   = [];
+var semPts        = 100;
+var currentStudent = null;
+var activeNwIdx   = -1; // index into nineWeeks array; -1 = all
+
+// ── Load all students once ────────────────────────────────────
+window.addEventListener('load', function() {
+  // Check if a student ID was passed in the URL
+  var urlId = getParam('id');
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (typeof updateNavUser === 'function') updateNavUser(data.user);
+      allStudents = data.students || [];
+      semPts      = data.semesterPoints || 100;
+
+      // Build grade filter from actual student data
+      var grades = [];
+      allStudents.forEach(function(s) {
+        if (s.grade && grades.indexOf(s.grade) < 0) grades.push(s.grade);
+      });
+      grades.sort(function(a, b) {
+        return (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b);
+      });
+      var gradeSel = document.getElementById('filter-grade');
+      grades.forEach(function(g) {
+        gradeSel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
+      });
+      document.getElementById('filter-count').textContent = allStudents.length + ' students';
+
+      if (urlId) {
+        loadProfile(urlId);
+      } else {
+        document.getElementById('search-results').innerHTML =
+          '<div class="empty-msg">Start typing a name, or filter by grade.</div>';
+        document.getElementById('search-results').style.display = 'block';
+        document.getElementById('stu-search').focus();
+      }
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('search-panel').innerHTML =
+        '<div style="color:#dc2626;padding:16px;">Error: '+(err.message||err)+'</div>';
+    })
+    .getAllStudents();
+});
+
+// ── Search (client-side — instant) ───────────────────────────
+function onSearch(query) {
+  var q        = (query || '').trim().toLowerCase();
+  var gradeVal = document.getElementById('filter-grade').value;
+  var results  = document.getElementById('search-results');
+  results.style.display = 'block';
+
+  var hasFilter = q || gradeVal;
+  if (!hasFilter) {
+    results.innerHTML = '<div class="empty-msg">Start typing a name, or filter by grade.</div>';
+    document.getElementById('filter-count').textContent = allStudents.length + ' students';
+    return;
+  }
+
+  var hits = allStudents.filter(function(s) {
+    if (gradeVal && s.grade !== gradeVal) return false;
+    if (q && s.studentName.toLowerCase().indexOf(q) < 0 &&
+             s.studentId.toLowerCase().indexOf(q)   < 0) return false;
+    return true;
+  }).slice(0, 40);
+
+  document.getElementById('filter-count').textContent =
+    hits.length + ' of ' + allStudents.length + ' students';
+
+  if (hits.length === 0) {
+    results.innerHTML = '<div class="empty-msg">No students match these filters.</div>';
+    return;
+  }
+
+  results.innerHTML = hits.map(function(s) {
+    var pct    = semPts > 0 ? Math.round(s.currentPoints / semPts * 100) : 0;
+    var ptsCls = pct >= 70 ? 'pts-hi' : pct >= 40 ? 'pts-md' : 'pts-lo';
+    var init   = initials(s.studentName);
+    var bg     = avatarColor(s.studentId);
+    return '<div class="stu-row" onclick="loadProfile(\''+esc(s.studentId)+'\')">' +
+      '<div class="stu-avatar" style="background:'+bg+';">'+esc(init)+'</div>' +
+      '<div class="stu-info">' +
+        '<div class="stu-name">'+esc(s.studentName)+'</div>' +
+        '<div class="stu-sub">Grade '+esc(s.grade)+' · ID: '+esc(s.studentId)+'</div>' +
+      '</div>' +
+      '<div class="stu-pts">' +
+        '<div class="pts-val '+ptsCls+'">'+s.currentPoints+'</div>' +
+        '<div class="pts-pct">'+pct+'% of '+semPts+'</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+function clearSearch() {
+  document.getElementById('stu-search').value   = '';
+  document.getElementById('filter-grade').value = '';
+  document.getElementById('search-results').innerHTML =
+    '<div class="empty-msg">Start typing a name, or filter by grade.</div>';
+  document.getElementById('filter-count').textContent = allStudents.length + ' students';
+}
+
+// ── Load Student Profile ──────────────────────────────────────
+function loadProfile(studentId) {
+  document.getElementById('search-panel').style.display = 'none';
+  document.getElementById('profile-area').style.display = 'block';
+  document.getElementById('profile-content').innerHTML = '<div class="loading-msg">Loading profile...</div>';
+  activeNwIdx = -1;
+
+  google.script.run
+    .withSuccessHandler(renderProfile)
+    .withFailureHandler(function(err) {
+      document.getElementById('profile-content').innerHTML =
+        '<div style="color:#dc2626;padding:20px;">Error: '+(err.message||err)+'</div>';
+    })
+    .getStudentProfile(studentId);
+}
+
+function showSearch() {
+  document.getElementById('profile-area').style.display = 'none';
+  document.getElementById('search-panel').style.display = 'block';
+}
+
+// ── Render Profile ────────────────────────────────────────────
+function renderProfile(data) {
+  if (data.error) {
+    document.getElementById('profile-content').innerHTML =
+      '<div style="color:#dc2626;padding:20px;">'+esc(data.error)+'</div>';
+    return;
+  }
+
+  currentStudent = data;
+  var s      = data.student;
+  var sp     = data.semesterPoints;
+  var isAdm  = data.user && data.user.role === 'admin';
+  var pct    = sp > 0 ? Math.max(0,Math.min(100,Math.round(s.currentPoints/sp*100))) : 0;
+  var ptColor = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  var ptBg    = pct >= 70 ? '#dcfce7' : pct >= 40 ? '#fef9c3' : '#fee2e2';
+  var init    = initials(s.studentName);
+  var bg      = avatarColor(s.studentId);
+  var sum     = data.summary;
+
+  var html = '';
+
+  // Profile header
+  html +=
+    '<div class="profile-hdr">' +
+      '<div class="p-avatar" style="background:'+bg+';">'+esc(init)+'</div>' +
+      '<div class="p-info">' +
+        '<div class="p-name">'+esc(s.studentName)+'</div>' +
+        '<div class="p-meta">Grade '+esc(s.grade)+' · ID: '+esc(s.studentId)+'</div>' +
+        '<div class="p-contact">' +
+          (s.parentName  ? '<span>👤 '+esc(s.parentName)+'</span>' : '') +
+          (s.parentEmail ? '<span>✉ <a href="mailto:'+esc(s.parentEmail)+'">'+esc(s.parentEmail)+'</a></span>' : '') +
+          (s.parentPhone ? '<span>📞 '+esc(s.parentPhone)+'</span>' : '') +
+          (!s.parentName && !s.parentEmail ? '<span style="color:#94a3b8;">No parent contact on file</span>' : '') +
+        '</div>' +
+        // Contact editor — admin only
+        (isAdm ? buildContactEditorHtml(s) : '') +
+      '</div>' +
+      '<div class="pts-display" style="border-color:'+ptColor+';background:'+ptBg+';">' +
+        '<div class="pts-big" style="color:'+ptColor+';">'+s.currentPoints+'</div>' +
+        '<div class="pts-lbl">Current Points</div>' +
+        '<div class="pts-bar-o"><div class="pts-bar-i" style="width:'+pct+'%;background:'+ptColor+';"></div></div>' +
+        '<div class="pts-pct2">'+pct+'% of '+sp+'</div>' +
+      '</div>' +
+    '</div>';
+
+  // Summary badges
+  html +=
+    '<div class="sum-badges">' +
+      badge2(sum.total,   'Total',    'all')  +
+      badge2(sum.open,    'Open',     'open') +
+      badge2(sum.major,   'Major',    'maj')  +
+      badge2(sum.minor,   'Minor',    'min')  +
+      badge2(sum.positive,'Positive', 'pos')  +
+    '</div>';
+
+  // Nine-weeks summary mini-cards
+  if (data.nwSummary && data.nwSummary.length > 0) {
+    var curNw = data.currentNineWeeks;
+    html += '<div class="nw-summary" style="margin-bottom:16px;">';
+    data.nwSummary.forEach(function(nw) {
+      var isCur = curNw && nw.start === curNw.start;
+      html += '<div class="nw-mini'+(isCur?' current':'')+'"><div class="nw-mini-v">'+nw.count+'</div>' +
+              '<div class="nw-mini-l">'+esc(nw.label)+(isCur?' ★':'')+'</div></div>';
+    });
+    html += '</div>';
+  }
+
+  // Nine-weeks filter tabs
+  var tabs = '<div class="nw-tabs">' +
+    '<div class="nw-tab active" id="tab-all" onclick="filterByNW(-1)">All Referrals</div>';
+  if (data.nineWeeks) {
+    data.nineWeeks.forEach(function(nw, idx) {
+      var isCur = data.currentNineWeeks && nw.start === data.currentNineWeeks.start;
+      tabs += '<div class="nw-tab" id="tab-'+idx+'" onclick="filterByNW('+idx+')">' +
+              esc(nw.label) + (isCur ? ' ★' : '') + '</div>';
+    });
+  }
+  tabs += '</div>';
+
+  // Two-column layout
+  html += '<div class="two-col">';
+
+  // Referral history
+  html += '<div>' + tabs +
+    '<div class="card" style="border-radius:0 10px 10px 10px;">' +
+    '<div class="card-bdy" style="padding:0;overflow-x:auto;">' +
+    '<div id="ref-table-wrap">' + buildRefTable(data.referrals, -1, data.nineWeeks) + '</div>' +
+    '</div></div></div>';
+
+  // Right column: timeline + breakdown
+  html += '<div>' +
+    '<div class="card" style="margin-bottom:14px;">' +
+    '<div class="card-hdr">Point Balance Timeline</div>' +
+    '<div class="card-bdy">' +
+    (data.pointTimeline.length < 2
+      ? '<div style="color:#94a3b8;padding:16px;text-align:center;">Not enough data.</div>'
+      : buildTimelineSVG(data.pointTimeline, sp)) +
+    '</div></div>' +
+
+    '<div class="card">' +
+    '<div class="card-hdr">Infraction Breakdown</div>' +
+    '<div class="card-bdy">' +
+    (data.infractionBreakdown.length === 0
+      ? '<div style="color:#94a3b8;padding:8px;">No infractions yet.</div>'
+      : (function() {
+          var max = data.infractionBreakdown[0].count || 1;
+          return data.infractionBreakdown.map(function(item) {
+            var pct2 = Math.round(item.count / max * 100);
+            return '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:3px;">' +
+              '<span style="color:#374151;font-weight:500;">'+esc(item.name)+'</span>' +
+              '<span style="color:#6b7280;font-weight:600;">'+item.count+'</span></div>' +
+              '<div style="background:#f1f5f9;border-radius:3px;height:6px;overflow:hidden;">' +
+              '<div style="width:'+pct2+'%;height:100%;background:#3b82f6;border-radius:3px;"></div></div></div>';
+          }).join('');
+        })()) +
+    '</div></div>' +
+    '</div>';
+
+  html += '</div>'; // /two-col
+  document.getElementById('profile-content').innerHTML = html;
+}
+
+// ── Nine-weeks filter ─────────────────────────────────────────
+function filterByNW(idx) {
+  activeNwIdx = idx;
+  // Update tab styles
+  var allTab = document.getElementById('tab-all');
+  if (allTab) allTab.className = 'nw-tab' + (idx === -1 ? ' active' : '');
+  if (currentStudent && currentStudent.nineWeeks) {
+    currentStudent.nineWeeks.forEach(function(_, i) {
+      var t = document.getElementById('tab-' + i);
+      if (t) t.className = 'nw-tab' + (i === idx ? ' active' : '');
+    });
+  }
+  // Re-render table
+  var wrap = document.getElementById('ref-table-wrap');
+  if (wrap && currentStudent) {
+    wrap.innerHTML = buildRefTable(currentStudent.referrals, idx, currentStudent.nineWeeks);
+  }
+}
+
+function buildRefTable(referrals, nwIdx, nineWeeks) {
+  var filtered = referrals;
+  if (nwIdx >= 0 && nineWeeks && nineWeeks[nwIdx]) {
+    var nw = nineWeeks[nwIdx];
+    filtered = referrals.filter(function(r) {
+      var d = (r['IncidentDate'] || '').toString();
+      return d >= nw.start && d <= nw.end;
+    });
+  }
+
+  if (filtered.length === 0)
+    return '<div class="empty-msg">No referrals for this period.</div>';
+
+  var html = '<table><thead><tr>' +
+    '<th>#</th><th>Date</th><th>Infraction</th><th>Sev</th>' +
+    '<th>Pts Δ</th><th>Balance</th><th>Teacher</th><th>Status</th>' +
+    '</tr></thead><tbody>';
+  filtered.forEach(function(r) {
+    var pts    = parseInt(r['PointValue'], 10) || 0;
+    var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+    var ptsCls = pts < 0 ? 'pts-neg' : 'pts-pos';
+    var sev    = (r['Severity'] || '').toString();
+    var status = (r['Status'] || 'Open').toString();
+    html += '<tr>' +
+      '<td style="color:#94a3b8;">'+esc(r['ID'])+'</td>' +
+      '<td style="white-space:nowrap;">'+esc(r['IncidentDate'])+'</td>' +
+      '<td>'+esc(r['InfractionType'])+'</td>' +
+      '<td><span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></td>' +
+      '<td class="'+ptsCls+'">'+ptsStr+'</td>' +
+      '<td>'+esc(r['PointsAfterReferral']||'')+'</td>' +
+      '<td style="font-size:0.77rem;color:#64748b;">'+esc(r['TeacherName']||'')+'</td>' +
+      '<td><span class="badge badge-'+status.toLowerCase()+'">'+esc(status)+'</span></td>' +
+      '</tr>';
+  });
+  return html + '</tbody></table>';
+}
+
+// ── SVG Timeline ──────────────────────────────────────────────
+function buildTimelineSVG(timeline, sp) {
+  var W=280, H=100, PAD=14;
+  var pts   = timeline.map(function(t){ return Math.max(0,t.points); });
+  var minV  = 0, maxV = Math.max.apply(null, pts.concat([sp]));
+  var range = Math.max(maxV - minV, 1), n = pts.length;
+  function x(i) { return PAD + (i/(n-1))*(W-PAD*2); }
+  function y(v) { return PAD + ((maxV-v)/range)*(H-PAD*2); }
+  var poly  = pts.map(function(v,i){ return x(i)+','+y(v); }).join(' ');
+  var area  = 'M '+x(0)+','+y(pts[0])+' '+pts.map(function(v,i){ return 'L '+x(i)+','+y(v); }).join(' ')+
+              ' L '+x(n-1)+','+y(0)+' L '+x(0)+','+y(0)+' Z';
+  var last  = pts[pts.length-1];
+  var ec    = last >= sp*0.7 ? '#10b981' : last >= sp*0.4 ? '#f59e0b' : '#ef4444';
+  return '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">' +
+    '<line x1="'+PAD+'" y1="'+y(sp)+'" x2="'+(W-PAD)+'" y2="'+y(sp)+'" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>' +
+    '<text x="'+(W-PAD+2)+'" y="'+(y(sp)+4)+'" font-size="8" fill="#94a3b8">'+sp+'</text>' +
+    '<path d="'+area+'" fill="#3b82f6" fill-opacity="0.07"/>' +
+    '<polyline points="'+poly+'" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linejoin="round"/>' +
+    '<circle cx="'+x(n-1)+'" cy="'+y(last)+'" r="3.5" fill="'+ec+'"/>' +
+    '<text x="'+x(0)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" text-anchor="middle">'+esc(timeline[0].date)+'</text>' +
+    '<text x="'+x(n-1)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" text-anchor="middle">'+esc(timeline[n-1].date)+'</text>' +
+    '</svg>';
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function badge2(val, label, cls) {
+  return '<div class="sum-b '+cls+'"><div class="sum-v">'+val+'</div><div class="sum-l">'+label+'</div></div>';
+}
+
+function getParam(name) {
+  var search = window.location.search.slice(1).split('&');
+  for (var i=0;i<search.length;i++) {
+    var kv = search[i].split('=');
+    if (decodeURIComponent(kv[0]) === name) return decodeURIComponent(kv[1]||'');
+  }
+  return '';
+}
+
+var AVATAR_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#14b8a6','#6366f1'];
+function avatarColor(id) { return AVATAR_COLORS[id.charCodeAt(id.length-1) % AVATAR_COLORS.length]; }
+function initials(name) {
+  var words = name.trim().split(/\s+/);
+  if (words.length >= 2) return (words[0][0] + words[words.length-1][0]).toUpperCase();
+  return name.slice(0,2).toUpperCase();
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════════════════
+// PARENT CONTACT EDITOR (admin only)
+// ══════════════════════════════════════════════════════════
+
+// State for the contact editor
+var _ceStudentId  = null;
+var _ceGuid       = '';
+var _ceSiblings   = [];
+var _ceSearchTimer = null;
+
+/**
+ * Builds the contact editor HTML injected into the profile header.
+ * Shows the edit button if admin; the form is hidden until Edit is clicked.
+ */
+function buildContactEditorHtml(s) {
+  var hasContact = s.parentName || s.parentEmail;
+  return '<div class="contact-editor" id="contact-editor">' +
+    '<div class="contact-view">' +
+      '<button class="back-btn" style="font-size:0.78rem;" ' +
+              'onclick="openContactEditor(\''+esc(s.studentId)+'\')">' +
+        (hasContact ? '✎ Edit Contact' : '+ Add Contact') +
+      '</button>' +
+      (hasContact ?
+        '<button class="back-btn" style="font-size:0.78rem;color:#dc2626;" ' +
+                'onclick="confirmDeleteContact(\''+esc(s.studentId)+'\')">' +
+          '🗑 Remove' +
+        '</button>' : '') +
+    '</div>' +
+    '<div class="contact-edit-form" id="ce-form">' +
+      // Search before create
+      '<div class="ce-search" id="ce-search-wrap" style="display:none;">' +
+        '<label style="font-size:0.76rem;font-weight:600;color:#374151;margin-bottom:4px;display:block;">' +
+          'Search existing parent records' +
+          '<span style="font-weight:400;color:#94a3b8;margin-left:6px;">— or fill in new below</span>' +
+        '</label>' +
+        '<input type="text" id="ce-search-input" placeholder="Type parent name or email..."' +
+               ' oninput="onParentSearch(this.value)">' +
+        '<div class="ce-search-results" id="ce-search-results"></div>' +
+      '</div>' +
+      // Contact fields
+      '<div class="ce-grid">' +
+        '<div><label>First Name</label><input type="text" id="ce-first" placeholder="First"></div>' +
+        '<div><label>Last Name</label><input type="text" id="ce-last"  placeholder="Last"></div>' +
+        '<div><label>Email</label><input type="email" id="ce-email" placeholder="parent@email.com"></div>' +
+        '<div><label>Phone</label><input type="text" id="ce-phone" placeholder="555-0100"></div>' +
+      '</div>' +
+      // Sibling checkboxes (shown when siblings exist)
+      '<div class="ce-siblings" id="ce-siblings" style="display:none;">' +
+        '<div class="ce-siblings-title">Also update for siblings? (unchecked by default)</div>' +
+        '<div id="ce-siblings-list"></div>' +
+      '</div>' +
+      '<div class="ce-btn-row">' +
+        '<span class="ce-msg" id="ce-msg"></span>' +
+        '<button class="ce-btn secondary" onclick="closeContactEditor()">Cancel</button>' +
+        '<button class="ce-btn primary" onclick="saveContact()">Save</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function openContactEditor(studentId) {
+  _ceStudentId = studentId;
+  _ceGuid      = '';
+  _ceSiblings  = [];
+
+  var form = document.getElementById('ce-form');
+  form.classList.add('open');
+  setCeMsg('', '');
+
+  // Load existing contact and siblings from server
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) { setCeMsg('Error loading contact: ' + r.error, 'err'); return; }
+
+      var c = r.contact;
+      _ceGuid     = c ? c.guid : '';
+      _ceSiblings = r.siblings || [];
+
+      // If existing contact, pre-fill form
+      if (c) {
+        setVal('ce-first', c.firstName   || '');
+        setVal('ce-last',  c.lastName    || '');
+        setVal('ce-email', c.parentEmail || '');
+        setVal('ce-phone', c.phone       || '');
+        // Hide search — already have a contact
+        document.getElementById('ce-search-wrap').style.display = 'none';
+      } else {
+        // New contact — show search-before-create
+        document.getElementById('ce-search-wrap').style.display = 'block';
+        clearVal('ce-first'); clearVal('ce-last');
+        clearVal('ce-email'); clearVal('ce-phone');
+      }
+
+      // Show siblings if any (unchecked by default — opt-in)
+      if (_ceSiblings.length > 0) {
+        var list = document.getElementById('ce-siblings-list');
+        list.innerHTML = _ceSiblings.map(function(sib) {
+          return '<div class="ce-sibling-item">' +
+            '<input type="checkbox" id="sib-'+esc(sib.studentId)+'" value="'+esc(sib.studentId)+'">' +
+            '<label for="sib-'+esc(sib.studentId)+'" style="margin:0;font-weight:400;font-size:0.84rem;">' +
+              esc(sib.studentName) +
+            '</label>' +
+          '</div>';
+        }).join('');
+        document.getElementById('ce-siblings').style.display = 'block';
+      } else {
+        document.getElementById('ce-siblings').style.display = 'none';
+      }
+    })
+    .withFailureHandler(function(err) {
+      setCeMsg('Error: ' + (err.message || err), 'err');
+    })
+    .getStudentContacts(studentId);
+}
+
+function closeContactEditor() {
+  var form = document.getElementById('ce-form');
+  if (form) form.classList.remove('open');
+  var results = document.getElementById('ce-search-results');
+  if (results) results.style.display = 'none';
+}
+
+// Search existing parents as the admin types
+function onParentSearch(query) {
+  clearTimeout(_ceSearchTimer);
+  var results = document.getElementById('ce-search-results');
+  if (!query || query.length < 2) {
+    results.style.display = 'none';
+    return;
+  }
+  _ceSearchTimer = setTimeout(function() {
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (!r.success || r.results.length === 0) {
+          results.style.display = 'none';
+          return;
+        }
+        results.innerHTML = r.results.map(function(p) {
+          return '<div class="ce-search-item" onclick="selectParent('+
+            JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
+            '<div class="ce-si-name">'+esc(p.name)+'</div>' +
+            '<div class="ce-si-email">'+esc(p.email)+'</div>' +
+          '</div>';
+        }).join('');
+        results.style.display = 'block';
+      })
+      .withFailureHandler(function() { results.style.display = 'none'; })
+      .searchParentContacts(query);
+  }, 300);
+}
+
+// Admin selected an existing parent from search results
+function selectParent(p) {
+  _ceGuid = p.guid;
+  setVal('ce-first', p.firstName || '');
+  setVal('ce-last',  p.lastName  || '');
+  setVal('ce-email', p.email || '');
+  setVal('ce-phone', p.phone || '');
+  document.getElementById('ce-search-results').style.display = 'none';
+  document.getElementById('ce-search-input').value = p.name || '';
+}
+
+function saveContact() {
+  var first = document.getElementById('ce-first').value.trim();
+  var last  = document.getElementById('ce-last').value.trim();
+  var email = document.getElementById('ce-email').value.trim();
+  var phone = document.getElementById('ce-phone').value.trim();
+
+  if (!first || !last || !email) {
+    setCeMsg('First name, last name, and email are required.', 'err');
+    return;
+  }
+
+  // Collect selected sibling IDs (opt-in — only checked ones)
+  var siblingIds = [];
+  _ceSiblings.forEach(function(sib) {
+    var chk = document.getElementById('sib-' + sib.studentId);
+    if (chk && chk.checked) siblingIds.push(sib.studentId);
+  });
+
+  var contact = {
+    guid:        _ceGuid,
+    firstName:   first,
+    lastName:    last,
+    parentEmail: email,
+    phone:       phone
+  };
+
+  setCeMsg('Saving...', 'ld');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        setCeMsg('✓ Saved' + (r.updated > 1 ? ' (' + r.updated + ' records updated)' : '') + '.', 'ok');
+        setTimeout(function() {
+          // Reload the profile to reflect updated contact info
+          loadProfile(_ceStudentId);
+        }, 1000);
+      } else {
+        setCeMsg('Error: ' + (r.error || 'Unknown'), 'err');
+      }
+    })
+    .withFailureHandler(function(err) {
+      setCeMsg('Error: ' + (err.message || err), 'err');
+    })
+    .saveParentContact(_ceStudentId, contact, siblingIds);
+}
+
+function confirmDeleteContact(studentId) {
+  if (!confirm('Remove parent contact for this student?\n\nSibling records will not be affected.')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) loadProfile(studentId);
+      else alert('Error: ' + (r.error || 'Unknown'));
+    })
+    .withFailureHandler(function(err) { alert('Error: ' + (err.message || err)); })
+    .deleteParentContact(studentId);
+}
+
+function setCeMsg(text, type) {
+  var el = document.getElementById('ce-msg');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'ce-msg' + (type ? ' ' + type : '');
+}
+
+function setVal(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+function clearVal(id) {
+  var el = document.getElementById(id);
+  if (el) el.value = '';
+}
+</script>
+</body>
+</html>

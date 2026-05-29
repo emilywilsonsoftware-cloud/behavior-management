@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Behavior Tracker — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px;
+           background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+    .page-body { max-width: 1280px; margin: 0 auto; padding: 22px 16px 48px; }
+    .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 3px; }
+    .page-sub   { font-size: 0.84rem; color: #64748b; margin-bottom: 22px; }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-card  { background: white; border-radius: 9px; padding: 16px 18px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #e2e8f0; }
+    .stat-card.blue   { border-color: #3b82f6; }
+    .stat-card.amber  { border-color: #f59e0b; }
+    .stat-card.teal   { border-color: #14b8a6; }
+    .stat-card.indigo { border-color: #6366f1; }
+    .stat-card.red    { border-color: #ef4444; }
+    .stat-card.green  { border-color: #10b981; }
+    .stat-card.purple { border-color: #8b5cf6; }
+    .stat-value { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 0.76rem; color: #64748b; margin-top: 4px; }
+
+    /* Cards */
+    .card { background: white; border-radius: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); overflow: hidden; }
+    .card-hdr { padding: 12px 18px 0; font-size: 0.74rem; font-weight: 700;
+                text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; }
+    .card-bdy { padding: 14px 18px 18px; }
+    .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+    /* Bar chart */
+    .bar-chart { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-top: 6px; }
+    .bar-col   { flex: 1; display: flex; flex-direction: column; align-items: center;
+                 justify-content: flex-end; gap: 3px; }
+    .bar       { width: 100%; border-radius: 3px 3px 0 0; background: #3b82f6; min-height: 2px; }
+    .bar-label { font-size: 0.6rem; color: #94a3b8; white-space: nowrap; }
+    .bar-val   { font-size: 0.66rem; color: #64748b; font-weight: 600; }
+
+    /* Hbar */
+    .hbar-list { display: flex; flex-direction: column; gap: 9px; }
+    .hbar-item { display: flex; flex-direction: column; gap: 3px; }
+    .hbar-top  { display: flex; justify-content: space-between; font-size: 0.78rem; }
+    .hbar-name { color: #374151; overflow: hidden; text-overflow: ellipsis;
+                 white-space: nowrap; max-width: 74%; }
+    .hbar-cnt  { color: #6b7280; font-weight: 600; flex-shrink: 0; }
+    .hbar-trk  { background: #f1f5f9; border-radius: 3px; height: 7px; overflow: hidden; }
+    .hbar-fill { height: 100%; border-radius: 3px; background: #3b82f6; }
+    .hbar-fill.amber { background: #f59e0b; }
+
+    /* At-risk table */
+    .ar-table { width: 100%; border-collapse: collapse; }
+    .ar-table th { font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+                   letter-spacing: 0.05em; color: #64748b; padding: 7px 9px;
+                   border-bottom: 1px solid #e2e8f0; text-align: left; }
+    .ar-table td { padding: 8px 9px; border-bottom: 1px solid #f8fafc; font-size: 0.82rem; }
+    .ar-table tr:last-child td { border-bottom: none; }
+    .ar-table tr:hover td { background: #f8fafc; }
+    .pts-bar-wrap { display: flex; align-items: center; gap: 7px; }
+    .pts-mini { background: #f1f5f9; border-radius: 3px; height: 5px; width: 70px; overflow: hidden; flex-shrink: 0; }
+    .pts-mini-fill { height: 100%; border-radius: 3px; }
+    .stu-link { color: #1d4ed8; text-decoration: none; font-weight: 500; }
+    .stu-link:hover { text-decoration: underline; }
+
+    /* Activity */
+    .activity-list { display: flex; flex-direction: column; }
+    .activity-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;
+                     border-bottom: 1px solid #f1f5f9; }
+    .activity-item:last-child { border-bottom: none; }
+    .a-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .d-major { background: #ef4444; } .d-minor { background: #f59e0b; } .d-positive { background: #10b981; }
+    .a-main { flex: 1; min-width: 0; }
+    .a-stu  { font-weight: 600; font-size: 0.84rem; }
+    .a-det  { font-size: 0.76rem; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .a-meta { text-align: right; flex-shrink: 0; }
+    .a-date { font-size: 0.73rem; color: #94a3b8; }
+    .a-pts  { font-size: 0.76rem; font-weight: 700; }
+    .pts-neg { color: #dc2626; } .pts-pos { color: #166534; }
+
+    /* Badges */
+    .badge { display:inline-block; padding:2px 7px; border-radius:20px; font-size:0.7rem; font-weight:700; }
+    .badge-major    { background:#fee2e2; color:#991b1b; }
+    .badge-minor    { background:#fef9c3; color:#854d0e; }
+    .badge-positive { background:#dcfce7; color:#166534; }
+
+    /* Teacher grid */
+    .tch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .tch-item { background: #f8fafc; border-radius: 6px; padding: 9px 11px;
+                display: flex; justify-content: space-between; align-items: center; }
+    .tch-name  { font-size: 0.8rem; font-weight: 500; }
+    .tch-count { font-size: 0.86rem; font-weight: 700; color: #3b82f6; }
+
+    /* NW badge */
+    .nw-badge { display: inline-block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+                padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+                margin-bottom: 16px; }
+
+    .loading-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
+
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) { .tch-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<?!= navHtml ?>
+
+<div class="page-body">
+  <div class="page-title" id="pg-title">Dashboard</div>
+  <div class="page-sub"   id="pg-sub">Loading...</div>
+
+  <div id="nw-badge-row"></div>
+
+  <div class="stats-grid">
+    <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">Total Referrals</div></div>
+    <div class="stat-card amber"> <div class="stat-value" id="st-open">—</div>   <div class="stat-label">Open</div></div>
+    <div class="stat-card teal">  <div class="stat-value" id="st-today">—</div>  <div class="stat-label">Today</div></div>
+    <div class="stat-card indigo"><div class="stat-value" id="st-week">—</div>   <div class="stat-label">This Week</div></div>
+    <div class="stat-card red">   <div class="stat-value" id="st-major">—</div>  <div class="stat-label">Major Infractions</div></div>
+    <div class="stat-card green"> <div class="stat-value" id="st-stus">—</div>   <div class="stat-label">Total Students</div></div>
+    <div class="stat-card red">   <div class="stat-value" id="st-risk">—</div>   <div class="stat-label">At-Risk Students</div></div>
+    <div class="stat-card purple"><div class="stat-value" id="st-pts">—</div>    <div class="stat-label">Starting Points</div></div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-hdr">Monthly Referral Trend (12 months)</div>
+      <div class="card-bdy"><div class="bar-chart" id="monthly-chart"><div class="loading-msg">Loading...</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">Top Infractions</div>
+      <div class="card-bdy"><div class="hbar-list" id="inf-chart"><div class="loading-msg">Loading...</div></div></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hdr">Students At Risk — Lowest Balances</div>
+      <div class="card-bdy" style="padding-top:8px;">
+        <table class="ar-table">
+          <thead><tr><th>Student</th><th>Gr</th><th>Balance</th></tr></thead>
+          <tbody id="ar-body"><tr><td colspan="3" class="loading-msg">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">Recent Activity</div>
+      <div class="card-bdy" style="padding-top:8px;">
+        <div class="activity-list" id="act-list"><div class="loading-msg">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hdr">Incidents by Location</div>
+      <div class="card-bdy"><div class="hbar-list" id="loc-chart"><div class="loading-msg">Loading...</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">Teacher Activity — This Month</div>
+      <div class="card-bdy"><div class="tch-grid" id="tch-grid"><div class="loading-msg" style="grid-column:1/-1;">Loading...</div></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('load', function() {
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(function(err) {
+      document.getElementById('pg-sub').innerHTML =
+        '<span style="color:#dc2626;">Error: '+esc(err.message||err)+'</span>';
+    })
+    .getDashboardData();
+});
+
+function render(d) {
+  if (typeof updateNavUser === 'function') updateNavUser(d.user);
+
+  var now = new Date();
+  document.getElementById('pg-title').textContent = d.schoolName + ' — Dashboard';
+  document.getElementById('pg-sub').textContent =
+    'Welcome, ' + d.user.name + '  ·  ' +
+    now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  if (d.currentNineWeeks) {
+    document.getElementById('nw-badge-row').innerHTML =
+      '<div class="nw-badge">📅 ' + d.currentNineWeeks.label +
+      ': ' + d.currentNineWeeks.start + ' – ' + d.currentNineWeeks.end + '</div>';
+  }
+
+  var s = d.stats;
+  setText('st-total', s.totalReferrals); setText('st-open', s.openReferrals);
+  setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
+  setText('st-major', s.majorCount);     setText('st-stus', s.totalStudents);
+  setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.semesterPoints + ' pts');
+
+  var maxM = Math.max.apply(null, d.monthlyTrend.map(function(m){ return m.count; })) || 1;
+  document.getElementById('monthly-chart').innerHTML = d.monthlyTrend.map(function(m) {
+    var h = Math.max(3, Math.round((m.count / maxM) * 100));
+    return '<div class="bar-col"><div class="bar-val">'+(m.count||'')+'</div>' +
+           '<div class="bar" style="height:'+h+'px" title="'+esc(m.label)+': '+m.count+'"></div>' +
+           '<div class="bar-label">'+esc(m.label)+'</div></div>';
+  }).join('');
+
+  renderHbars('inf-chart', d.infractionBreakdown, 'amber');
+  renderHbars('loc-chart', d.locationBreakdown, '');
+
+  var sp = d.semesterPoints;
+  document.getElementById('ar-body').innerHTML = d.atRisk.length === 0
+    ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
+    : d.atRisk.map(function(s) {
+        var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
+        var color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
+        return '<tr><td><a class="stu-link" href="?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
+               '<td>'+esc(s.grade)+'</td>' +
+               '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
+               '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
+               '<span style="font-size:0.7rem;color:#94a3b8;">'+pct+'%</span></div></td></tr>';
+      }).join('');
+
+  document.getElementById('act-list').innerHTML = d.recentReferrals.length === 0
+    ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
+    : d.recentReferrals.map(function(r) {
+        var sev    = (r.severity||'').toString();
+        var pts    = parseInt(r.pointValue,10)||0;
+        var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+        var ptsCls = pts < 0 ? 'pts-neg' : 'pts-pos';
+        return '<div class="activity-item">' +
+          '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
+          '<div class="a-main"><div class="a-stu">' +
+            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a>' +
+            ' <span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></div>' +
+          '<div class="a-det">'+esc(r.infractionType)+' · '+esc(r.teacherName)+'</div></div>' +
+          '<div class="a-meta"><div class="a-date">'+esc(r.incidentDate)+'</div>' +
+          '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div></div></div>';
+      }).join('');
+
+  document.getElementById('tch-grid').innerHTML = d.teacherActivity.length === 0
+    ? '<div style="color:#94a3b8;grid-column:1/-1;padding:10px;">No activity this month.</div>'
+    : d.teacherActivity.map(function(t) {
+        return '<div class="tch-item"><div class="tch-name">'+esc(t.name)+'</div>' +
+               '<div class="tch-count">'+t.count+'</div></div>';
+      }).join('');
+}
+
+function renderHbars(id, items, colorClass) {
+  var el = document.getElementById(id);
+  if (!items || items.length === 0) { el.innerHTML = '<div style="color:#94a3b8;padding:10px;">No data yet.</div>'; return; }
+  var max = items[0].count || 1;
+  el.innerHTML = items.map(function(item) {
+    var pct = Math.round(item.count / max * 100);
+    return '<div class="hbar-item"><div class="hbar-top">' +
+           '<span class="hbar-name" title="'+esc(item.name)+'">'+esc(item.name)+'</span>' +
+           '<span class="hbar-cnt">'+item.count+'</span></div>' +
+           '<div class="hbar-trk"><div class="hbar-fill '+(colorClass||'')+'" style="width:'+pct+'%;"></div></div></div>';
+  }).join('');
+}
+
+function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>

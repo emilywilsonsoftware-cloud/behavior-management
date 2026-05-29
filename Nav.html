@@ -1,0 +1,168 @@
+<!-- Nav.html — shared navigation bar -->
+<!-- Nav link hrefs use the {{BASE}} placeholder which doGet() replaces with
+     the absolute /exec URL at render time. No client-side href rewriting
+     is needed. The {{ACT_page}} placeholder sets the active class server-side. -->
+<style>
+.nav-bar { background:#1e3a5f; color:white; display:flex; align-items:center;
+           padding:0 16px; height:54px; box-shadow:0 2px 8px rgba(0,0,0,0.25);
+           position:sticky; top:0; z-index:50; }
+.nav-brand { display:flex; align-items:center; gap:9px; text-decoration:none;
+             color:white; font-weight:700; font-size:1.05rem; margin-right:20px;
+             flex-shrink:0; }
+.nav-links { display:flex; gap:2px; flex:1; overflow-x:auto; }
+.nav-links::-webkit-scrollbar { display:none; }
+.nav-link { display:flex; align-items:center; gap:5px; padding:6px 12px;
+            border-radius:6px; text-decoration:none; color:rgba(255,255,255,0.72);
+            font-size:0.85rem; font-weight:500; white-space:nowrap;
+            transition:background 0.12s, color 0.12s; flex-shrink:0; }
+.nav-link:hover  { background:rgba(255,255,255,0.1); color:white; }
+.nav-link.active { background:rgba(255,255,255,0.18); color:white; font-weight:600; }
+.nav-link svg    { width:14px; height:14px; opacity:0.8; flex-shrink:0; }
+.nav-user { display:flex; align-items:center; gap:8px; font-size:0.8rem;
+            opacity:0.82; flex-shrink:0; margin-left:10px; }
+.role-badge { padding:2px 8px; border-radius:10px; font-size:0.7rem; font-weight:700;
+              text-transform:uppercase; letter-spacing:0.05em;
+              background:rgba(255,255,255,0.15); }
+.role-badge.admin   { background:#f59e0b; color:#1f2937; }
+.role-badge.teacher { background:#10b981; color:#f0fdf4; }
+@media (max-width:600px) {
+  .nav-link span { display:none; }
+  .nav-link { padding:8px 10px; }
+  .nav-brand .brand-text { display:none; }
+}
+</style>
+
+<nav class="nav-bar" id="nav-bar">
+  <a class="nav-brand" href="{{BASE}}?page=dashboard">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.2">
+      <path d="M9 11l3 3L22 4"/>
+      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+    </svg>
+    <span class="brand-text">Behavior Tracker</span>
+  </a>
+
+  <div class="nav-links">
+    <a class="nav-link {{ACT_dashboard}}" href="{{BASE}}?page=dashboard" id="nav-dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/>
+        <rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Dashboard</span>
+    </a>
+
+    <a class="nav-link {{ACT_form}}" href="{{BASE}}?page=form" id="nav-form">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      <span>New Referral</span>
+    </a>
+
+    <a class="nav-link {{ACT_student}}" href="{{BASE}}?page=student" id="nav-student">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span>Students</span>
+    </a>
+
+    <a class="nav-link {{ACT_report}}" href="{{BASE}}?page=report" id="nav-report">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2z"/>
+        <path d="M15 5v14a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2h-2a2 2 0 00-2 2z"/>
+        <path d="M9 10V5a2 2 0 012-2h2a2 2 0 012 2v5"/>
+      </svg>
+      <span>Reports</span>
+    </a>
+
+    <a class="nav-link {{ACT_settings}}" href="{{BASE}}?page=settings" id="nav-settings"
+       style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+      </svg>
+      <span>Settings</span>
+    </a>
+  </div>
+
+  <div class="nav-user">
+    <span id="nav-user-name"></span>
+    <span class="role-badge" id="nav-role-badge"></span>
+  </div>
+</nav>
+
+<script>
+// ── Nav initialization ─────────────────────────────────────────────────────
+// Nav link hrefs are written as absolute /exec URLs at render time by
+// doGet() via the {{BASE}} placeholder replacement, so no client-side
+// href rewriting is needed or safe here.
+//
+// USER CACHE STRATEGY:
+// The user's name, email, and role are cached in sessionStorage under
+// 'bt_nav_user' after the first bootstrap call on any page. On every
+// subsequent page load, initNav() reads the cache synchronously and calls
+// _setNavUser() immediately — before any server call returns. This means
+// the Settings link and user badge appear instantly for admins on every
+// page after the first, with no flash or reload effect.
+//
+// The cache is intentionally shallow (nav display only). All actual
+// authorization is enforced server-side on every call regardless of
+// what is stored here. Clearing sessionStorage or editing it has no
+// effect on what the server permits.
+var NAV_CACHE_KEY = 'bt_nav_user';
+
+(function initNav() {
+
+  // Apply cached user immediately — synchronous, no server round-trip.
+  try {
+    var cached = sessionStorage.getItem(NAV_CACHE_KEY);
+    if (cached) {
+      _setNavUser(JSON.parse(cached));
+    }
+  } catch (e) {
+    // sessionStorage unavailable (private browsing) — nav will update
+    // once the page bootstrap calls updateNavUser().
+  }
+
+})();
+
+// ── Called by any page after its bootstrap returns user data ───────────────
+// Writes the cache so subsequent page loads can apply it instantly.
+function updateNavUser(user) {
+  if (!user) return;
+  _setNavUser(user);
+
+  // Cache the user object for instant application on the next page load.
+  try {
+    sessionStorage.setItem(NAV_CACHE_KEY, JSON.stringify({
+      name:  user.name  || '',
+      email: user.email || '',
+      role:  user.role  || ''
+    }));
+  } catch (e) {
+    // sessionStorage unavailable — no persistent cache, silent fail.
+  }
+}
+
+function _setNavUser(user) {
+  var nameEl    = document.getElementById('nav-user-name');
+  var badgeEl   = document.getElementById('nav-role-badge');
+  var settingEl = document.getElementById('nav-settings');
+  if (nameEl)  nameEl.textContent  = user.name || user.email || '';
+  if (badgeEl) {
+    badgeEl.textContent = user.role || 'user';
+    badgeEl.className   = 'role-badge ' + (user.role || '');
+  }
+  // Show the Settings link only for admins.
+  if (settingEl) {
+    settingEl.style.display = user.role === 'admin' ? '' : 'none';
+  }
+}
+</script>

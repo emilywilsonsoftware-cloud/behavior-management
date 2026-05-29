@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Behavior Tracker</title>
+  <style>
+    /* ── Nav styles (permanent — part of shell) ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px;
+           background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+
+    .nav-bar { background: #1e3a5f; color: white; display: flex; align-items: center;
+               padding: 0 16px; height: 54px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+               position: sticky; top: 0; z-index: 50; }
+    .nav-brand { display: flex; align-items: center; gap: 9px; text-decoration: none;
+                 color: white; font-weight: 700; font-size: 1.05rem; margin-right: 20px;
+                 flex-shrink: 0; cursor: pointer; background: none; border: none; }
+    .nav-links { display: flex; gap: 2px; flex: 1; overflow-x: auto; }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-link { display: flex; align-items: center; gap: 5px; padding: 6px 12px;
+                border-radius: 6px; color: rgba(255,255,255,0.72); font-size: 0.85rem;
+                font-weight: 500; white-space: nowrap; cursor: pointer;
+                transition: background 0.12s, color 0.12s; flex-shrink: 0;
+                background: none; border: none; }
+    .nav-link:hover  { background: rgba(255,255,255,0.1); color: white; }
+    .nav-link.active { background: rgba(255,255,255,0.18); color: white; font-weight: 600; }
+    .nav-link svg { width: 14px; height: 14px; opacity: 0.8; flex-shrink: 0; }
+    .nav-user { display: flex; align-items: center; gap: 8px; font-size: 0.8rem;
+                opacity: 0.82; flex-shrink: 0; margin-left: 10px; }
+    .role-badge { padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700;
+                  text-transform: uppercase; letter-spacing: 0.05em;
+                  background: rgba(255,255,255,0.15); }
+    .role-badge.admin   { background: #f59e0b; color: #1f2937; }
+    .role-badge.teacher { background: #10b981; color: #f0fdf4; }
+    @media (max-width: 600px) {
+      .nav-link span { display: none; }
+      .nav-link { padding: 8px 10px; }
+      .nav-brand .brand-text { display: none; }
+    }
+
+    /* ── Page loading state ── */
+    #page-loading { display: none; position: fixed; top: 54px; left: 0; right: 0;
+                    height: 3px; background: #3b82f6; z-index: 100;
+                    animation: loadbar 1s ease-in-out infinite; }
+    @keyframes loadbar {
+      0%   { transform: scaleX(0); transform-origin: left; }
+      50%  { transform: scaleX(0.7); transform-origin: left; }
+      100% { transform: scaleX(1); transform-origin: left; opacity: 0; }
+    }
+    #page-error { display: none; padding: 40px; text-align: center; color: #dc2626; }
+
+    /* ── Shared page styles (injected pages may use these) ── */
+    .stu-link { color: #1d4ed8; text-decoration: none; font-weight: 500;
+                background: none; border: none; cursor: pointer; padding: 0;
+                font-size: inherit; font-family: inherit; }
+    .stu-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- ── Permanent navigation shell ── -->
+<nav class="nav-bar">
+  <button class="nav-brand" onclick="navigate('dashboard')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.2">
+      <path d="M9 11l3 3L22 4"/>
+      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+    </svg>
+    <span class="brand-text">BehaviorTracker</span>
+  </button>
+
+  <div class="nav-links">
+    <button class="nav-link" id="nav-dashboard" onclick="navigate('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/>
+        <rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Dashboard</span>
+    </button>
+
+    <button class="nav-link" id="nav-form" onclick="navigate('form')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      <span>New Referral</span>
+    </button>
+
+    <button class="nav-link" id="nav-student" onclick="navigate('student')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span>Students</span>
+    </button>
+
+    <button class="nav-link" id="nav-report" onclick="navigate('report')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2z"/>
+        <path d="M15 5v14a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2h-2a2 2 0 00-2 2z"/>
+        <path d="M9 10V5a2 2 0 012-2h2a2 2 0 012 2v5"/>
+      </svg>
+      <span>Reports</span>
+    </button>
+  </div>
+
+  <div class="nav-user">
+    <span id="nav-user-name"></span>
+    <span class="role-badge" id="nav-role-badge"></span>
+  </div>
+</nav>
+
+<!-- ── Loading bar and page content area ── -->
+<div id="page-loading"></div>
+<div id="page-content"></div>
+<div id="page-error">Failed to load page. Please try refreshing.</div>
+
+<script>
+// ── Shell state ───────────────────────────────────────────────
+var _currentPage = '';
+var _pageCache   = {};  // page name → HTML string (session cache)
+
+// ── Bootstrap: read the initial page from URL, then load it ──
+window.addEventListener('load', function() {
+  // google.script.url.getLocation() reads the current URL parameters
+  // without triggering any navigation — this is the documented GAS API
+  // for reading URL state in a web app.
+  google.script.url.getLocation(function(location) {
+    var page = (location.parameter && location.parameter.page) || 'dashboard';
+    // Also check for student id parameter
+    var studentId = (location.parameter && location.parameter.id) || '';
+    loadPage(page, { id: studentId }, false);
+  });
+
+  // Listen for browser back/forward button navigation
+  google.script.history.setChangeHandler(function(e) {
+    if (e && e.state && e.state.page) {
+      loadPage(e.state.page, e.state.params || {}, false);
+    }
+  });
+});
+
+// ── Navigate to a page ────────────────────────────────────────
+// This is the ONLY navigation function. All nav buttons and
+// in-page links call this instead of using href anchors.
+// Uses google.script.history.push() per Google's documented pattern.
+function navigate(page, params) {
+  if (!params) params = {};
+  if (page === _currentPage && !params.id) return;
+
+  // Push state to browser history so back/forward work correctly
+  google.script.history.push({ page: page, params: params });
+  loadPage(page, params, true);
+}
+
+// ── Load page content ─────────────────────────────────────────
+function loadPage(page, params, scroll) {
+  _currentPage = page;
+  setActiveNav(page);
+  if (scroll) window.scrollTo(0, 0);
+
+  // Show loading bar
+  var loadingBar = document.getElementById('page-loading');
+  var errorEl    = document.getElementById('page-error');
+  loadingBar.style.display = 'block';
+  errorEl.style.display    = 'none';
+
+  // Use cached HTML if available (avoids redundant server calls)
+  // Cache is intentionally NOT used for student profile (id-specific)
+  var cacheKey = page + (params.id ? ':' + params.id : '');
+  if (_pageCache[cacheKey]) {
+    injectPage(_pageCache[cacheKey], page, params);
+    loadingBar.style.display = 'none';
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(html) {
+      _pageCache[cacheKey] = html;
+      injectPage(html, page, params);
+      loadingBar.style.display = 'none';
+    })
+    .withFailureHandler(function(err) {
+      loadingBar.style.display    = 'none';
+      errorEl.style.display       = 'block';
+      errorEl.textContent         = 'Error loading page: ' + (err.message || err);
+    })
+    .getPageContent(page);
+}
+
+// ── Inject HTML and run its init script ──────────────────────
+function injectPage(html, page, params) {
+  var content = document.getElementById('page-content');
+
+  // Parse out <style>, body content, and <script> blocks separately
+  // so we can inject them cleanly without re-triggering document parsing.
+  var styleMatch  = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
+  var scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
+  var bodyMatch   = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  var bodyHtml    = bodyMatch ? bodyMatch[1] : html;
+
+  // Strip script and style tags from body HTML to avoid double-injection
+  bodyHtml = bodyHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  bodyHtml = bodyHtml.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  // Strip the navCurrentPage var — nav is handled by shell
+  bodyHtml = bodyHtml.replace(/var navCurrentPage\s*=\s*['"][^'"]*['"];?/g, '');
+
+  // Inject any page-specific styles (append to head so they persist)
+  styleMatch.forEach(function(styleTag) {
+    var existing = document.getElementById('page-style-' + page);
+    if (!existing) {
+      var el = document.createElement('style');
+      el.id  = 'page-style-' + page;
+      el.textContent = styleTag.replace(/<\/?style[^>]*>/gi, '');
+      document.head.appendChild(el);
+    }
+  });
+
+  // Set page content
+  content.innerHTML = bodyHtml;
+
+  // Store any params where page scripts can read them
+  window._pageParams = params || {};
+
+  // Execute each script block in the page's context
+  scriptMatch.forEach(function(scriptTag) {
+    var code = scriptTag.replace(/<\/?script[^>]*>/gi, '');
+    // Skip the navCurrentPage assignment — already stripped from body
+    if (code.trim().indexOf('var navCurrentPage') === 0) return;
+    try {
+      // Use Function constructor to execute in global scope
+      // so all declared functions become available globally
+      var fn = new Function(code);
+      fn();
+    } catch(e) {
+      console.error('Page script error (' + page + '):', e);
+    }
+  });
+}
+
+// ── Nav highlight ─────────────────────────────────────────────
+function setActiveNav(page) {
+  var ids = ['nav-dashboard', 'nav-form', 'nav-student', 'nav-report'];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (el) el.className = 'nav-link' + (ids[i] === 'nav-' + page ? ' active' : '');
+  }
+}
+
+// ── User display (called by page scripts after data loads) ────
+function updateNavUser(user) {
+  if (!user) return;
+  var nameEl  = document.getElementById('nav-user-name');
+  var badgeEl = document.getElementById('nav-role-badge');
+  if (nameEl)  nameEl.textContent = user.name || user.email || '';
+  if (badgeEl) {
+    badgeEl.textContent = user.role || 'user';
+    badgeEl.className   = 'role-badge ' + (user.role || '');
+  }
+  // Cache in sessionStorage so name appears immediately on future loads
+  try { sessionStorage.setItem('bt_user', JSON.stringify(user)); } catch(e) {}
+}
+
+// Restore user name from cache immediately — no flash on load
+(function() {
+  try {
+    var cached = sessionStorage.getItem('bt_user');
+    if (cached) updateNavUser(JSON.parse(cached));
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>

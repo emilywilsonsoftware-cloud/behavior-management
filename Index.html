@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Behavior Tracker — New Referral</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 15px;
+           background: #f0fdf4; color: #1f2937; min-height: 100vh; }
+    main { max-width: 860px; margin: 24px auto; padding: 0 16px 48px; }
+
+    .card { background: white; border-radius: 10px; padding: 24px;
+            margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            border: 1px solid #d1fae5; }
+    .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: 0.08em; color: #166534; border-bottom: 2px solid #bbf7d0;
+                     padding-bottom: 7px; margin-bottom: 18px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-grid .full { grid-column: 1 / -1; }
+
+    label { display: block; font-size: 0.8rem; font-weight: 600;
+            color: #374151; margin-bottom: 4px; }
+    label .req { color: #dc2626; margin-left: 2px; }
+
+    input[type="text"], input[type="date"], input[type="time"],
+    select, textarea { width: 100%; padding: 8px 11px; border: 1px solid #d1d5db;
+                       border-radius: 6px; font-size: 0.92rem; color: #1f2937;
+                       background: white; transition: border-color 0.12s, box-shadow 0.12s; }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+    textarea { resize: vertical; min-height: 76px; }
+
+    /* ── Student Search ── */
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    .filter-bar select { padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+                         font-size: 0.84rem; color: #374151; background: white;
+                         cursor: pointer; flex: 1; min-width: 120px; }
+    .filter-bar select:focus { outline: none; border-color: #16a34a;
+                                box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
+    .filter-count { font-size: 0.78rem; color: #9ca3af; align-self: center; white-space: nowrap; }
+    .search-row { display: flex; gap: 8px; align-items: center; }
+    .search-row input { flex: 1; }
+    #clear-search { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+                    background: white; cursor: pointer; font-size: 0.8rem; color: #6b7280; }
+    #clear-search:hover { background: #f9fafb; }
+
+    #student-results { border: 1px solid #d1d5db; border-radius: 6px; margin-top: 8px;
+                       max-height: 240px; overflow-y: auto; background: white; display: none; }
+    .stu-result-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px;
+                       border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background 0.1s; }
+    .stu-result-item:last-child { border-bottom: none; }
+    .stu-result-item:hover { background: #f0fdf4; }
+    .stu-result-item input[type="checkbox"] { width: 16px; height: 16px;
+                                              accent-color: #166534; flex-shrink: 0; }
+    .stu-result-name  { font-weight: 600; font-size: 0.9rem; flex: 1; }
+    .stu-result-meta  { text-align: right; flex-shrink: 0; }
+    .stu-result-sub   { font-size: 0.74rem; color: #9ca3af; display: block; }
+    .stu-result-pts   { font-size: 0.78rem; font-weight: 700; display: block; margin-top: 1px; }
+    .pts-hi { color: #166534; } .pts-md { color: #b45309; } .pts-lo { color: #b91c1c; }
+
+    /* Selected badges */
+    #selected-strip { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; margin-top: 8px; }
+    .sel-badge { background: #dcfce7; border: 1px solid #86efac; color: #166534;
+                 border-radius: 20px; padding: 3px 10px; font-size: 0.78rem; font-weight: 600;
+                 display: flex; align-items: center; gap: 5px; }
+    .sel-badge .rm { cursor: pointer; opacity: 0.6; font-weight: 700; }
+    .sel-badge .rm:hover { opacity: 1; }
+
+    /* ── Nine-weeks panel ── */
+    #nw-panel { display: none; margin-top: 14px; }
+    .nw-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+                      padding: 14px 16px; }
+    .nw-title { font-size: 0.78rem; font-weight: 700; color: #166534;
+                text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    .nw-empty { color: #6b7280; font-size: 0.84rem; }
+    .nw-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .nw-table th { color: #6b7280; font-size: 0.72rem; text-transform: uppercase;
+                   letter-spacing: 0.05em; padding: 4px 8px; text-align: left;
+                   border-bottom: 1px solid #d1fae5; }
+    .nw-table td { padding: 6px 8px; border-bottom: 1px solid #f0fdf4; }
+    .nw-table tr:last-child td { border-bottom: none; }
+    .badge { display:inline-block; padding:2px 7px; border-radius:20px;
+             font-size:0.7rem; font-weight:700; }
+    .badge-major    { background:#fee2e2; color:#991b1b; }
+    .badge-minor    { background:#fef9c3; color:#854d0e; }
+    .badge-positive { background:#dcfce7; color:#166534; }
+
+    /* ── Infraction preview ── */
+    #point-preview { margin-top: 7px; font-size: 0.85rem; font-weight: 600;
+                     min-height: 22px; display: flex; align-items: center; gap: 7px; }
+    .pt-badge { padding: 2px 9px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
+    .pt-neg { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+    .pt-pos { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+    .pt-zer { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; }
+
+    /* ── Checkbox grid ── */
+    .chk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .chk-item { display: flex; align-items: center; gap: 7px; padding: 6px 9px;
+                border-radius: 6px; cursor: pointer; transition: background 0.1s; }
+    .chk-item:hover { background: #f0fdf4; }
+    .chk-item input { width: 15px; height: 15px; accent-color: #166534; flex-shrink: 0; }
+    .chk-item label { font-size: 0.85rem; cursor: pointer; margin: 0; }
+
+    /* ── Submit ── */
+    .submit-row { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
+    #sel-count { font-size: 0.86rem; color: #6b7280; }
+    .btn-submit { background: #166534; color: white; border: none; border-radius: 7px;
+                  padding: 10px 26px; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+    
+    .btn-submit:disabled{ background: #9ca3af; cursor: not-allowed; }
+
+    /* ── Status ── */
+    #status-msg { display: none; padding: 12px 16px; border-radius: 8px;
+                  font-weight: 600; font-size: 0.9rem; margin-top: 14px; }
+    .s-ok  { background:#dcfce7; color:#166534; border:1px solid #86efac; display:block!important; }
+    .s-err { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; display:block!important; }
+    .s-ld  { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; display:block!important; }
+
+    @media (max-width: 560px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .chk-grid  { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<script>var navCurrentPage = 'form';</script>
+<?!= navHtml ?>
+
+<main>
+  <div id="init-msg" class="card" style="text-align:center;color:#6b7280;">Loading form...</div>
+  <div id="form-body" style="display:none;">
+
+  <!-- Step 1: Teacher -->
+  <div class="card">
+    <div class="section-title">Step 1 — Teacher</div>
+    <div class="form-grid">
+      <div>
+        <label>Your Name</label>
+        <input type="text" id="teacher-name" readonly style="background:#f9fafb;color:#6b7280;">
+      </div>
+      <div>
+        <label>Email</label>
+        <input type="text" id="teacher-email" readonly style="background:#f9fafb;color:#6b7280;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Student Search -->
+  <div class="card">
+    <div class="section-title">Step 2 — Find Student(s)</div>
+    <p style="font-size:0.83rem;color:#6b7280;margin-bottom:12px;">
+      Search by name or ID, or filter by grade. Select one or more — one referral row is created per student.
+    </p>
+
+    <div class="filter-bar">
+      <select id="filter-grade" onchange="searchStudents(document.getElementById('student-search').value)">
+        <option value="">All Grades</option>
+      </select>
+      <span class="filter-count" id="filter-count"></span>
+    </div>
+
+    <div class="search-row">
+      <input type="text" id="student-search" placeholder="Type a name or ID to search..."
+             oninput="searchStudents(this.value)" autocomplete="off">
+      <button id="clear-search" onclick="clearSearch()">✕ Clear</button>
+    </div>
+
+    <div id="student-results"></div>
+    <div id="selected-strip"></div>
+
+    <!-- Nine-weeks panel — appears when exactly one student is selected -->
+    <div id="nw-panel">
+      <div class="nw-panel-inner">
+        <div class="nw-title" id="nw-title">Current Nine Weeks Referrals</div>
+        <div id="nw-body"><div class="nw-empty">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Incident -->
+  <div class="card">
+    <div class="section-title">Step 3 — Incident Details</div>
+    <div class="form-grid">
+      <div>
+        <label for="inc-date">Date <span class="req">*</span></label>
+        <input type="date" id="inc-date">
+      </div>
+      <div>
+        <label for="inc-time">Time <span class="req">*</span></label>
+        <input type="time" id="inc-time">
+      </div>
+      <div>
+        <label for="loc-sel">Location <span class="req">*</span></label>
+        <select id="loc-sel"><option value="">— Select —</option></select>
+      </div>
+      <div><!-- spacer --></div>
+      <div class="full">
+        <label for="inf-sel">Infraction Type <span class="req">*</span></label>
+        <select id="inf-sel" onchange="onInfractionChange()">
+          <option value="">— Select —</option>
+        </select>
+        <div id="point-preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Context -->
+  <div class="card">
+    <div class="section-title">Step 4 — Behavior Context</div>
+    <div style="margin-bottom:16px;">
+      <label>Redirections Attempted</label>
+      <div class="chk-grid" id="redir-grid"></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label for="motiv-sel">Possible Motivation</label>
+      <select id="motiv-sel"><option value="">— Select —</option></select>
+    </div>
+    <div>
+      <label for="description">Description <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
+      <textarea id="description" placeholder="Describe the incident..." maxlength="1000"></textarea>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="card">
+    <div class="submit-row">
+      <span id="sel-count">No students selected</span>
+      <button class="btn-submit" id="submit-btn" onclick="submitForm()" disabled>Submit Referral(s)</button>
+    </div>
+    <div id="status-msg"></div>
+  </div>
+
+  </div><!-- /form-body -->
+</main>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+var state = {
+  teacherName: '', teacherEmail: '',
+  allStudents: [],   // full roster loaded once
+  selected:    [],   // selected student objects
+  infMap:      {},   // name → { pointValue, severity }
+  semPts:      100,
+  nwLabel:     'Current Nine Weeks'
+};
+
+// ── Bootstrap — single server call ────────────────────────────
+window.addEventListener('load', function() {
+  var now = new Date();
+  document.getElementById('inc-date').value = dateStr(now);
+  document.getElementById('inc-time').value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+
+  google.script.run
+    .withSuccessHandler(onBootstrap)
+    .withFailureHandler(function(err) {
+      document.getElementById('init-msg').textContent = 'Error loading form: ' + (err.message || err);
+    })
+    .getFormBootstrap();
+});
+
+function onBootstrap(data) {
+  document.getElementById('init-msg').style.display = 'none';
+  document.getElementById('form-body').style.display = '';
+
+  if (typeof updateNavUser === 'function') updateNavUser(data.user);
+
+  state.teacherName  = data.user.name  || data.user.email;
+  state.teacherEmail = data.user.email;
+  state.allStudents  = data.students   || [];
+  state.semPts       = data.semesterPoints || 100;
+  state.nwLabel      = data.currentNineWeeks ? data.currentNineWeeks.label : 'Current Nine Weeks';
+
+  document.getElementById('teacher-name').value  = state.teacherName;
+  document.getElementById('teacher-email').value = state.teacherEmail;
+
+  // Populate form dropdowns
+  fillSelect('loc-sel',   data.locations);
+  fillSelect('motiv-sel', data.motivations);
+  buildInfractionSelect(data.infractions);
+
+  // Build redirections checkboxes
+  document.getElementById('redir-grid').innerHTML = (data.redirections || []).map(function(r, i) {
+    return '<div class="chk-item" onclick="document.getElementById(\'rd'+i+'\').click()">' +
+      '<input type="checkbox" id="rd'+i+'" value="'+esc(r)+'" onclick="event.stopPropagation()">' +
+      '<label for="rd'+i+'">'+esc(r)+'</label></div>';
+  }).join('');
+
+  // Build grade filter from actual student data
+  var grades = [];
+  state.allStudents.forEach(function(s) {
+    if (s.grade && grades.indexOf(s.grade) < 0) grades.push(s.grade);
+  });
+  grades.sort(function(a, b) {
+    return (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b);
+  });
+  var gradeSel = document.getElementById('filter-grade');
+  grades.forEach(function(g) {
+    gradeSel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
+  });
+  document.getElementById('filter-count').textContent = state.allStudents.length + ' students';
+}
+
+// ── Student Search (client-side — no round trip) ──────────────
+function searchStudents(query) {
+  var q        = (query || '').trim().toLowerCase();
+  var gradeVal = document.getElementById('filter-grade').value;
+  var hasFilter = q || gradeVal;
+  var container = document.getElementById('student-results');
+
+  if (!hasFilter) {
+    container.style.display = 'none';
+    document.getElementById('filter-count').textContent =
+      state.allStudents.length + ' students';
+    return;
+  }
+
+  var hits = state.allStudents.filter(function(s) {
+    if (gradeVal && s.grade !== gradeVal) return false;
+    if (q && s.studentName.toLowerCase().indexOf(q) < 0 &&
+             s.studentId.toLowerCase().indexOf(q)   < 0) return false;
+    return true;
+  }).slice(0, 40);
+
+  document.getElementById('filter-count').textContent =
+    hits.length + ' of ' + state.allStudents.length + ' students';
+
+  if (hits.length === 0) {
+    container.innerHTML = '<div style="padding:12px 14px;color:#9ca3af;font-size:0.85rem;">No students match these filters.</div>';
+    container.style.display = 'block';
+    return;
+  }
+
+  container.innerHTML = hits.map(function(s) {
+    var isSelected = state.selected.some(function(x) { return x.studentId === s.studentId; });
+    var pct = state.semPts > 0 ? Math.round(s.currentPoints / state.semPts * 100) : 0;
+    var ptsCls = pct >= 70 ? 'pts-hi' : pct >= 40 ? 'pts-md' : 'pts-lo';
+    return '<div class="stu-result-item" onclick="toggleStudent(\''+esc(s.studentId)+'\')">' +
+      '<input type="checkbox" id="chk_'+esc(s.studentId)+'" ' + (isSelected ? 'checked' : '') +
+             ' onclick="event.stopPropagation();toggleStudent(\''+esc(s.studentId)+'\')">' +
+      '<span class="stu-result-name">'+esc(s.studentName)+'</span>' +
+      '<div class="stu-result-meta">' +
+        '<span class="stu-result-sub">Gr '+esc(s.grade)+' · '+esc(s.studentId)+'</span>' +
+        '<span class="stu-result-pts '+ptsCls+'">'+s.currentPoints+' pts</span>' +
+      '</div>' +
+      '</div>';
+  }).join('');
+  container.style.display = 'block';
+}
+
+function clearSearch() {
+  document.getElementById('student-search').value = '';
+  document.getElementById('filter-grade').value   = '';
+  document.getElementById('student-results').style.display = 'none';
+  document.getElementById('filter-count').textContent =
+    state.allStudents.length + ' students';
+}
+
+function toggleStudent(studentId) {
+  var student = state.allStudents.find(function(s) { return s.studentId === studentId; });
+  if (!student) return;
+
+  var idx = state.selected.findIndex(function(s) { return s.studentId === studentId; });
+  if (idx > -1) state.selected.splice(idx, 1);
+  else           state.selected.push(student);
+
+  var chk = document.getElementById('chk_' + studentId);
+  if (chk) chk.checked = (idx === -1);
+
+  updateSelectedStrip();
+  updateSubmitButton();
+  maybeLoadNineWeeks();
+}
+
+function updateSelectedStrip() {
+  document.getElementById('selected-strip').innerHTML = state.selected.map(function(s) {
+    return '<div class="sel-badge">'+esc(s.studentName)+
+           '<span class="rm" onclick="toggleStudent(\''+esc(s.studentId)+'\')">×</span></div>';
+  }).join('');
+}
+
+function updateSubmitButton() {
+  var n   = state.selected.length;
+  var btn = document.getElementById('submit-btn');
+  document.getElementById('sel-count').textContent =
+    n ? n + ' student'+(n>1?'s':'')+' selected' : 'No students selected';
+  btn.disabled    = n === 0;
+  btn.textContent = n ? 'Submit '+n+' Referral'+(n>1?'s':'') : 'Submit Referral(s)';
+}
+
+// ── Nine-Weeks Panel ──────────────────────────────────────────
+// Show when exactly one student is selected; fetch from server.
+var _nwCache = {};  // studentId → data (avoid re-fetching)
+
+function maybeLoadNineWeeks() {
+  var panel = document.getElementById('nw-panel');
+  if (state.selected.length !== 1) { panel.style.display = 'none'; return; }
+
+  var sid = state.selected[0].studentId;
+  panel.style.display = 'block';
+  document.getElementById('nw-title').textContent =
+    state.nwLabel + ' Referrals — ' + state.selected[0].studentName;
+
+  if (_nwCache[sid]) { renderNwPanel(_nwCache[sid]); return; }
+
+  document.getElementById('nw-body').innerHTML = '<div class="nw-empty">Loading...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      _nwCache[sid] = data;
+      if (state.selected.length === 1 && state.selected[0].studentId === sid)
+        renderNwPanel(data);
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('nw-body').innerHTML =
+        '<div class="nw-empty" style="color:#dc2626;">Error: '+(err.message||err)+'</div>';
+    })
+    .getStudentFormCard(sid);
+}
+
+function renderNwPanel(data) {
+  var body = document.getElementById('nw-body');
+  if (data.error) { body.innerHTML = '<div class="nw-empty" style="color:#dc2626;">'+esc(data.error)+'</div>'; return; }
+
+  var refs = data.nwRefs || [];
+  if (refs.length === 0) {
+    body.innerHTML = '<div class="nw-empty">No referrals this nine weeks. ✓</div>';
+    return;
+  }
+
+  var html = '<table class="nw-table"><thead><tr>' +
+    '<th>Date</th><th>Infraction</th><th>Severity</th><th>Pts Δ</th><th>Teacher</th>' +
+    '</tr></thead><tbody>';
+  refs.forEach(function(r) {
+    var pts    = parseInt(r.pointValue, 10) || 0;
+    var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+    var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : 'color:#6b7280';
+    var sev    = (r.severity||'').toString();
+    html += '<tr>' +
+      '<td style="white-space:nowrap;">'+esc(r.incidentDate)+'</td>' +
+      '<td>'+esc(r.infractionType)+'</td>' +
+      '<td><span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></td>' +
+      '<td style="font-weight:700;'+ptsCls+'">'+ptsStr+'</td>' +
+      '<td style="font-size:0.78rem;color:#6b7280;">'+esc(r.teacherName)+'</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+// ── Infraction dropdown ────────────────────────────────────────
+function buildInfractionSelect(infractions) {
+  state.infMap = {};
+  var sel    = document.getElementById('inf-sel');
+  var groups = { Positive: [], Minor: [], Major: [], Other: [] };
+  infractions.forEach(function(inf) {
+    state.infMap[inf.name] = inf;
+    var g = groups[inf.severity] ? inf.severity : 'Other';
+    groups[g].push(inf);
+  });
+  sel.innerHTML = '<option value="">— Select —</option>';
+  ['Positive','Minor','Major','Other'].forEach(function(g) {
+    var items = groups[g];
+    if (!items || items.length === 0) return;
+    var og = document.createElement('optgroup');
+    og.label = g + ' Behaviors';
+    items.forEach(function(inf) {
+      var opt = document.createElement('option');
+      opt.value       = inf.name;
+      opt.dataset.pts = inf.pointValue;
+      opt.dataset.sev = inf.severity;
+      var sign = inf.pointValue > 0 ? '+' : '';
+      opt.textContent = inf.name + '  (' + sign + inf.pointValue + ' pts)';
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+}
+
+function onInfractionChange() {
+  var sel = document.getElementById('inf-sel');
+  var opt = sel.options[sel.selectedIndex];
+  var preview = document.getElementById('point-preview');
+  if (!opt || !opt.dataset.pts) { preview.innerHTML = ''; return; }
+  var pts  = parseInt(opt.dataset.pts, 10);
+  var sign = pts > 0 ? '+' : '';
+  var cls  = pts < 0 ? 'pt-neg' : pts > 0 ? 'pt-pos' : 'pt-zer';
+  var verb = pts < 0 ? 'deducted per student' : pts > 0 ? 'added per student' : 'no point change';
+  preview.innerHTML = '<span class="pt-badge '+cls+'">'+sign+pts+' pts</span>' +
+                      '<span style="color:#6b7280;font-weight:400;">'+verb+'</span>';
+}
+
+// ── Submit ────────────────────────────────────────────────────
+function submitForm() {
+  clearStatus();
+  if (!state.selected.length) { showErr('Select at least one student.'); return; }
+  var date = document.getElementById('inc-date').value;
+  var time = document.getElementById('inc-time').value;
+  var loc  = document.getElementById('loc-sel').value;
+  var inf  = document.getElementById('inf-sel').value;
+  if (!date) { showErr('Please enter the incident date.'); return; }
+  if (!time) { showErr('Please enter the incident time.'); return; }
+  if (!loc)  { showErr('Please select a location.'); return; }
+  if (!inf)  { showErr('Please select an infraction type.'); return; }
+
+  var infOpt  = document.getElementById('inf-sel');
+  var selOpt  = infOpt.options[infOpt.selectedIndex];
+  var severity = selOpt ? (selOpt.dataset.sev || '') : '';
+
+  var checked  = document.querySelectorAll('#redir-grid input:checked');
+  var redirs   = Array.from(checked).map(function(c) { return c.value; }).join('; ');
+  var motiv    = document.getElementById('motiv-sel').value;
+  var desc     = document.getElementById('description').value.trim();
+
+  var referrals = state.selected.map(function(s) {
+    return { studentId: s.studentId, studentName: s.studentName, grade: s.grade,
+             incidentDate: date, incidentTime: time, location: loc,
+             infractionType: inf, severity: severity, redirections: redirs,
+             possibleMotivation: motiv, description: desc,
+             teacherName: state.teacherName, teacherEmail: state.teacherEmail,
+             className: '' };
+  });
+
+  document.getElementById('submit-btn').disabled = true;
+  showLoad('Submitting ' + referrals.length + ' referral' + (referrals.length > 1 ? 's' : '') + '...');
+
+  google.script.run
+    .withSuccessHandler(onSubmitOk)
+    .withFailureHandler(function(err) {
+      showErr('Submission failed: ' + (err.message || err));
+      document.getElementById('submit-btn').disabled = false;
+    })
+    .submitReferrals(referrals);
+}
+
+function onSubmitOk(result) {
+  document.getElementById('submit-btn').disabled = false;
+  if (result.errors && result.errors.length) {
+    showErr('Saved ' + result.saved + ' referral(s) with errors:\n' + result.errors.join('\n'));
+  } else {
+    showOk('✓ ' + result.saved + ' referral' + (result.saved > 1 ? 's' : '') +
+           ' submitted. You will receive a confirmation email shortly.');
+    resetForm();
+  }
+}
+
+function resetForm() {
+  state.selected = [];
+  _nwCache = {};
+  updateSelectedStrip();
+  updateSubmitButton();
+  clearSearch();
+  document.getElementById('nw-panel').style.display = 'none';
+  var now = new Date();
+  document.getElementById('inc-date').value = dateStr(now);
+  document.getElementById('inc-time').value = pad(now.getHours())+':'+pad(now.getMinutes());
+  document.getElementById('loc-sel').value   = '';
+  document.getElementById('inf-sel').value   = '';
+  document.getElementById('motiv-sel').value = '';
+  document.getElementById('description').value = '';
+  document.getElementById('point-preview').innerHTML = '';
+  document.querySelectorAll('#redir-grid input:checked').forEach(function(c){ c.checked=false; });
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function fillSelect(id, options) {
+  var sel = document.getElementById(id);
+  sel.innerHTML = '<option value="">— Select —</option>';
+  (options||[]).forEach(function(o) {
+    var opt = document.createElement('option');
+    opt.value = opt.textContent = o;
+    sel.appendChild(opt);
+  });
+}
+
+function showOk(m)   { setStatus(m,'s-ok');  }
+function showErr(m)  { setStatus(m,'s-err'); }
+function showLoad(m) { setStatus(m,'s-ld');  }
+function setStatus(m, cls) {
+  var el = document.getElementById('status-msg');
+  el.textContent = m; el.className = cls;
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+function clearStatus() {
+  var el = document.getElementById('status-msg');
+  el.textContent=''; el.style.display='none'; el.className='';
+}
+function dateStr(d) { return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function pad(n) { return n < 10 ? '0'+n : ''+n; }
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

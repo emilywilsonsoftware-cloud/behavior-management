@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Behavior Tracker — Settings</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px;
+           background: #f4f6f9; color: #1a1a2e; min-height: 100vh; }
+    main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+
+    /* ── Page header ── */
+    .page-hdr { margin-bottom: 24px; }
+    .page-hdr h1 { font-size: 1.3rem; font-weight: 700; color: #1e3a5f; }
+    .page-hdr p  { font-size: 0.84rem; color: #5a6a7e; margin-top: 3px; }
+
+    /* ── Tab navigation ── */
+    .settings-tabs { display: flex; gap: 2px; margin-bottom: 20px;
+                     border-bottom: 2px solid #dde3ef; flex-wrap: wrap; }
+    .stab { padding: 9px 16px; font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; border: none; background: none;
+            color: #5a6a7e; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color 0.12s; font-family: inherit; }
+    .stab:hover { color: #1e3a5f; }
+    .stab.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Access denied ── */
+    #access-denied { display: none; }
+    .denied-card {
+      background: white; border-radius: 8px; padding: 48px 32px;
+      text-align: center; box-shadow: 0 1px 4px rgba(30,58,95,0.08); }
+    .denied-card h2 { font-size: 1.1rem; font-weight: 700;
+                      color: #8b0000; margin-bottom: 8px; }
+    .denied-card p  { font-size: 0.86rem; color: #5a6a7e; }
+
+    /* ── Settings body ── */
+    #settings-body { display: none; }
+
+    /* ── Card ── */
+    .card { background: white; border-radius: 8px; padding: 24px;
+            margin-bottom: 18px; box-shadow: 0 1px 4px rgba(30,58,95,0.08);
+            border: 1px solid #dde3ef; }
+    .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: 0.08em; color: #1e3a5f;
+                     border-bottom: 2px solid #dde3ef; padding-bottom: 7px;
+                     margin-bottom: 18px; }
+    .section-desc { font-size: 0.82rem; color: #5a6a7e; margin-bottom: 16px;
+                    margin-top: -10px; }
+
+    /* ── Form controls ── */
+    .form-row { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; font-weight: 600;
+            color: #374151; margin-bottom: 4px; }
+    label .hint { font-weight: 400; color: #8a96a8; margin-left: 6px; }
+    input[type="text"], input[type="number"], input[type="time"],
+    input[type="email"], select, textarea {
+      width: 100%; padding: 8px 11px; border: 1px solid #c8d0e0;
+      border-radius: 6px; font-size: 0.92rem; color: #1a1a2e;
+      background: white; transition: border-color 0.12s, box-shadow 0.12s;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: #1e3a5f;
+      box-shadow: 0 0 0 3px rgba(30,58,95,0.1);
+    }
+    textarea { resize: vertical; min-height: 70px; }
+
+    /* ── Grid layouts ── */
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+    /* ── Simple list editor (locations etc.) ── */
+    .list-editor { border: 1px solid #c8d0e0; border-radius: 6px; overflow: hidden; }
+    .list-item { display: flex; align-items: center; gap: 8px;
+                 padding: 7px 10px; border-bottom: 1px solid #f4f6f9; background: white; }
+    .list-item:last-child { border-bottom: none; }
+    .list-item input { flex: 1; border: none; padding: 4px 6px; font-size: 0.88rem;
+                       background: transparent; color: #1a1a2e; font-family: inherit; }
+    .list-item input:focus { outline: none; background: #f4f6f9; border-radius: 4px; }
+    .list-item .rm-btn { background: none; border: none; cursor: pointer; padding: 3px 6px;
+                         color: #8a96a8; font-size: 1rem; border-radius: 4px; flex-shrink: 0; }
+    .list-item .rm-btn:hover { color: #dc2626; background: #fee2e2; }
+    .add-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+               border: 1px dashed #c8d0e0; border-top: none; background: #f4f6f9;
+               cursor: pointer; font-size: 0.82rem; color: #5a6a7e; width: 100%;
+               transition: background 0.1s; font-family: inherit; }
+    .add-btn:hover { background: #edf0f7; color: #1e3a5f; }
+    .add-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ── Table editor (infractions, staff, students) ── */
+    .tbl-editor { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    .tbl-editor thead th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+                           letter-spacing: 0.05em; color: #5a6a7e; padding: 8px 10px;
+                           border-bottom: 2px solid #dde3ef; text-align: left; }
+    .tbl-editor tbody tr { border-bottom: 1px solid #f4f6f9; }
+    .tbl-editor tbody tr:last-child { border-bottom: none; }
+    .tbl-editor tbody td { padding: 6px 6px; vertical-align: middle; }
+    .tbl-editor input, .tbl-editor select {
+      padding: 6px 8px; font-size: 0.86rem; }
+    .tbl-editor .td-del { width: 36px; text-align: center; }
+    .tbl-editor .del-btn { background: none; border: none; cursor: pointer;
+                           color: #8a96a8; font-size: 1.1rem; padding: 2px 6px;
+                           border-radius: 4px; font-family: inherit; }
+    .tbl-editor .del-btn:hover { color: #dc2626; background: #fee2e2; }
+
+    .tbl-wrap { border: 1px solid #c8d0e0; border-radius: 6px;
+                overflow: hidden; margin-bottom: 0; }
+    .tbl-add-row { display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+                   border-top: 1px dashed #c8d0e0; background: #f4f6f9;
+                   cursor: pointer; font-size: 0.82rem; color: #5a6a7e;
+                   transition: background 0.1s; border: none; width: 100%;
+                   font-family: inherit; }
+    .tbl-add-row:hover { background: #edf0f7; color: #1e3a5f; }
+    .tbl-add-row svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ── Toggle ── */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between;
+                  padding: 10px 0; border-bottom: 1px solid #f4f6f9; }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 0.88rem; font-weight: 500; }
+    .toggle-sub { font-size: 0.76rem; color: #5a6a7e; margin-top: 2px; }
+    .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: #c8d0e0;
+                     border-radius: 11px; cursor: pointer; transition: background 0.18s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px;
+                             left: 3px; top: 3px; background: white; border-radius: 50%;
+                             transition: transform 0.18s; }
+    .toggle input:checked + .toggle-slider { background: #1e3a5f; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* ── Buttons ── */
+    .save-row { display: flex; align-items: center; gap: 12px;
+                justify-content: flex-end; margin-top: 14px; }
+    .btn-save { background: #1e3a5f; color: white; border: none; border-radius: 6px;
+                padding: 9px 24px; font-size: 0.88rem; font-weight: 700;
+                cursor: pointer; font-family: inherit; transition: background 0.12s; }
+    .btn-save:hover { background: #2a4d7a; }
+    .btn-save:disabled { background: #8a96a8; cursor: not-allowed; }
+    .btn-outline { background: white; color: #1e3a5f; border: 1px solid #1e3a5f;
+                   border-radius: 6px; padding: 7px 16px; font-size: 0.84rem;
+                   font-weight: 600; cursor: pointer; font-family: inherit;
+                   transition: background 0.12s; }
+    .btn-outline:hover { background: #f4f6f9; }
+    .btn-danger { background: white; color: #dc2626; border: 1px solid #fca5a5;
+                  border-radius: 6px; padding: 8px 18px; font-size: 0.88rem;
+                  font-weight: 600; cursor: pointer; font-family: inherit;
+                  transition: background 0.12s; }
+    .btn-danger:hover { background: #fee2e2; }
+
+    /* ── Status messages ── */
+    .save-msg { font-size: 0.84rem; font-weight: 600; min-height: 20px; }
+    .save-msg.ok  { color: #166534; }
+    .save-msg.err { color: #dc2626; }
+    .save-msg.ld  { color: #5a6a7e; }
+
+    /* ── Import area ── */
+    .import-area { border: 2px dashed #c8d0e0; border-radius: 8px; padding: 20px;
+                   text-align: center; margin-bottom: 14px; cursor: pointer;
+                   transition: border-color 0.12s, background 0.12s; }
+    .import-area:hover { border-color: #1e3a5f; background: #f4f6f9; }
+    .import-area input[type="file"] { display: none; }
+    .import-area p { font-size: 0.84rem; color: #5a6a7e; margin-bottom: 8px; }
+    .import-area .btn-outline { display: inline-block; }
+    .import-preview { margin-top: 12px; font-size: 0.82rem; color: #1e3a5f;
+                      font-weight: 600; }
+
+    /* ── Danger card ── */
+    .danger-card { border-color: #fca5a5; }
+    .danger-card .section-title { color: #dc2626; border-color: #fca5a5; }
+
+    /* ── Loading ── */
+    #init-msg { text-align: center; color: #5a6a7e; padding: 48px; }
+
+    /* ── Severity badges ── */
+    .sev-major    { color: #991b1b; font-weight: 700; }
+    .sev-minor    { color: #854d0e; font-weight: 700; }
+    .sev-positive { color: #166534; font-weight: 700; }
+
+    /* ── Role badge ── */
+    .role-admin   { color: #1d4ed8; font-weight: 700; }
+    .role-teacher { color: #166534; font-weight: 700; }
+
+    @media (max-width: 600px) {
+      .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+      .stab { padding: 8px 10px; font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+<?!= navHtml ?>
+
+<main>
+  <div id="init-msg">Loading settings...</div>
+
+  <div id="access-denied">
+    <div class="denied-card">
+      <h2>Admin Access Required</h2>
+      <p>This page is only available to administrators.<br>
+         Contact your school admin if you need access.</p>
+    </div>
+  </div>
+
+  <div id="settings-body">
+    <div class="page-hdr">
+      <h1>Settings</h1>
+      <p>Manage school configuration, staff, students, and infractions.</p>
+    </div>
+
+    <!-- ── Tab bar ── -->
+    <div class="settings-tabs">
+      <button class="stab active" onclick="showTab('general')">General</button>
+      <button class="stab" onclick="showTab('infractions')">Infractions</button>
+      <button class="stab" onclick="showTab('staff')">Staff</button>
+      <button class="stab" onclick="showTab('students')">Students</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAB: GENERAL
+    ══════════════════════════════════════════════════════════ -->
+    <div id="tab-general" class="tab-panel active">
+
+      <!-- School -->
+      <div class="card">
+        <div class="section-title">School</div>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>School Name</label>
+            <input type="text" id="cfg-schoolName" placeholder="e.g. Calloway County Middle School">
+          </div>
+          <div class="form-row">
+            <label>Semester Start Points</label>
+            <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100">
+          </div>
+        </div>
+        <div class="save-row">
+          <span class="save-msg" id="msg-school"></span>
+          <button class="btn-save" onclick="saveSection('school')">Save</button>
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="card">
+        <div class="section-title">Email Notifications</div>
+        <p class="section-desc">Controls parent and teacher email behaviour.</p>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Email Notifications Enabled</div>
+            <div class="toggle-sub">Turn off to suppress all parent and teacher emails.</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="cfg-emailEnabled">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+          <label>Daily Parent Email Send Time
+            <span class="hint">(24-hr, e.g. 16:00)</span>
+          </label>
+          <input type="time" id="cfg-dailyEmailTime" style="max-width:160px;">
+        </div>
+        <div class="form-row">
+          <label>Email Footer Text</label>
+          <textarea id="cfg-emailFooter" rows="3"></textarea>
+        </div>
+        <div class="save-row">
+          <span class="save-msg" id="msg-email"></span>
+          <button class="btn-save" onclick="saveSection('email')">Save</button>
+        </div>
+      </div>
+
+      <!-- Locations -->
+      <div class="card">
+        <div class="section-title">Locations</div>
+        <p class="section-desc">Locations shown in the incident dropdown on the referral form.</p>
+        <div class="list-editor" id="list-locations"></div>
+        <button class="add-btn" onclick="addListItem('locations', '')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add location
+        </button>
+        <div class="save-row" style="margin-top:12px;">
+          <span class="save-msg" id="msg-locations"></span>
+          <button class="btn-save" onclick="saveSection('locations')">Save</button>
+        </div>
+      </div>
+
+      <!-- Redirections -->
+      <div class="card">
+        <div class="section-title">Redirections</div>
+        <p class="section-desc">Redirection strategies shown as checkboxes on the referral form.</p>
+        <div class="list-editor" id="list-redirections"></div>
+        <button class="add-btn" onclick="addListItem('redirections', '')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add redirection
+        </button>
+        <div class="save-row" style="margin-top:12px;">
+          <span class="save-msg" id="msg-redirections"></span>
+          <button class="btn-save" onclick="saveSection('redirections')">Save</button>
+        </div>
+      </div>
+
+      <!-- Motivations -->
+      <div class="card">
+        <div class="section-title">Possible Motivations</div>
+        <p class="section-desc">Motivation options shown in the dropdown on the referral form.</p>
+        <div class="list-editor" id="list-motivations"></div>
+        <button class="add-btn" onclick="addListItem('motivations', '')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add motivation
+        </button>
+        <div class="save-row" style="margin-top:12px;">
+          <span class="save-msg" id="msg-motivations"></span>
+          <button class="btn-save" onclick="saveSection('motivations')">Save</button>
+        </div>
+      </div>
+
+      <!-- Nine Weeks -->
+      <div class="card">
+        <div class="section-title">Nine Weeks Start Dates</div>
+        <p class="section-desc">Enter dates in YYYY-MM-DD format. The current nine-weeks period is determined by comparing today's date against this list.</p>
+        <div class="list-editor" id="list-nineWeeks"></div>
+        <button class="add-btn" onclick="addListItem('nineWeeks', '')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add date
+        </button>
+        <div class="save-row" style="margin-top:12px;">
+          <span class="save-msg" id="msg-nineWeeks"></span>
+          <button class="btn-save" onclick="saveSection('nineWeeks')">Save</button>
+        </div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="card danger-card">
+        <div class="section-title">Danger Zone</div>
+        <p class="section-desc">Resets all student point balances to the current Semester Start Points value. Referral history is not deleted.</p>
+        <div class="save-row">
+          <span class="save-msg" id="msg-reset"></span>
+          <button class="btn-danger" onclick="confirmReset()">Reset Semester Points</button>
+        </div>
+      </div>
+
+    </div><!-- /tab-general -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAB: INFRACTIONS
+    ══════════════════════════════════════════════════════════ -->
+    <div id="tab-infractions" class="tab-panel">
+      <div class="card">
+        <div class="section-title">Infractions</div>
+        <p class="section-desc">Add, edit, or remove infraction types. Positive point values add points; negative values deduct points. Severity must be Major, Minor, or Positive.</p>
+
+        <div class="tbl-wrap">
+          <table class="tbl-editor">
+            <thead>
+              <tr>
+                <th>Infraction Name</th>
+                <th style="width:100px;">Points</th>
+                <th style="width:120px;">Severity</th>
+                <th style="width:180px;">Notes</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="inf-tbody"></tbody>
+          </table>
+          <button class="tbl-add-row" onclick="addInfractionRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>Add infraction
+          </button>
+        </div>
+
+        <div class="save-row" style="margin-top:14px;">
+          <span class="save-msg" id="msg-infractions"></span>
+          <button class="btn-save" onclick="saveInfractions()">Save All</button>
+        </div>
+      </div>
+    </div><!-- /tab-infractions -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAB: STAFF
+    ══════════════════════════════════════════════════════════ -->
+    <div id="tab-staff" class="tab-panel">
+      <div class="card">
+        <div class="section-title">Staff</div>
+        <p class="section-desc">Manage staff members and their roles. At least one admin is required. Role change takes effect on the staff member's next page load.</p>
+
+        <div class="tbl-wrap">
+          <table class="tbl-editor">
+            <thead>
+              <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Email</th>
+                <th style="width:120px;">Role</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="staff-tbody"></tbody>
+          </table>
+          <button class="tbl-add-row" onclick="addStaffRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>Add staff member
+          </button>
+        </div>
+
+        <div class="save-row" style="margin-top:14px;">
+          <span class="save-msg" id="msg-staff"></span>
+          <button class="btn-save" onclick="saveStaff()">Save All</button>
+        </div>
+      </div>
+    </div><!-- /tab-staff -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAB: STUDENTS
+    ══════════════════════════════════════════════════════════ -->
+    <div id="tab-students" class="tab-panel">
+
+      <!-- Add single student -->
+      <div class="card">
+        <div class="section-title">Add Student</div>
+        <p class="section-desc">Add a single student — for mid-year enrollments. Points default to the current Semester Start Points value.</p>
+        <div class="form-grid-3">
+          <div class="form-row">
+            <label>Student ID</label>
+            <input type="text" id="new-studentId" placeholder="e.g. S247">
+          </div>
+          <div class="form-row">
+            <label>First Name</label>
+            <input type="text" id="new-firstName" placeholder="First">
+          </div>
+          <div class="form-row">
+            <label>Last Name</label>
+            <input type="text" id="new-lastName" placeholder="Last">
+          </div>
+          <div class="form-row">
+            <label>Middle Name <span class="hint">(optional)</span></label>
+            <input type="text" id="new-middleName" placeholder="Middle">
+          </div>
+          <div class="form-row">
+            <label>Grade</label>
+            <input type="text" id="new-grade" placeholder="e.g. 7">
+          </div>
+          <div class="form-row">
+            <label>Starting Points <span class="hint">(optional)</span></label>
+            <input type="number" id="new-points" min="0" max="9999" placeholder="Default">
+          </div>
+        </div>
+        <div class="save-row">
+          <span class="save-msg" id="msg-add-student"></span>
+          <button class="btn-save" onclick="addSingleStudent()">Add Student</button>
+        </div>
+      </div>
+
+      <!-- Bulk CSV import -->
+      <div class="card">
+        <div class="section-title">Bulk Import (CSV)</div>
+        <p class="section-desc">
+          Import students from a CSV file. Required columns in order:
+          <strong>StudentID, FirstName, LastName, Grade</strong>.
+          Optional 5th column: <strong>MiddleName</strong>.
+          First row must be a header row — it will be skipped.
+          Existing StudentIDs are skipped without error.
+        </p>
+
+        <div class="import-area" onclick="document.getElementById('csv-file').click()">
+          <p>Click to select a CSV file</p>
+          <button class="btn-outline" onclick="event.stopPropagation();document.getElementById('csv-file').click()">
+            Choose File
+          </button>
+          <input type="file" id="csv-file" accept=".csv" onchange="onCsvSelected(this)">
+          <div class="import-preview" id="csv-preview"></div>
+        </div>
+
+        <div class="save-row">
+          <span class="save-msg" id="msg-import"></span>
+          <button class="btn-save" id="btn-import" onclick="importStudents()" disabled>
+            Import Students
+          </button>
+        </div>
+      </div>
+
+      <!-- Student roster -->
+      <div class="card">
+        <div class="section-title">Student Roster</div>
+        <p class="section-desc">
+          View and edit existing students. Students with referral records cannot be deleted —
+          their history must be preserved.
+        </p>
+
+        <div style="margin-bottom:10px;display:flex;gap:8px;">
+          <input type="text" id="stu-roster-search" placeholder="Search by name or ID..."
+                 oninput="filterRoster(this.value)" style="max-width:280px;">
+          <select id="stu-roster-grade" onchange="filterRoster(document.getElementById('stu-roster-search').value)"
+                  style="max-width:140px;">
+            <option value="">All Grades</option>
+          </select>
+        </div>
+
+        <div class="tbl-wrap">
+          <table class="tbl-editor" id="roster-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Middle</th>
+                <th style="width:70px;">Grade</th>
+                <th style="width:80px;">Points</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="roster-tbody">
+              <tr><td colspan="7" style="text-align:center;color:#8a96a8;padding:20px;">
+                Loading...
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="save-row" style="margin-top:14px;">
+          <span class="save-msg" id="msg-roster"></span>
+          <button class="btn-save" onclick="saveRoster()">Save Changes</button>
+        </div>
+      </div>
+
+    </div><!-- /tab-students -->
+
+  </div><!-- /settings-body -->
+</main>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+var _allStudents   = [];   // full roster for filtering
+var _csvRows       = null; // parsed CSV rows waiting to import
+var _infsLoaded    = false;
+var _staffLoaded   = false;
+var _studentsLoaded = false;
+
+// ── Bootstrap ─────────────────────────────────────────────────
+window.addEventListener('load', function() {
+  google.script.run
+    .withSuccessHandler(onBootstrap)
+    .withFailureHandler(function(err) {
+      document.getElementById('init-msg').textContent =
+        'Error loading settings: ' + (err.message || err);
+    })
+    .getSettingsBootstrap();
+});
+
+function onBootstrap(data) {
+  document.getElementById('init-msg').style.display = 'none';
+  if (typeof updateNavUser === 'function') updateNavUser(data.user);
+
+  if (!data.user || data.user.role !== 'admin') {
+    document.getElementById('access-denied').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('settings-body').style.display = 'block';
+  populateGeneral(data.config);
+}
+
+// ── Tab switching ──────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.stab').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelector('.stab[onclick="showTab(\''+name+'\')"]').classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+
+  // Lazy-load tab data on first visit
+  if (name === 'infractions' && !_infsLoaded)  loadInfractions();
+  if (name === 'staff'       && !_staffLoaded)  loadStaff();
+  if (name === 'students'    && !_studentsLoaded) loadStudents();
+}
+
+// ══════════════════════════════════════════════════════════
+// GENERAL TAB
+// ══════════════════════════════════════════════════════════
+
+function populateGeneral(cfg) {
+  setVal('cfg-schoolName',     (cfg.SchoolName          || [])[0] || '');
+  setVal('cfg-semesterPoints', (cfg.SemesterStartPoints || [])[0] || '100');
+
+  var emailOn = ((cfg.EmailNotificationsEnabled || [])[0] || 'Yes').toString().toLowerCase();
+  document.getElementById('cfg-emailEnabled').checked = (emailOn !== 'no');
+  setVal('cfg-dailyEmailTime', (cfg.DailyEmailSendTime || [])[0] || '15:30');
+  setVal('cfg-emailFooter',    (cfg.EmailFooterText    || [])[0] || '');
+
+  buildList('locations',    cfg.Locations           || []);
+  buildList('redirections', cfg.Redirections        || []);
+  buildList('motivations',  cfg.Motivations         || []);
+  buildList('nineWeeks',    cfg.NineWeeksStartDates || []);
+}
+
+// Simple list editor helpers
+function buildList(key, items) {
+  var container = document.getElementById('list-' + key);
+  container.innerHTML = '';
+  if (items.length === 0) { addListItem(key, ''); return; }
+  items.forEach(function(v) { addListItem(key, v); });
+}
+
+function addListItem(key, value) {
+  var container = document.getElementById('list-' + key);
+  var div = document.createElement('div');
+  div.className = 'list-item';
+  div.innerHTML =
+    '<input type="text" value="' + esc(value) + '" placeholder="Enter value...">' +
+    '<button class="rm-btn" onclick="removeListItem(this)">×</button>';
+  container.appendChild(div);
+  if (!value) div.querySelector('input').focus();
+}
+
+function removeListItem(btn) {
+  var container = btn.closest('.list-editor');
+  if (container.querySelectorAll('.list-item').length <= 1) {
+    btn.closest('.list-item').querySelector('input').value = '';
+    return;
+  }
+  btn.closest('.list-item').remove();
+}
+
+function getListValues(key) {
+  var vals = [];
+  document.querySelectorAll('#list-' + key + ' input').forEach(function(inp) {
+    var v = inp.value.trim();
+    if (v) vals.push(v);
+  });
+  return vals;
+}
+
+function saveSection(section) {
+  var payload = {};
+  if (section === 'school') {
+    payload.SchoolName          = [document.getElementById('cfg-schoolName').value.trim()];
+    payload.SemesterStartPoints = [document.getElementById('cfg-semesterPoints').value.trim()];
+  } else if (section === 'email') {
+    payload.EmailNotificationsEnabled =
+      [document.getElementById('cfg-emailEnabled').checked ? 'Yes' : 'No'];
+    payload.DailyEmailSendTime = [document.getElementById('cfg-dailyEmailTime').value.trim()];
+    payload.EmailFooterText    = [document.getElementById('cfg-emailFooter').value.trim()];
+  } else if (section === 'locations')    { payload.Locations           = getListValues('locations'); }
+  else if (section === 'redirections')   { payload.Redirections        = getListValues('redirections'); }
+  else if (section === 'motivations')    { payload.Motivations         = getListValues('motivations'); }
+  else if (section === 'nineWeeks')      { payload.NineWeeksStartDates = getListValues('nineWeeks'); }
+
+  setMsg(section, 'Saving...', 'ld');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) { setMsg(section, '✓ Saved', 'ok'); setTimeout(function(){ setMsg(section,'',''); }, 3000); }
+      else setMsg(section, 'Error: ' + (r.error || 'Unknown'), 'err');
+    })
+    .withFailureHandler(function(err) { setMsg(section, 'Error: ' + (err.message||err), 'err'); })
+    .saveConfigSection(payload);
+}
+
+function confirmReset() {
+  if (!confirm('Reset ALL student point balances?\n\nThis cannot be undone. Referral history will not be deleted.')) return;
+  setMsg('reset', 'Resetting...', 'ld');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) setMsg('reset', '✓ Reset ' + r.count + ' students.', 'ok');
+      else setMsg('reset', 'Error: ' + (r.error || 'Unknown'), 'err');
+    })
+    .withFailureHandler(function(err) { setMsg('reset', 'Error: ' + (err.message||err), 'err'); })
+    .resetSemesterPoints();
+}
+
+// ══════════════════════════════════════════════════════════
+// INFRACTIONS TAB
+// ══════════════════════════════════════════════════════════
+
+function loadInfractions() {
+  document.getElementById('inf-tbody').innerHTML =
+    '<tr><td colspan="5" style="text-align:center;color:#8a96a8;padding:20px;">Loading...</td></tr>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) { setMsg('infractions', 'Error: ' + r.error, 'err'); return; }
+      _infsLoaded = true;
+      renderInfractionsTable(r.rows);
+    })
+    .withFailureHandler(function(err) { setMsg('infractions', 'Error: ' + (err.message||err), 'err'); })
+    .getInfractionsList();
+}
+
+function renderInfractionsTable(rows) {
+  var tbody = document.getElementById('inf-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(function(r) { appendInfractionRow(r); });
+}
+
+function addInfractionRow() {
+  appendInfractionRow({ name: '', pointValue: -5, severity: 'Minor', notes: '' });
+  // scroll to bottom of table
+  var tbody = document.getElementById('inf-tbody');
+  tbody.lastElementChild.querySelector('input').focus();
+}
+
+function appendInfractionRow(r) {
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input type="text" value="'+esc(r.name)+'" placeholder="Infraction name"></td>' +
+    '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
+    '<td><select>' +
+      '<option value="Minor"'   +(r.severity==='Minor'   ?' selected':'')+'>Minor</option>' +
+      '<option value="Major"'   +(r.severity==='Major'   ?' selected':'')+'>Major</option>' +
+      '<option value="Positive"'+(r.severity==='Positive'?' selected':'')+'>Positive</option>' +
+    '</select></td>' +
+    '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
+    '<td class="td-del"><button class="del-btn" onclick="this.closest(\'tr\').remove()" title="Remove">×</button></td>';
+  document.getElementById('inf-tbody').appendChild(tr);
+}
+
+function saveInfractions() {
+  var rows = [];
+  document.querySelectorAll('#inf-tbody tr').forEach(function(tr) {
+    var cells = tr.querySelectorAll('input, select');
+    rows.push({
+      name:       cells[0].value.trim(),
+      pointValue: parseInt(cells[1].value, 10) || 0,
+      severity:   cells[2].value,
+      notes:      cells[3].value.trim()
+    });
+  });
+  setMsg('infractions', 'Saving...', 'ld');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) { setMsg('infractions', '✓ Saved ' + r.count + ' infractions.', 'ok');
+                       setTimeout(function(){ setMsg('infractions','',''); }, 3000); }
+      else setMsg('infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
+    })
+    .withFailureHandler(function(err) { setMsg('infractions', 'Error: ' + (err.message||err), 'err'); })
+    .saveInfractions(rows);
+}
+
+// ══════════════════════════════════════════════════════════
+// STAFF TAB
+// ══════════════════════════════════════════════════════════
+
+function loadStaff() {
+  document.getElementById('staff-tbody').innerHTML =
+    '<tr><td colspan="5" style="text-align:center;color:#8a96a8;padding:20px;">Loading...</td></tr>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) { setMsg('staff', 'Error: ' + r.error, 'err'); return; }
+      _staffLoaded = true;
+      renderStaffTable(r.rows);
+    })
+    .withFailureHandler(function(err) { setMsg('staff', 'Error: ' + (err.message||err), 'err'); })
+    .getStaffList();
+}
+
+function renderStaffTable(rows) {
+  var tbody = document.getElementById('staff-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(function(r) { appendStaffRow(r); });
+}
+
+function addStaffRow() {
+  appendStaffRow({ firstName: '', lastName: '', email: '', role: 'teacher' });
+  var tbody = document.getElementById('staff-tbody');
+  tbody.lastElementChild.querySelector('input').focus();
+}
+
+function appendStaffRow(r) {
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input type="text"  value="'+esc(r.firstName||'')+'" placeholder="First"></td>' +
+    '<td><input type="text"  value="'+esc(r.lastName||'')+'"  placeholder="Last"></td>' +
+    '<td><input type="email" value="'+esc(r.email||'')+'"     placeholder="email@school.edu"></td>' +
+    '<td><select>' +
+      '<option value="teacher"'+(r.role==='teacher'?' selected':'')+'>Teacher</option>' +
+      '<option value="admin"'  +(r.role==='admin'  ?' selected':'')+'>Admin</option>' +
+    '</select></td>' +
+    '<td class="td-del"><button class="del-btn" onclick="this.closest(\'tr\').remove()" title="Remove">×</button></td>';
+  document.getElementById('staff-tbody').appendChild(tr);
+}
+
+function saveStaff() {
+  var rows = [];
+  document.querySelectorAll('#staff-tbody tr').forEach(function(tr) {
+    var cells = tr.querySelectorAll('input, select');
+    rows.push({
+      firstName: cells[0].value.trim(),
+      lastName:  cells[1].value.trim(),
+      email:     cells[2].value.trim(),
+      role:      cells[3].value
+    });
+  });
+  setMsg('staff', 'Saving...', 'ld');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        setMsg('staff', '✓ Saved ' + r.count + ' staff members.', 'ok');
+        setTimeout(function(){ setMsg('staff','',''); }, 3000);
+        // Clear nav cache so Settings visibility updates for role-changed users
+        try { sessionStorage.removeItem('bt_nav_user'); } catch(e) {}
+      } else setMsg('staff', 'Error: ' + (r.error || 'Unknown'), 'err');
+    })
+    .withFailureHandler(function(err) { setMsg('staff', 'Error: ' + (err.message||err), 'err'); })
+    .saveStaff(rows);
+}
+
+// ══════════════════════════════════════════════════════════
+// STUDENTS TAB
+// ══════════════════════════════════════════════════════════
+
+function loadStudents() {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) { setMsg('roster', 'Error: ' + r.error, 'err'); return; }
+      _studentsLoaded = true;
+      _allStudents = r.rows;
+
+      // Build grade filter
+      var grades = [];
+      r.rows.forEach(function(s) {
+        if (s.grade && grades.indexOf(s.grade) < 0) grades.push(s.grade);
+      });
+      grades.sort(function(a, b) {
+        return (parseInt(a,10)||0) - (parseInt(b,10)||0) || a.localeCompare(b);
+      });
+      var sel = document.getElementById('stu-roster-grade');
+      grades.forEach(function(g) {
+        sel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
+      });
+
+      renderRoster(r.rows);
+    })
+    .withFailureHandler(function(err) { setMsg('roster', 'Error: ' + (err.message||err), 'err'); })
+    .getStudentsList();
+}
+
+function filterRoster(query) {
+  var q        = (query || '').trim().toLowerCase();
+  var gradeVal = document.getElementById('stu-roster-grade').value;
+  var hits     = _allStudents.filter(function(s) {
+    if (gradeVal && s.grade !== gradeVal) return false;
+    if (q) {
+      var name = (s.firstName + ' ' + s.lastName).toLowerCase();
+      return name.indexOf(q) >= 0 || s.studentId.toLowerCase().indexOf(q) >= 0;
+    }
+    return true;
+  });
+  renderRoster(hits);
+}
+
+function renderRoster(rows) {
+  var tbody = document.getElementById('roster-tbody');
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8a96a8;padding:20px;">No students found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(s) {
+    return '<tr data-id="'+esc(s.studentId)+'">' +
+      '<td><input type="text" value="'+esc(s.studentId)+'" readonly style="background:#f4f6f9;color:#8a96a8;width:80px;"></td>' +
+      '<td><input type="text" value="'+esc(s.firstName)+'" placeholder="First"></td>' +
+      '<td><input type="text" value="'+esc(s.lastName)+'"  placeholder="Last"></td>' +
+      '<td><input type="text" value="'+esc(s.middleName||'')+'" placeholder="Middle"></td>' +
+      '<td><input type="text" value="'+esc(s.grade)+'" style="width:60px;"></td>' +
+      '<td style="color:#8a96a8;font-size:0.8rem;padding:6px 10px;">'+s.currentPoints+'</td>' +
+      '<td class="td-del"><button class="del-btn" onclick="deleteStudent(\''+esc(s.studentId)+'\')" title="Delete">×</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function addSingleStudent() {
+  var student = {
+    studentId:     document.getElementById('new-studentId').value.trim(),
+    firstName:     document.getElementById('new-firstName').value.trim(),
+    lastName:      document.getElementById('new-lastName').value.trim(),
+    middleName:    document.getElementById('new-middleName').value.trim(),
+    grade:         document.getElementById('new-grade').value.trim(),
+    currentPoints: document.getElementById('new-points').value.trim()
+  };
+  if (!student.studentId || !student.firstName || !student.lastName || !student.grade) {
+    setMsg('add-student', 'ID, first name, last name, and grade are required.', 'err');
+    return;
+  }
+  setMsg('add-student', 'Saving...', 'ld');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        setMsg('add-student', '✓ Student ' + r.action + '.', 'ok');
+        // Clear form
+        ['new-studentId','new-firstName','new-lastName','new-middleName','new-grade','new-points']
+          .forEach(function(id){ document.getElementById(id).value = ''; });
+        // Reload roster
+        _studentsLoaded = false;
+        loadStudents();
+      } else setMsg('add-student', 'Error: ' + (r.error || 'Unknown'), 'err');
+    })
+    .withFailureHandler(function(err) { setMsg('add-student', 'Error: ' + (err.message||err), 'err'); })
+    .saveStudent(student);
+}
+
+function deleteStudent(studentId) {
+  if (!confirm('Delete student ' + studentId + '?\n\nThis cannot be undone. Students with referral records cannot be deleted.')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        setMsg('roster', '✓ Student deleted.', 'ok');
+        _studentsLoaded = false;
+        loadStudents();
+      } else setMsg('roster', 'Error: ' + (r.error || 'Unknown'), 'err');
+    })
+    .withFailureHandler(function(err) { setMsg('roster', 'Error: ' + (err.message||err), 'err'); })
+    .deleteStudent(studentId);
+}
+
+function saveRoster() {
+  // Collect all editable rows from the roster table
+  var updates = [];
+  document.querySelectorAll('#roster-tbody tr[data-id]').forEach(function(tr) {
+    var cells = tr.querySelectorAll('input');
+    updates.push({
+      studentId:  cells[0].value.trim(),
+      firstName:  cells[1].value.trim(),
+      lastName:   cells[2].value.trim(),
+      middleName: cells[3].value.trim(),
+      grade:      cells[4].value.trim()
+    });
+  });
+  if (updates.length === 0) { setMsg('roster', 'No changes to save.', 'ld'); return; }
+
+  setMsg('roster', 'Saving ' + updates.length + ' students...', 'ld');
+  var saved = 0, errors = [];
+
+  function saveNext(idx) {
+    if (idx >= updates.length) {
+      if (errors.length) setMsg('roster', 'Saved ' + saved + ' with ' + errors.length + ' errors.', 'err');
+      else { setMsg('roster', '✓ Saved ' + saved + ' students.', 'ok');
+             setTimeout(function(){ setMsg('roster','',''); }, 3000); }
+      _studentsLoaded = false;
+      loadStudents();
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (r.success) saved++; else errors.push(updates[idx].studentId);
+        saveNext(idx + 1);
+      })
+      .withFailureHandler(function() { errors.push(updates[idx].studentId); saveNext(idx + 1); })
+      .saveStudent(updates[idx]);
+  }
+  saveNext(0);
+}
+
+// ── CSV Import ─────────────────────────────────────────────────
+function onCsvSelected(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var lines = e.target.result.split(/\r?\n/);
+    // Skip header row
+    var rows = [];
+    for (var i = 1; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      var cols = parseCsvLine(line);
+      if (cols.length < 4) continue;
+      rows.push({
+        studentId:  cols[0].trim(),
+        firstName:  cols[1].trim(),
+        lastName:   cols[2].trim(),
+        grade:      cols[3].trim(),
+        middleName: cols[4] ? cols[4].trim() : ''
+      });
+    }
+    _csvRows = rows;
+    document.getElementById('csv-preview').textContent =
+      rows.length + ' student' + (rows.length !== 1 ? 's' : '') + ' ready to import.';
+    document.getElementById('btn-import').disabled = rows.length === 0;
+  };
+  reader.readAsText(file);
+}
+
+function parseCsvLine(line) {
+  // Handles quoted fields
+  var result = [], cur = '', inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur);
+  return result;
+}
+
+function importStudents() {
+  if (!_csvRows || _csvRows.length === 0) return;
+  setMsg('import', 'Importing ' + _csvRows.length + ' students...', 'ld');
+  document.getElementById('btn-import').disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        var msg = '✓ Added: ' + r.added + ', Skipped: ' + r.skipped;
+        if (r.errors && r.errors.length) msg += ', Errors: ' + r.errors.length;
+        setMsg('import', msg, r.errors && r.errors.length ? 'err' : 'ok');
+        _csvRows = null;
+        document.getElementById('csv-preview').textContent = '';
+        document.getElementById('csv-file').value = '';
+        _studentsLoaded = false;
+        loadStudents();
+      } else setMsg('import', 'Error: ' + (r.error || 'Unknown'), 'err');
+    })
+    .withFailureHandler(function(err) {
+      setMsg('import', 'Error: ' + (err.message||err), 'err');
+      document.getElementById('btn-import').disabled = false;
+    })
+    .importStudents(_csvRows);
+}
+
+// ── Shared utilities ───────────────────────────────────────────
+function setVal(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+function setMsg(section, text, type) {
+  var el = document.getElementById('msg-' + section);
+  if (!el) return;
+  el.textContent = text;
+  el.className   = 'save-msg' + (type ? ' ' + type : '');
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
