@@ -194,7 +194,7 @@
 
   <!-- Search panel -->
   <div class="search-card" id="search-panel">
-    <h2>Student Lookup</h2>
+    <h2>Student Search</h2>
     <div class="filter-bar">
       <select id="filter-grade" onchange="onSearch(document.getElementById('stu-search').value)">
         <option value="">All Grades</option>
@@ -434,8 +434,8 @@ function renderProfile(data) {
     '<div class="card" style="margin-bottom:14px;">' +
     '<div class="card-hdr">Point Balance Timeline</div>' +
     '<div class="card-bdy">' +
-    (data.pointTimeline.length < 2
-      ? '<div style="color:#94a3b8;padding:16px;text-align:center;">Not enough data.</div>'
+    (data.pointTimeline.length === 0
+      ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
       : buildTimelineSVG(data.pointTimeline, sp)) +
     '</div></div>' +
 
@@ -452,7 +452,7 @@ function renderProfile(data) {
               '<span style="color:#374151;font-weight:500;">'+esc(item.name)+'</span>' +
               '<span style="color:#6b7280;font-weight:600;">'+item.count+'</span></div>' +
               '<div style="background:#f1f5f9;border-radius:3px;height:6px;overflow:hidden;">' +
-              '<div style="width:'+pct2+'%;height:100%;background:#3b82f6;border-radius:3px;"></div></div></div>';
+              '<div style="width:'+pct2+'%;height:100%;background:#1e3a5f;border-radius:3px;"></div></div></div>';
           }).join('');
         })()) +
     '</div></div>' +
@@ -520,26 +520,47 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
 
 // ── SVG Timeline ──────────────────────────────────────────────
 function buildTimelineSVG(timeline, sp) {
-  var W=280, H=100, PAD=14;
-  var pts   = timeline.map(function(t){ return Math.max(0,t.points); });
-  var minV  = 0, maxV = Math.max.apply(null, pts.concat([sp]));
-  var range = Math.max(maxV - minV, 1), n = pts.length;
-  function x(i) { return PAD + (i/(n-1))*(W-PAD*2); }
-  function y(v) { return PAD + ((maxV-v)/range)*(H-PAD*2); }
-  var poly  = pts.map(function(v,i){ return x(i)+','+y(v); }).join(' ');
-  var area  = 'M '+x(0)+','+y(pts[0])+' '+pts.map(function(v,i){ return 'L '+x(i)+','+y(v); }).join(' ')+
-              ' L '+x(n-1)+','+y(0)+' L '+x(0)+','+y(0)+' Z';
-  var last  = pts[pts.length-1];
-  var ec    = last >= sp*0.7 ? '#10b981' : last >= sp*0.4 ? '#f59e0b' : '#ef4444';
-  return '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">' +
-    '<line x1="'+PAD+'" y1="'+y(sp)+'" x2="'+(W-PAD)+'" y2="'+y(sp)+'" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>' +
-    '<text x="'+(W-PAD+2)+'" y="'+(y(sp)+4)+'" font-size="8" fill="#94a3b8">'+sp+'</text>' +
-    '<path d="'+area+'" fill="#3b82f6" fill-opacity="0.07"/>' +
-    '<polyline points="'+poly+'" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linejoin="round"/>' +
-    '<circle cx="'+x(n-1)+'" cy="'+y(last)+'" r="3.5" fill="'+ec+'"/>' +
-    '<text x="'+x(0)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" text-anchor="middle">'+esc(timeline[0].date)+'</text>' +
-    '<text x="'+x(n-1)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" text-anchor="middle">'+esc(timeline[n-1].date)+'</text>' +
-    '</svg>';
+  var W = 280, H = 100, PAD = 14;
+  var pts  = timeline.map(function(t){ return Math.max(0, t.points); });
+  var n    = pts.length;
+  var maxV = Math.max.apply(null, pts.concat([sp]));
+  var range = Math.max(maxV, 1);
+  var last  = pts[n - 1];
+  var ec    = last >= sp * 0.7 ? '#10b981' : last >= sp * 0.4 ? '#f59e0b' : '#ef4444';
+
+  function x(i) { return n === 1 ? W / 2 : PAD + (i / (n - 1)) * (W - PAD * 2); }
+  function y(v) { return PAD + ((maxV - v) / range) * (H - PAD * 2); }
+
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" ' +
+            'style="width:100%;height:auto;">';
+
+  // Reference line at sp
+  svg += '<line x1="'+PAD+'" y1="'+y(sp)+'" x2="'+(W-PAD)+'" y2="'+y(sp)+'" ' +
+         'stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>' +
+         '<text x="'+(W-PAD+2)+'" y="'+(y(sp)+4)+'" font-size="8" fill="#94a3b8">'+sp+'</text>';
+
+  if (n === 1) {
+    // Single point — just show a labeled dot
+    svg += '<circle cx="'+x(0)+'" cy="'+y(pts[0])+'" r="4" fill="'+ec+'"/>' +
+           '<text x="'+x(0)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
+           'text-anchor="middle">'+esc(timeline[0].date)+'</text>';
+  } else {
+    var poly = pts.map(function(v, i){ return x(i) + ',' + y(v); }).join(' ');
+    var area = 'M ' + x(0) + ',' + y(pts[0]) + ' ' +
+               pts.map(function(v, i){ return 'L ' + x(i) + ',' + y(v); }).join(' ') +
+               ' L ' + x(n-1) + ',' + y(0) + ' L ' + x(0) + ',' + y(0) + ' Z';
+
+    svg += '<path d="'+area+'" fill="#1e3a5f" fill-opacity="0.07"/>' +
+           '<polyline points="'+poly+'" fill="none" stroke="#1e3a5f" ' +
+           'stroke-width="1.8" stroke-linejoin="round"/>' +
+           '<circle cx="'+x(n-1)+'" cy="'+y(last)+'" r="3.5" fill="'+ec+'"/>' +
+           '<text x="'+x(0)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
+           'text-anchor="middle">'+esc(timeline[0].date)+'</text>' +
+           '<text x="'+x(n-1)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
+           'text-anchor="middle">'+esc(timeline[n-1].date)+'</text>';
+  }
+
+  return svg + '</svg>';
 }
 
 // ── Utilities ─────────────────────────────────────────────────
