@@ -70,10 +70,12 @@ function _setupConfig(ss) {
   if (ss.getSheetByName(SS_CONFIG)) return;
   var sheet = ss.insertSheet(SS_CONFIG);
 
+  // Redirections and Motivations columns intentionally removed —
+  // Behavior Context section no longer exists on the referral form.
   var headers = [
     'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
-    'Locations', 'Redirections', 'Motivations', 'NineWeeksStartDates'
+    'Locations', 'NineWeeksStartDates'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -82,27 +84,18 @@ function _setupConfig(ss) {
     'Our School', '100', 'Yes', '15:30',
     'If you have questions, please contact the school office.\n\n' +
     'This is an automated message — please do not reply.',
-    'Classroom', 'Verbal Redirect', 'Attention Seeking', ''
+    'Classroom', ''
   ];
   sheet.getRange(2, 1, 1, row2.length).setValues([row2]);
 
-  var extraLocations    = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
-  var extraRedirections = ['Proximity', 'Private Conversation', 'Seat Change',
-                           'Parent Contact', 'Cool-Down Break'];
-  var extraMotivations  = ['Peer Relationships', 'Task Avoidance',
-                           'Power/Control', 'Self-Expression', 'Unknown'];
-  var extraNineWeeks    = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
-  var maxExtra = Math.max(
-    extraLocations.length, extraRedirections.length,
-    extraMotivations.length, extraNineWeeks.length
-  );
+  var extraLocations = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
+  var extraNineWeeks = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
+  var maxExtra = Math.max(extraLocations.length, extraNineWeeks.length);
   for (var r = 0; r < maxExtra; r++) {
-    sheet.getRange(r + 3, 1, 1, 9).setValues([[
+    sheet.getRange(r + 3, 1, 1, 7).setValues([[
       '', '', '', '', '',
-      extraLocations[r]    || '',
-      extraRedirections[r] || '',
-      extraMotivations[r]  || '',
-      extraNineWeeks[r]    || ''
+      extraLocations[r] || '',
+      extraNineWeeks[r] || ''
     ]]);
   }
   sheet.setColumnWidth(5, 300);
@@ -147,8 +140,8 @@ function _setupReferrals(ss) {
     'ID', 'Timestamp', 'StudentID', 'StudentName', 'Grade',
     'IncidentDate', 'IncidentTime', 'Location', 'InfractionType',
     'Severity', 'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
-    'Redirections', 'PossibleMotivation', 'Description',
-    'TeacherName', 'TeacherEmail', 'ClassName',
+    'Description', 'IncludeDescriptionInEmail',
+    'TeacherName', 'TeacherEmail',
     'ParentNotified', 'TeacherNotified', 'Status', 'AdminNotes'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])

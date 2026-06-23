@@ -30,8 +30,7 @@ var SHEET_INFRACTIONS = 'Infractions';
 
 // ── CONFIG COLUMN NAMES ───────────────────────────────────────
 var CONFIG_COL_LOCATIONS        = 'Locations';
-var CONFIG_COL_REDIRECTIONS     = 'Redirections';
-var CONFIG_COL_MOTIVATIONS      = 'Motivations';
+// Redirections and Motivations intentionally removed — no longer used.
 var CONFIG_COL_SCHOOL_NAME      = 'SchoolName';
 var CONFIG_COL_SEMESTER_POINTS  = 'SemesterStartPoints';
 var CONFIG_COL_EMAIL_ENABLED    = 'EmailNotificationsEnabled';
@@ -75,14 +74,13 @@ var INF_COL_SEVERITY = 'Severity';
 var INF_COL_NOTES    = 'Notes';
 
 // ── REFERRAL HEADERS ──────────────────────────────────────────
-// ClassName kept for backward compatibility with existing data rows.
-// New submissions write '' for that column.
+// ClassName, Redirections, PossibleMotivation intentionally removed — no longer used.
 var REFERRAL_HEADERS = [
   'ID', 'Timestamp', 'StudentID', 'StudentName', 'Grade',
   'IncidentDate', 'IncidentTime', 'Location', 'InfractionType',
   'Severity', 'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
-  'Redirections', 'PossibleMotivation', 'Description',
-  'TeacherName', 'TeacherEmail', 'ClassName',
+  'Description', 'IncludeDescriptionInEmail',
+  'TeacherName', 'TeacherEmail',
   'ParentNotified', 'TeacherNotified', 'Status', 'AdminNotes'
 ];
 
@@ -191,6 +189,34 @@ function formatDateStr(val) {
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
 }
 
+/**
+ * Formats a time value read from a sheet cell into "HH:MM" (24-hr).
+ * Time-only cells written from an <input type="time"> often get
+ * auto-converted by Google Sheets into a Date object internally
+ * (Sheets' time epoch, e.g. Dec 30 1899) even though they display
+ * as a plain time in the UI. This handles both cases:
+ *   - actual Date objects (read the hours/minutes directly)
+ *   - plain strings already in "HH:MM" or "H:MM" format (returned as-is)
+ *   - anything else falls back to the raw string, trimmed
+ */
+function formatTimeStr(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return pad2(val.getHours()) + ':' + pad2(val.getMinutes());
+  }
+  var str = val.toString().trim();
+  // Already a clean "H:MM" or "HH:MM" string — return as-is.
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
+    return str.slice(0, 5); // strip seconds if present, normalize to HH:MM
+  }
+  // Fallback — try parsing as a date in case it's an ISO-ish timestamp string.
+  var parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return pad2(parsed.getHours()) + ':' + pad2(parsed.getMinutes());
+  }
+  return str;
+}
+
 function formatDate(d) {
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
 }
@@ -265,8 +291,6 @@ function getConfig() {
 
   _cfg = {
     locations:        col(CONFIG_COL_LOCATIONS),
-    redirections:     col(CONFIG_COL_REDIRECTIONS),
-    motivations:      col(CONFIG_COL_MOTIVATIONS),
     schoolName:       val(CONFIG_COL_SCHOOL_NAME,     'Our School'),
     semesterPoints:   parseInt(val(CONFIG_COL_SEMESTER_POINTS, '100'), 10) || 100,
     emailEnabled:     val(CONFIG_COL_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
@@ -416,8 +440,6 @@ function getSettingsBootstrap() {
       DailyEmailSendTime:        raw[CONFIG_COL_EMAIL_SEND_TIME]   || [],
       EmailFooterText:           raw[CONFIG_COL_EMAIL_FOOTER]      || [],
       Locations:                 raw[CONFIG_COL_LOCATIONS]         || [],
-      Redirections:              raw[CONFIG_COL_REDIRECTIONS]      || [],
-      Motivations:               raw[CONFIG_COL_MOTIVATIONS]       || [],
       NineWeeksStartDates:       raw[CONFIG_COL_NINE_WEEKS]        || []
       // AdminEmails intentionally absent — managed via Staff manager
     }
@@ -518,8 +540,6 @@ function getFormBootstrap() {
     semesterPoints:   cfg.semesterPoints,
     emailEnabled:     cfg.emailEnabled,
     locations:        cfg.locations,
-    redirections:     cfg.redirections,
-    motivations:      cfg.motivations,
     currentNineWeeks: cfg.currentNineWeeks,
     nineWeeks:        cfg.nineWeeks,
     infractions:      infs.map(function(inf) {
@@ -578,11 +598,13 @@ function getStudentFormCard(studentId) {
     nwRefs.push({
       id:             row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
       incidentDate:   incDate,
+      incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       infractionType: row[ci['InfractionType']] ? row[ci['InfractionType']].toString() : '',
       severity:       row[ci['Severity']]       ? row[ci['Severity']].toString()       : '',
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
       teacherName:    row[ci['TeacherName']]    ? row[ci['TeacherName']].toString()    : '',
-      status:         row[ci['Status']]         ? row[ci['Status']].toString()         : 'Open'
+      status:         row[ci['Status']]         ? row[ci['Status']].toString()         : 'Open',
+      description:    row[ci['Description']]    ? row[ci['Description']].toString()    : ''
     });
   }
 
@@ -650,9 +672,8 @@ function submitReferrals(referrals) {
         throw new Error('Student ID not found in roster: ' + sidStr);
       }
 
-      var safeDescription  = sanitizeText(r.description);
-      var safeRedirections = sanitizeText(r.redirections);
-      var safeMotivation   = sanitizeText(r.possibleMotivation);
+      var safeDescription = sanitizeText(r.description);
+      var includeDescInEmail = r.includeDescriptionInEmail === true;
 
       var id = ++lastId;
 
@@ -670,7 +691,7 @@ function submitReferrals(referrals) {
 
       var pointsAfter = Math.max(0, pointsBefore + pointValue);
 
-      refSheet.appendRow([
+      var newRowNum = refSheet.appendRow([
         id, timestamp,
         sidStr,
         sanitizeText(r.studentName),
@@ -680,14 +701,22 @@ function submitReferrals(referrals) {
         sanitizeText(r.infractionType),
         sanitizeText(r.severity),
         pointValue, pointsBefore, pointsAfter,
-        safeRedirections,
-        safeMotivation,
         safeDescription,
+        includeDescInEmail ? 'Yes' : 'No',
         sanitizeText(r.teacherName),
-        user.email,  // server-verified teacher email
-        '',          // ClassName — empty; kept for backward compat
+        user.email,
         'No', 'No', 'Open', ''
-      ]);
+      ]).getLastRow();
+
+      // Force the IncidentTime cell to plain-text format and re-write the
+      // value as a literal string. Without this, Google Sheets auto-detects
+      // the "HH:MM" string as a time-of-day value and silently converts it
+      // to a Date/time serial — which then reads back incorrectly anywhere
+      // the column is used (Report, Student profile, nine-weeks panel, etc).
+      var timeCol = REFERRAL_HEADERS.indexOf('IncidentTime') + 1;
+      var timeCell = refSheet.getRange(newRowNum, timeCol);
+      timeCell.setNumberFormat('@STRING@');
+      timeCell.setValue(r.incidentTime);
 
       if (stuIdx >= 0) {
         stuSheet.getRange(stuIdx + 1, STU_COL_POINTS + 1).setValue(pointsAfter);
@@ -791,21 +820,21 @@ function sendDailyParentEmails() {
   var data     = refSheet.getDataRange().getValues();
   var today    = formatDate(new Date());
 
-  var idIdx   = REFERRAL_HEADERS.indexOf('ID');
-  var sidIdx  = REFERRAL_HEADERS.indexOf('StudentID');
-  var snIdx   = REFERRAL_HEADERS.indexOf('StudentName');
-  var grIdx   = REFERRAL_HEADERS.indexOf('Grade');
-  var dtIdx   = REFERRAL_HEADERS.indexOf('IncidentDate');
-  var tmIdx   = REFERRAL_HEADERS.indexOf('IncidentTime');
-  var locIdx  = REFERRAL_HEADERS.indexOf('Location');
-  var infIdx  = REFERRAL_HEADERS.indexOf('InfractionType');
-  var sevIdx  = REFERRAL_HEADERS.indexOf('Severity');
-  var ptIdx   = REFERRAL_HEADERS.indexOf('PointValue');
-  var afIdx   = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
-  var tchIdx  = REFERRAL_HEADERS.indexOf('TeacherName');
-  var redIdx  = REFERRAL_HEADERS.indexOf('Redirections');
-  var descIdx = REFERRAL_HEADERS.indexOf('Description');
-  var pnIdx   = REFERRAL_HEADERS.indexOf('ParentNotified');
+  var idIdx     = REFERRAL_HEADERS.indexOf('ID');
+  var sidIdx    = REFERRAL_HEADERS.indexOf('StudentID');
+  var snIdx     = REFERRAL_HEADERS.indexOf('StudentName');
+  var grIdx     = REFERRAL_HEADERS.indexOf('Grade');
+  var dtIdx     = REFERRAL_HEADERS.indexOf('IncidentDate');
+  var tmIdx     = REFERRAL_HEADERS.indexOf('IncidentTime');
+  var locIdx    = REFERRAL_HEADERS.indexOf('Location');
+  var infIdx    = REFERRAL_HEADERS.indexOf('InfractionType');
+  var sevIdx    = REFERRAL_HEADERS.indexOf('Severity');
+  var ptIdx     = REFERRAL_HEADERS.indexOf('PointValue');
+  var afIdx     = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
+  var tchIdx    = REFERRAL_HEADERS.indexOf('TeacherName');
+  var descIdx   = REFERRAL_HEADERS.indexOf('Description');
+  var incEmIdx  = REFERRAL_HEADERS.indexOf('IncludeDescriptionInEmail');
+  var pnIdx     = REFERRAL_HEADERS.indexOf('ParentNotified');
 
   var contacts  = ss.getSheetByName(SHEET_PARENT).getDataRange().getValues();
   var parentMap = {};
@@ -841,13 +870,14 @@ function sendDailyParentEmails() {
 
     var pts    = parseInt(row[ptIdx], 10) || 0;
     var ptsStr = pts > 0 ? '+' + pts : pts.toString();
+    var includeDesc = (row[incEmIdx] || '').toString().trim().toLowerCase() === 'yes';
 
     grouped[studentId].push({
       id:             row[idIdx],
       studentName:    row[snIdx],
       grade:          row[grIdx],
       incidentDate:   incDate,
-      incidentTime:   row[tmIdx] ? row[tmIdx].toString() : '',
+      incidentTime:   formatTimeStr(row[tmIdx]),
       location:       row[locIdx] ? row[locIdx].toString() : '',
       infractionType: row[infIdx] ? row[infIdx].toString() : '',
       severity:       row[sevIdx] ? row[sevIdx].toString() : '',
@@ -855,8 +885,8 @@ function sendDailyParentEmails() {
       pointsStr:      ptsStr,
       pointsAfter:    row[afIdx] !== undefined ? row[afIdx] : '',
       teacherName:    row[tchIdx] ? row[tchIdx].toString() : '',
-      redirections:   row[redIdx] ? row[redIdx].toString() : '',
-      description:    row[descIdx] ? row[descIdx].toString() : ''
+      // Description only carried through if the teacher opted in at submit time.
+      description:    includeDesc && row[descIdx] ? row[descIdx].toString() : ''
     });
     rowIndices[studentId].push(r + 1);
   }
@@ -894,9 +924,6 @@ function sendDailyParentEmails() {
           'Infraction:  ' + ref.infractionType + ' (' + ref.severity + ')\n' +
           'Teacher:     ' + ref.teacherName + '\n' +
           'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
-        if (ref.redirections && ref.redirections !== 'None Attempted') {
-          body += 'Redirections: ' + ref.redirections + '\n';
-        }
         if (ref.description) {
           body += 'Notes:       ' + ref.description + '\n';
         }
@@ -1181,16 +1208,15 @@ function getStudentProfile(studentId) {
     referrals.push({
       ID:                   str(row[ci['ID']]),
       IncidentDate:         inc,
-      IncidentTime:         str(row[ci['IncidentTime']]),
+      IncidentTime:         formatTimeStr(row[ci['IncidentTime']]),
       Location:             str(row[ci['Location']]),
       InfractionType:       str(row[ci['InfractionType']]),
       Severity:             str(row[ci['Severity']]),
       PointValue:           num(row[ci['PointValue']]),
       PointsBeforeReferral: num(row[ci['PointsBeforeReferral']]),
       PointsAfterReferral:  num(row[ci['PointsAfterReferral']]),
-      Redirections:         str(row[ci['Redirections']]),
-      PossibleMotivation:   str(row[ci['PossibleMotivation']]),
-      Description:          str(row[ci['Description']]),
+      Description:                str(row[ci['Description']]),
+      IncludeDescriptionInEmail:  str(row[ci['IncludeDescriptionInEmail']]),
       TeacherName:          str(row[ci['TeacherName']]),
       ParentNotified:       str(row[ci['ParentNotified']]),
       TeacherNotified:      str(row[ci['TeacherNotified']]),
@@ -1255,6 +1281,7 @@ function getStudentProfile(studentId) {
     currentNineWeeks:    cfg.currentNineWeeks,
     semesterPoints:      cfg.semesterPoints,
     schoolName:          cfg.schoolName,
+    user:                user,
     summary: {
       total:    sumTotal,
       open:     sumOpen,
@@ -1343,7 +1370,7 @@ function getReportData(filters) {
     rows.push({
       ID:                   row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
       IncidentDate:         formatDateStr(row[ci['IncidentDate']]),
-      IncidentTime:         row[ci['IncidentTime']] ? row[ci['IncidentTime']].toString() : '',
+      IncidentTime:         formatTimeStr(row[ci['IncidentTime']]),
       StudentID:            sid2,
       StudentName:          row[ci['StudentName']] ? row[ci['StudentName']].toString() : '',
       Grade:                row[ci['Grade']]       ? row[ci['Grade']].toString()       : '',
@@ -1353,9 +1380,8 @@ function getReportData(filters) {
       PointsBeforeReferral: parseFloat(row[ci['PointsBeforeReferral']]) || 0,
       PointsAfterReferral:  parseFloat(row[ci['PointsAfterReferral']]) || 0,
       Location:             row[ci['Location']]    ? row[ci['Location']].toString()    : '',
-      Redirections:         row[ci['Redirections']] ? row[ci['Redirections']].toString() : '',
-      PossibleMotivation:   row[ci['PossibleMotivation']] ? row[ci['PossibleMotivation']].toString() : '',
-      Description:          row[ci['Description']] ? row[ci['Description']].toString() : '',
+      Description:                row[ci['Description']] ? row[ci['Description']].toString() : '',
+      IncludeDescriptionInEmail:  row[ci['IncludeDescriptionInEmail']] ? row[ci['IncludeDescriptionInEmail']].toString() : '',
       TeacherName:          tch,
       ParentNotified:       row[ci['ParentNotified']]  ? row[ci['ParentNotified']].toString()  : '',
       TeacherNotified:      row[ci['TeacherNotified']] ? row[ci['TeacherNotified']].toString() : '',
@@ -1539,7 +1565,7 @@ function saveStaff(rows) {
     // Clear data rows (keep header)
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+      sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
     }
 
     // Write new rows
@@ -1551,7 +1577,7 @@ function saveStaff(rows) {
         r.role === 'admin' ? 'admin' : 'teacher'
       ];
     });
-    sheet.getRange(2, 1, writeData.length, 3).setValues(writeData);
+    sheet.getRange(2, 1, writeData.length, 4).setValues(writeData);
     SpreadsheetApp.flush();
 
     // Invalidate cache for anyone whose role changed or was removed
@@ -2130,14 +2156,4 @@ function deleteParentContact(studentId) {
   } catch (e) {
     return { success: false, error: e.message };
   }
-}
-
-/**
- * Use this function when a user's role changes.
- */
-function clearMyCache() {
-  var email = Session.getActiveUser().getEmail();
-  var cacheKey = 'bt_user_' + email.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  CacheService.getUserCache().remove(cacheKey);
-  Logger.log('Cache cleared for: ' + email);
 }
