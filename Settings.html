@@ -291,38 +291,6 @@
         </div>
       </div>
 
-      <!-- Redirections -->
-      <div class="card">
-        <div class="section-title">Redirections</div>
-        <p class="section-desc">Redirection strategies shown as checkboxes on the referral form.</p>
-        <div class="list-editor" id="list-redirections"></div>
-        <button class="add-btn" onclick="addListItem('redirections', '')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>Add redirection
-        </button>
-        <div class="save-row" style="margin-top:12px;">
-          <span class="save-msg" id="msg-redirections"></span>
-          <button class="btn-save" onclick="saveSection('redirections')">Save</button>
-        </div>
-      </div>
-
-      <!-- Motivations -->
-      <div class="card">
-        <div class="section-title">Possible Motivations</div>
-        <p class="section-desc">Motivation options shown in the dropdown on the referral form.</p>
-        <div class="list-editor" id="list-motivations"></div>
-        <button class="add-btn" onclick="addListItem('motivations', '')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>Add motivation
-        </button>
-        <div class="save-row" style="margin-top:12px;">
-          <span class="save-msg" id="msg-motivations"></span>
-          <button class="btn-save" onclick="saveSection('motivations')">Save</button>
-        </div>
-      </div>
-
       <!-- Nine Weeks -->
       <div class="card">
         <div class="section-title">Nine Weeks Start Dates</div>
@@ -597,8 +565,6 @@ function populateGeneral(cfg) {
   setVal('cfg-emailFooter',    (cfg.EmailFooterText    || [])[0] || '');
 
   buildList('locations',    cfg.Locations           || []);
-  buildList('redirections', cfg.Redirections        || []);
-  buildList('motivations',  cfg.Motivations         || []);
   buildList('nineWeeks',    cfg.NineWeeksStartDates || []);
 }
 
@@ -650,8 +616,6 @@ function saveSection(section) {
     payload.DailyEmailSendTime = [document.getElementById('cfg-dailyEmailTime').value.trim()];
     payload.EmailFooterText    = [document.getElementById('cfg-emailFooter').value.trim()];
   } else if (section === 'locations')    { payload.Locations           = getListValues('locations'); }
-  else if (section === 'redirections')   { payload.Redirections        = getListValues('redirections'); }
-  else if (section === 'motivations')    { payload.Motivations         = getListValues('motivations'); }
   else if (section === 'nineWeeks')      { payload.NineWeeksStartDates = getListValues('nineWeeks'); }
 
   setMsg(section, 'Saving...', 'ld');

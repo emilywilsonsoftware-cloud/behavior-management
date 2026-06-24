@@ -71,9 +71,19 @@
     /* ── Nine-weeks panel ── */
     #nw-panel { display: none; margin-top: 14px; }
     .nw-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
-                      padding: 14px 16px; }
+                      padding: 14px 16px; margin-bottom: 10px; }
+    .nw-panel-inner:last-child { margin-bottom: 0; }
     .nw-title { font-size: 0.78rem; font-weight: 700; color: #166534;
-                text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+                text-transform: uppercase; letter-spacing: 0.06em;
+                display: flex; align-items: center; justify-content: space-between;
+                cursor: pointer; user-select: none; }
+    .nw-title:hover { opacity: 0.8; }
+    .nw-title .nw-chevron { transition: transform 0.15s; flex-shrink: 0; margin-left: 8px; }
+    .nw-title .nw-chevron svg { width: 14px; height: 14px; display: block; }
+    .nw-panel-inner.open .nw-title .nw-chevron { transform: rotate(180deg); }
+    .nw-body-wrap { max-height: 0; overflow: hidden; transition: max-height 0.18s ease; }
+    .nw-panel-inner.open .nw-body-wrap { max-height: 600px; }
+    .nw-body { margin-top: 10px; }
     .nw-empty { color: #6b7280; font-size: 0.84rem; }
     .nw-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .nw-table th { color: #6b7280; font-size: 0.72rem; text-transform: uppercase;
@@ -87,6 +97,28 @@
     .badge-minor    { background:#fef9c3; color:#854d0e; }
     .badge-positive { background:#dcfce7; color:#166534; }
 
+    /* ── View description button + modal ── */
+    .view-desc-btn { background: white; border: 1px solid #bbf7d0; color: #166534;
+                     border-radius: 5px; padding: 3px 10px; font-size: 0.74rem;
+                     font-weight: 600; cursor: pointer; transition: background 0.1s; }
+    .view-desc-btn:hover { background: #f0fdf4; }
+    .view-desc-btn:disabled { color: #c2c2c2; border-color: #e5e7eb; cursor: default; background: white; }
+    .desc-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+                    z-index: 200; display: none; align-items: center; justify-content: center;
+                    padding: 16px; }
+    .desc-overlay.open { display: flex; }
+    .desc-modal { background: white; border-radius: 10px; max-width: 440px; width: 100%;
+                  padding: 20px 22px; box-shadow: 0 10px 32px rgba(0,0,0,0.2); }
+    .desc-modal-hdr { display: flex; justify-content: space-between; align-items: flex-start;
+                      margin-bottom: 12px; gap: 10px; }
+    .desc-modal-title { font-size: 0.92rem; font-weight: 700; color: #166534; }
+    .desc-modal-sub { font-size: 0.76rem; color: #6b7280; margin-top: 2px; }
+    .desc-modal-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+                        color: #9ca3af; line-height: 1; padding: 0 4px; flex-shrink: 0; }
+    .desc-modal-close:hover { color: #4b5563; }
+    .desc-modal-body { font-size: 0.88rem; color: #1f2937; line-height: 1.55;
+                       white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
+
     /* ── Infraction preview ── */
     #point-preview { margin-top: 7px; font-size: 0.85rem; font-weight: 600;
                      min-height: 22px; display: flex; align-items: center; gap: 7px; }
@@ -94,6 +126,34 @@
     .pt-neg { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
     .pt-pos { background:#dcfce7; color:#166534; border:1px solid #86efac; }
     .pt-zer { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; }
+
+    /* ── Infraction autofill ── */
+    .inf-autofill-wrap { position: relative; }
+    #inf-results { border: 1px solid #d1d5db; border-radius: 6px; margin-top: 4px;
+                   max-height: 220px; overflow-y: auto; background: white; display: none;
+                   position: absolute; left: 0; right: 0; z-index: 20;
+                   box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+    .inf-result-item { display: flex; align-items: center; justify-content: space-between;
+                       padding: 9px 13px; border-bottom: 1px solid #f3f4f6;
+                       cursor: pointer; transition: background 0.1s; }
+    .inf-result-item:last-child { border-bottom: none; }
+    .inf-result-item:hover, .inf-result-item.active { background: #f0fdf4; }
+    .inf-result-name { font-weight: 600; font-size: 0.88rem; }
+    .inf-result-meta { font-size: 0.78rem; font-weight: 700; flex-shrink: 0; margin-left: 10px; }
+
+    /* ── Max students warning ── */
+    .max-warning { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a;
+                   border-radius: 6px; padding: 8px 12px; font-size: 0.82rem;
+                   font-weight: 600; margin-top: 8px; display: none; }
+    .max-warning.show { display: block; }
+
+    /* ── Multi-student description warning ── */
+    #multi-desc-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+                          border-radius: 6px; padding: 10px 13px; font-size: 0.83rem;
+                          font-weight: 600; margin-bottom: 10px; display: none;
+                          align-items: flex-start; gap: 8px; }
+    #multi-desc-warning.show { display: flex; }
+    #multi-desc-warning svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
 
     /* ── Checkbox grid ── */
     .chk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
@@ -104,12 +164,17 @@
     .chk-item label { font-size: 0.85rem; cursor: pointer; margin: 0; }
 
     /* ── Submit ── */
-    .submit-row { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
-    #sel-count { font-size: 0.86rem; color: #6b7280; }
+    .submit-row { display: flex; align-items: center; gap: 12px; justify-content: flex-end;
+                  flex-wrap: wrap; }
+    #sel-count { font-size: 0.86rem; color: #6b7280; margin-right: auto; }
     .btn-submit { background: #166534; color: white; border: none; border-radius: 7px;
                   padding: 10px 26px; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
-    
     .btn-submit:disabled{ background: #9ca3af; cursor: not-allowed; }
+    .btn-submit-copy { background: white; color: #166534; border: 2px solid #166534;
+                       border-radius: 7px; padding: 9px 22px; font-size: 0.95rem;
+                       font-weight: 700; cursor: pointer; }
+    .btn-submit-copy:hover:not(:disabled) { background: #f0fdf4; }
+    .btn-submit-copy:disabled { color: #9ca3af; border-color: #d1d5db; cursor: not-allowed; }
 
     /* ── Status ── */
     #status-msg { display: none; padding: 12px 16px; border-radius: 8px;
@@ -118,6 +183,18 @@
     .s-err { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; display:block!important; }
     .s-ld  { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; display:block!important; }
 
+    /* ── Toast notification ── */
+    #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+                  z-index: 300; display: flex; flex-direction: column; gap: 8px;
+                  pointer-events: none; width: 100%; max-width: 420px; padding: 0 16px; }
+    .toast { background: #166534; color: white; border-radius: 9px;
+             padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
+             box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
+             align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
+             transition: opacity 0.22s ease, transform 0.22s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
+
     @media (max-width: 560px) {
       .form-grid { grid-template-columns: 1fr; }
       .chk-grid  { grid-template-columns: 1fr; }
@@ -125,8 +202,11 @@
   </style>
 </head>
 <body>
+<div id="page-top"></div>
 <script>var navCurrentPage = 'form';</script>
 <?!= navHtml ?>
+
+<div id="toast-wrap" aria-live="polite"></div>
 
 <main>
   <div id="init-msg" class="card" style="text-align:center;color:#6b7280;">Loading form...</div>
@@ -152,6 +232,7 @@
     <div class="section-title">Step 2 — Find Student(s)</div>
     <p style="font-size:0.83rem;color:#6b7280;margin-bottom:12px;">
       Search by name or ID, or filter by grade. Select one or more — one referral row is created per student.
+      Maximum 10 students per referral.
     </p>
 
     <div class="filter-bar">
@@ -169,13 +250,13 @@
 
     <div id="student-results"></div>
     <div id="selected-strip"></div>
+    <div class="max-warning" id="max-warning">
+      Maximum of 10 students reached. Remove a student to add another.
+    </div>
 
-    <!-- Nine-weeks panel — appears when exactly one student is selected -->
+    <!-- Nine-weeks panel — one block per selected student -->
     <div id="nw-panel">
-      <div class="nw-panel-inner">
-        <div class="nw-title" id="nw-title">Current Nine Weeks Referrals</div>
-        <div id="nw-body"><div class="nw-empty">Loading...</div></div>
-      </div>
+      <div id="nw-panels-container"></div>
     </div>
   </div>
 
@@ -188,7 +269,7 @@
         <input type="date" id="inc-date">
       </div>
       <div>
-        <label for="inc-time">Time <span class="req">*</span></label>
+        <label for="inc-time">Time of Incident <span class="req">*</span></label>
         <input type="time" id="inc-time">
       </div>
       <div>
@@ -197,29 +278,38 @@
       </div>
       <div><!-- spacer --></div>
       <div class="full">
-        <label for="inf-sel">Infraction Type <span class="req">*</span></label>
-        <select id="inf-sel" onchange="onInfractionChange()">
-          <option value="">— Select —</option>
-        </select>
+        <label for="inf-search">Infraction Type <span class="req">*</span></label>
+        <div class="inf-autofill-wrap">
+          <input type="text" id="inf-search" placeholder="Type to search infractions..."
+                 autocomplete="off" oninput="searchInfractions(this.value)"
+                 onfocus="searchInfractions(this.value)">
+          <input type="hidden" id="inf-sel-value">
+          <div id="inf-results"></div>
+        </div>
         <div id="point-preview"></div>
       </div>
-    </div>
-  </div>
-
-  <!-- Step 4: Context -->
-  <div class="card">
-    <div class="section-title">Step 4 — Behavior Context</div>
-    <div style="margin-bottom:16px;">
-      <label>Redirections Attempted</label>
-      <div class="chk-grid" id="redir-grid"></div>
-    </div>
-    <div style="margin-bottom:16px;">
-      <label for="motiv-sel">Possible Motivation</label>
-      <select id="motiv-sel"><option value="">— Select —</option></select>
-    </div>
-    <div>
-      <label for="description">Description <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
-      <textarea id="description" placeholder="Describe the incident..." maxlength="1000"></textarea>
+      <div class="full">
+        <div id="multi-desc-warning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>
+            Multiple students are selected for this referral. If you include student names in the
+            description, do not check the box to send it in the parent email — each parent would
+            see the names of other students involved.
+          </span>
+        </div>
+        <label for="description">Description <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
+        <textarea id="description" placeholder="Describe the incident..." maxlength="1000"></textarea>
+        <div class="chk-item" style="margin-top:8px;padding-left:0;"
+             onclick="document.getElementById('include-desc-email').click()">
+          <input type="checkbox" id="include-desc-email" onclick="event.stopPropagation()">
+          <label for="include-desc-email" style="font-weight:500;">
+            Include this description in the parent email
+          </label>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -227,7 +317,10 @@
   <div class="card">
     <div class="submit-row">
       <span id="sel-count">No students selected</span>
-      <button class="btn-submit" id="submit-btn" onclick="submitForm()" disabled>Submit Referral(s)</button>
+      <button class="btn-submit-copy" id="submit-copy-btn" onclick="submitForm(true)" disabled>
+        Submit and Copy Form
+      </button>
+      <button class="btn-submit" id="submit-btn" onclick="submitForm(false)" disabled>Submit Referral(s)</button>
     </div>
     <div id="status-msg"></div>
   </div>
@@ -235,15 +328,32 @@
   </div><!-- /form-body -->
 </main>
 
+<!-- Description view modal -->
+<div class="desc-overlay" id="desc-overlay" onclick="if(event.target===this) closeDescModal()">
+  <div class="desc-modal">
+    <div class="desc-modal-hdr">
+      <div>
+        <div class="desc-modal-title">Referral Description</div>
+        <div class="desc-modal-sub" id="desc-modal-sub"></div>
+      </div>
+      <button class="desc-modal-close" onclick="closeDescModal()">×</button>
+    </div>
+    <div class="desc-modal-body" id="desc-modal-body"></div>
+  </div>
+</div>
+
 <script>
 // ── State ─────────────────────────────────────────────────────
+var MAX_STUDENTS = 10;
 var state = {
   teacherName: '', teacherEmail: '',
   allStudents: [],   // full roster loaded once
   selected:    [],   // selected student objects
   infMap:      {},   // name → { pointValue, severity }
+  infList:     [],   // flat list of infractions for autofill search
   semPts:      100,
-  nwLabel:     'Current Nine Weeks'
+  nwLabel:     'Current Nine Weeks',
+  lastIncident: null // cached incident details for "Submit and Copy"
 };
 
 // ── Bootstrap — single server call ────────────────────────────
@@ -276,16 +386,8 @@ function onBootstrap(data) {
   document.getElementById('teacher-email').value = state.teacherEmail;
 
   // Populate form dropdowns
-  fillSelect('loc-sel',   data.locations);
-  fillSelect('motiv-sel', data.motivations);
+  fillSelect('loc-sel', data.locations);
   buildInfractionSelect(data.infractions);
-
-  // Build redirections checkboxes
-  document.getElementById('redir-grid').innerHTML = (data.redirections || []).map(function(r, i) {
-    return '<div class="chk-item" onclick="document.getElementById(\'rd'+i+'\').click()">' +
-      '<input type="checkbox" id="rd'+i+'" value="'+esc(r)+'" onclick="event.stopPropagation()">' +
-      '<label for="rd'+i+'">'+esc(r)+'</label></div>';
-  }).join('');
 
   // Build grade filter from actual student data
   var grades = [];
@@ -362,14 +464,28 @@ function toggleStudent(studentId) {
   if (!student) return;
 
   var idx = state.selected.findIndex(function(s) { return s.studentId === studentId; });
-  if (idx > -1) state.selected.splice(idx, 1);
-  else           state.selected.push(student);
+
+  if (idx > -1) {
+    state.selected.splice(idx, 1);
+  } else {
+    if (state.selected.length >= MAX_STUDENTS) {
+      document.getElementById('max-warning').classList.add('show');
+      // Re-sync checkbox state since selection didn't change
+      var chkBlocked = document.getElementById('chk_' + studentId);
+      if (chkBlocked) chkBlocked.checked = false;
+      return;
+    }
+    state.selected.push(student);
+  }
+
+  document.getElementById('max-warning').classList.toggle('show', state.selected.length >= MAX_STUDENTS);
 
   var chk = document.getElementById('chk_' + studentId);
   if (chk) chk.checked = (idx === -1);
 
   updateSelectedStrip();
   updateSubmitButton();
+  updateMultiDescWarning();
   maybeLoadNineWeeks();
 }
 
@@ -383,44 +499,89 @@ function updateSelectedStrip() {
 function updateSubmitButton() {
   var n   = state.selected.length;
   var btn = document.getElementById('submit-btn');
+  var copyBtn = document.getElementById('submit-copy-btn');
   document.getElementById('sel-count').textContent =
     n ? n + ' student'+(n>1?'s':'')+' selected' : 'No students selected';
-  btn.disabled    = n === 0;
-  btn.textContent = n ? 'Submit '+n+' Referral'+(n>1?'s':'') : 'Submit Referral(s)';
+  btn.disabled     = n === 0;
+  copyBtn.disabled = n === 0;
+  btn.textContent  = n ? 'Submit '+n+' Referral'+(n>1?'s':'') : 'Submit Referral(s)';
+}
+
+// Shows a warning above Description when more than one student is
+// selected, since a shared description naming students would expose
+// other students' names if sent in the parent email.
+function updateMultiDescWarning() {
+  var warn = document.getElementById('multi-desc-warning');
+  warn.classList.toggle('show', state.selected.length > 1);
 }
 
 // ── Nine-Weeks Panel ──────────────────────────────────────────
-// Show when exactly one student is selected; fetch from server.
+// Shows one panel block per selected student; fetched from server,
+// cached per studentId so re-selecting doesn't refetch.
 var _nwCache = {};  // studentId → data (avoid re-fetching)
 
 function maybeLoadNineWeeks() {
-  var panel = document.getElementById('nw-panel');
-  if (state.selected.length !== 1) { panel.style.display = 'none'; return; }
+  var panel     = document.getElementById('nw-panel');
+  var container = document.getElementById('nw-panels-container');
 
-  var sid = state.selected[0].studentId;
+  if (state.selected.length === 0) {
+    panel.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
   panel.style.display = 'block';
-  document.getElementById('nw-title').textContent =
-    state.nwLabel + ' Referrals — ' + state.selected[0].studentName;
 
-  if (_nwCache[sid]) { renderNwPanel(_nwCache[sid]); return; }
+  // Remove panel blocks for students that are no longer selected
+  var selectedIds = state.selected.map(function(s) { return s.studentId; });
+  Array.prototype.slice.call(container.children).forEach(function(block) {
+    if (selectedIds.indexOf(block.dataset.sid) < 0) block.remove();
+  });
 
-  document.getElementById('nw-body').innerHTML = '<div class="nw-empty">Loading...</div>';
+  // Add or update a panel block for each currently selected student
+  state.selected.forEach(function(s) {
+    var sid = s.studentId;
+    var block = container.querySelector('[data-sid="' + cssEsc(sid) + '"]');
 
-  google.script.run
-    .withSuccessHandler(function(data) {
-      _nwCache[sid] = data;
-      if (state.selected.length === 1 && state.selected[0].studentId === sid)
-        renderNwPanel(data);
-    })
-    .withFailureHandler(function(err) {
-      document.getElementById('nw-body').innerHTML =
-        '<div class="nw-empty" style="color:#dc2626;">Error: '+(err.message||err)+'</div>';
-    })
-    .getStudentFormCard(sid);
+    if (!block) {
+      block = document.createElement('div');
+      block.className = 'nw-panel-inner open';
+      block.dataset.sid = sid;
+      block.innerHTML =
+        '<div class="nw-title" onclick="toggleNwPanel(this)">' +
+          '<span>' + esc(state.nwLabel) + ' Referrals — ' + esc(s.studentName) + '</span>' +
+          '<span class="nw-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+            '<polyline points="6 9 12 15 18 9"/></svg></span>' +
+        '</div>' +
+        '<div class="nw-body-wrap"><div class="nw-body"><div class="nw-empty">Loading...</div></div></div>';
+      container.appendChild(block);
+    }
+
+    if (_nwCache[sid]) {
+      renderNwPanel(block, _nwCache[sid]);
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        _nwCache[sid] = data;
+        // Only render if this student is still selected
+        if (state.selected.some(function(x) { return x.studentId === sid; })) {
+          var b = container.querySelector('[data-sid="' + cssEsc(sid) + '"]');
+          if (b) renderNwPanel(b, data);
+        }
+      })
+      .withFailureHandler(function(err) {
+        var b = container.querySelector('[data-sid="' + cssEsc(sid) + '"]');
+        if (b) b.querySelector('.nw-body').innerHTML =
+          '<div class="nw-empty" style="color:#dc2626;">Error: '+(err.message||err)+'</div>';
+      })
+      .getStudentFormCard(sid);
+  });
 }
 
-function renderNwPanel(data) {
-  var body = document.getElementById('nw-body');
+function renderNwPanel(block, data) {
+  var body = block.querySelector('.nw-body');
   if (data.error) { body.innerHTML = '<div class="nw-empty" style="color:#dc2626;">'+esc(data.error)+'</div>'; return; }
 
   var refs = data.nwRefs || [];
@@ -430,137 +591,266 @@ function renderNwPanel(data) {
   }
 
   var html = '<table class="nw-table"><thead><tr>' +
-    '<th>Date</th><th>Infraction</th><th>Severity</th><th>Pts Δ</th><th>Teacher</th>' +
+    '<th>Date</th><th>Time</th><th>Infraction</th><th>Pts Δ</th><th>Teacher</th><th>Desc.</th>' +
     '</tr></thead><tbody>';
   refs.forEach(function(r) {
     var pts    = parseInt(r.pointValue, 10) || 0;
     var ptsStr = pts > 0 ? '+'+pts : pts.toString();
     var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : 'color:#6b7280';
-    var sev    = (r.severity||'').toString();
+    var hasDesc = !!(r.description && r.description.trim());
+
+    // Store referral data keyed by ID so the modal can look it up without
+    // needing to embed the (possibly quote-containing) text in an onclick attr.
+    _nwRefLookup[r.id] = r;
+
     html += '<tr>' +
       '<td style="white-space:nowrap;">'+esc(r.incidentDate)+'</td>' +
+      '<td style="white-space:nowrap;color:#6b7280;">'+esc(formatTime12h(r.incidentTime))+'</td>' +
       '<td>'+esc(r.infractionType)+'</td>' +
-      '<td><span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></td>' +
       '<td style="font-weight:700;'+ptsCls+'">'+ptsStr+'</td>' +
       '<td style="font-size:0.78rem;color:#6b7280;">'+esc(r.teacherName)+'</td>' +
+      '<td><button class="view-desc-btn" '+(hasDesc ? '' : 'disabled')+' ' +
+          'onclick="openDescModal(\''+esc(r.id)+'\')">View</button></td>' +
       '</tr>';
   });
   html += '</tbody></table>';
   body.innerHTML = html;
 }
 
-// ── Infraction dropdown ────────────────────────────────────────
-function buildInfractionSelect(infractions) {
-  state.infMap = {};
-  var sel    = document.getElementById('inf-sel');
-  var groups = { Positive: [], Minor: [], Major: [], Other: [] };
-  infractions.forEach(function(inf) {
-    state.infMap[inf.name] = inf;
-    var g = groups[inf.severity] ? inf.severity : 'Other';
-    groups[g].push(inf);
-  });
-  sel.innerHTML = '<option value="">— Select —</option>';
-  ['Positive','Minor','Major','Other'].forEach(function(g) {
-    var items = groups[g];
-    if (!items || items.length === 0) return;
-    var og = document.createElement('optgroup');
-    og.label = g + ' Behaviors';
-    items.forEach(function(inf) {
-      var opt = document.createElement('option');
-      opt.value       = inf.name;
-      opt.dataset.pts = inf.pointValue;
-      opt.dataset.sev = inf.severity;
-      var sign = inf.pointValue > 0 ? '+' : '';
-      opt.textContent = inf.name + '  (' + sign + inf.pointValue + ' pts)';
-      og.appendChild(opt);
-    });
-    sel.appendChild(og);
-  });
+// ── Description modal ────────────────────────────────────────
+var _nwRefLookup = {}; // referral ID → referral object, populated on render
+
+function openDescModal(refId) {
+  var r = _nwRefLookup[refId];
+  if (!r) return;
+  document.getElementById('desc-modal-sub').textContent =
+    r.incidentDate + (r.incidentTime ? ' at ' + formatTime12h(r.incidentTime) : '') +
+    ' · ' + r.infractionType + (r.teacherName ? ' · ' + r.teacherName : '');
+  document.getElementById('desc-modal-body').textContent = r.description || '(No description on file.)';
+  document.getElementById('desc-overlay').classList.add('open');
 }
 
-function onInfractionChange() {
-  var sel = document.getElementById('inf-sel');
-  var opt = sel.options[sel.selectedIndex];
+function closeDescModal() {
+  document.getElementById('desc-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeDescModal();
+});
+
+// Toggles a single student's nine-weeks panel open/closed.
+// Called from the title row's onclick.
+function toggleNwPanel(titleEl) {
+  var block = titleEl.closest('.nw-panel-inner');
+  if (block) block.classList.toggle('open');
+}
+
+// Escapes a value for safe use inside a CSS attribute selector.
+function cssEsc(s) {
+  return String(s).replace(/["\\]/g, '\\$&');
+}
+
+// ── Infraction Autofill (client-side — mirrors student search) ─
+function buildInfractionSelect(infractions) {
+  state.infMap  = {};
+  state.infList = infractions.slice().sort(function(a, b) {
+    return b.pointValue - a.pointValue; // descending: positive first, most severe last
+  });
+  infractions.forEach(function(inf) { state.infMap[inf.name] = inf; });
+}
+
+function searchInfractions(query) {
+  var q = (query || '').trim().toLowerCase();
+  var container = document.getElementById('inf-results');
+
+  // Clear the committed selection if the user is typing something new
+  var committed = document.getElementById('inf-sel-value').value;
+  if (committed && committed.toLowerCase() !== q) {
+    document.getElementById('inf-sel-value').value = '';
+    document.getElementById('point-preview').innerHTML = '';
+  }
+
+  var hits = !q ? state.infList.slice(0, 40) : state.infList.filter(function(inf) {
+    return inf.name.toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 40);
+
+  if (hits.length === 0) {
+    container.innerHTML = '<div style="padding:12px 14px;color:#9ca3af;font-size:0.85rem;">No infractions match.</div>';
+    container.style.display = 'block';
+    return;
+  }
+
+  container.innerHTML = hits.map(function(inf) {
+    var sign = inf.pointValue > 0 ? '+' : '';
+    var cls  = inf.pointValue < 0 ? 'color:#b91c1c' : inf.pointValue > 0 ? 'color:#166534' : 'color:#6b7280';
+    return '<div class="inf-result-item" onmousedown="event.preventDefault();selectInfraction(\''+
+           esc(inf.name).replace(/'/g, "\\'")+'\')">' +
+      '<span class="inf-result-name">'+esc(inf.name)+'</span>' +
+      '<span class="inf-result-meta" style="'+cls+'">'+sign+inf.pointValue+' pts</span>' +
+      '</div>';
+  }).join('');
+  container.style.display = 'block';
+}
+
+function selectInfraction(name) {
+  var inf = state.infMap[name];
+  if (!inf) return;
+
+  document.getElementById('inf-search').value = inf.name;
+  document.getElementById('inf-sel-value').value = inf.name;
+  document.getElementById('inf-results').style.display = 'none';
+
   var preview = document.getElementById('point-preview');
-  if (!opt || !opt.dataset.pts) { preview.innerHTML = ''; return; }
-  var pts  = parseInt(opt.dataset.pts, 10);
-  var sign = pts > 0 ? '+' : '';
-  var cls  = pts < 0 ? 'pt-neg' : pts > 0 ? 'pt-pos' : 'pt-zer';
-  var verb = pts < 0 ? 'deducted per student' : pts > 0 ? 'added per student' : 'no point change';
-  preview.innerHTML = '<span class="pt-badge '+cls+'">'+sign+pts+' pts</span>' +
+  var sign = inf.pointValue > 0 ? '+' : '';
+  var cls  = inf.pointValue < 0 ? 'pt-neg' : inf.pointValue > 0 ? 'pt-pos' : 'pt-zer';
+  var verb = inf.pointValue < 0 ? 'deducted per student' : inf.pointValue > 0 ? 'added per student' : 'no point change';
+  preview.innerHTML = '<span class="pt-badge '+cls+'">'+sign+inf.pointValue+' pts</span>' +
                       '<span style="color:#6b7280;font-weight:400;">'+verb+'</span>';
 }
 
+// Close the infraction results dropdown when clicking elsewhere
+document.addEventListener('click', function(e) {
+  var wrap = document.querySelector('.inf-autofill-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('inf-results').style.display = 'none';
+  }
+});
+
 // ── Submit ────────────────────────────────────────────────────
-function submitForm() {
+function submitForm(copyMode) {
   clearStatus();
   if (!state.selected.length) { showErr('Select at least one student.'); return; }
   var date = document.getElementById('inc-date').value;
   var time = document.getElementById('inc-time').value;
   var loc  = document.getElementById('loc-sel').value;
-  var inf  = document.getElementById('inf-sel').value;
+  var inf  = document.getElementById('inf-sel-value').value;
   if (!date) { showErr('Please enter the incident date.'); return; }
   if (!time) { showErr('Please enter the incident time.'); return; }
   if (!loc)  { showErr('Please select a location.'); return; }
-  if (!inf)  { showErr('Please select an infraction type.'); return; }
+  if (!inf)  { showErr('Please select an infraction type from the list.'); return; }
 
-  var infOpt  = document.getElementById('inf-sel');
-  var selOpt  = infOpt.options[infOpt.selectedIndex];
-  var severity = selOpt ? (selOpt.dataset.sev || '') : '';
+  var infData  = state.infMap[inf];
+  var severity = infData ? (infData.severity || '') : '';
 
-  var checked  = document.querySelectorAll('#redir-grid input:checked');
-  var redirs   = Array.from(checked).map(function(c) { return c.value; }).join('; ');
-  var motiv    = document.getElementById('motiv-sel').value;
-  var desc     = document.getElementById('description').value.trim();
+  var desc           = document.getElementById('description').value.trim();
+  var includeInEmail = document.getElementById('include-desc-email').checked;
 
   var referrals = state.selected.map(function(s) {
     return { studentId: s.studentId, studentName: s.studentName, grade: s.grade,
              incidentDate: date, incidentTime: time, location: loc,
-             infractionType: inf, severity: severity, redirections: redirs,
-             possibleMotivation: motiv, description: desc,
+             infractionType: inf, severity: severity,
+             description: desc, includeDescriptionInEmail: includeInEmail,
              teacherName: state.teacherName, teacherEmail: state.teacherEmail,
              className: '' };
   });
 
-  document.getElementById('submit-btn').disabled = true;
+  // Cache incident details for "Submit and Copy" — captured before reset.
+  if (copyMode) {
+    state.lastIncident = {
+      date: date, time: time, location: loc,
+      infractionName: inf, description: desc, includeInEmail: includeInEmail
+    };
+  } else {
+    state.lastIncident = null;
+  }
+
+  document.getElementById('submit-btn').disabled      = true;
+  document.getElementById('submit-copy-btn').disabled = true;
   showLoad('Submitting ' + referrals.length + ' referral' + (referrals.length > 1 ? 's' : '') + '...');
 
   google.script.run
     .withSuccessHandler(onSubmitOk)
     .withFailureHandler(function(err) {
       showErr('Submission failed: ' + (err.message || err));
-      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('submit-btn').disabled      = false;
+      document.getElementById('submit-copy-btn').disabled = false;
     })
     .submitReferrals(referrals);
 }
 
 function onSubmitOk(result) {
-  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('submit-btn').disabled      = false;
+  document.getElementById('submit-copy-btn').disabled = false;
   if (result.errors && result.errors.length) {
     showErr('Saved ' + result.saved + ' referral(s) with errors:\n' + result.errors.join('\n'));
+    state.lastIncident = null;
   } else {
-    showOk('✓ ' + result.saved + ' referral' + (result.saved > 1 ? 's' : '') +
-           ' submitted. You will receive a confirmation email shortly.');
+    clearStatus(); // dismiss the inline "Submitting..." banner
+    showToast('✓ ' + result.saved + ' referral' + (result.saved > 1 ? 's' : '') +
+              ' submitted. Confirmation email on the way.');
     resetForm();
+    // Move the page back to the top so the next student selection (Step 2)
+    // is immediately visible without the teacher needing to scroll.
+    // IMPORTANT: do not call .focus() on a field further down the page here —
+    // browsers automatically scroll a focused element into view, which would
+    // silently undo the scroll-to-top we just performed.
+    requestAnimationFrame(function() {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0; // Safari fallback
+      window.scrollTo(0, 0);
+    });
   }
 }
 
+// ── Toast notification ──────────────────────────────────────────
+// Auto-dismissing confirmation, used so teachers submitting several
+// referrals in a row get clear feedback without an extra click.
+var _toastTimer = null;
+function showToast(message, durationMs) {
+  var wrap = document.getElementById('toast-wrap');
+  var toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+      '<path d="M20 6L9 17l-5-5"/>' +
+    '</svg>' +
+    '<span>' + esc(message) + '</span>';
+  wrap.appendChild(toast);
+
+  // Trigger the enter transition on the next frame
+  requestAnimationFrame(function() { toast.classList.add('show'); });
+
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { toast.remove(); }, 220); // matches CSS transition duration
+  }, durationMs || 3200);
+}
+
 function resetForm() {
+  var keepIncident = state.lastIncident;
+
   state.selected = [];
   _nwCache = {};
   updateSelectedStrip();
   updateSubmitButton();
+  updateMultiDescWarning();
   clearSearch();
+  document.getElementById('max-warning').classList.remove('show');
   document.getElementById('nw-panel').style.display = 'none';
-  var now = new Date();
-  document.getElementById('inc-date').value = dateStr(now);
-  document.getElementById('inc-time').value = pad(now.getHours())+':'+pad(now.getMinutes());
-  document.getElementById('loc-sel').value   = '';
-  document.getElementById('inf-sel').value   = '';
-  document.getElementById('motiv-sel').value = '';
-  document.getElementById('description').value = '';
-  document.getElementById('point-preview').innerHTML = '';
-  document.querySelectorAll('#redir-grid input:checked').forEach(function(c){ c.checked=false; });
+  document.getElementById('nw-panels-container').innerHTML = '';
+
+  if (keepIncident) {
+    // "Submit and Copy" — restore incident details, only clear student selection.
+    document.getElementById('inc-date').value = keepIncident.date;
+    document.getElementById('inc-time').value = keepIncident.time;
+    document.getElementById('loc-sel').value   = keepIncident.location;
+    document.getElementById('inf-search').value     = keepIncident.infractionName;
+    document.getElementById('inf-sel-value').value  = keepIncident.infractionName;
+    document.getElementById('description').value    = keepIncident.description;
+    document.getElementById('include-desc-email').checked = keepIncident.includeInEmail;
+    selectInfraction(keepIncident.infractionName);
+    state.lastIncident = null;
+  } else {
+    var now = new Date();
+    document.getElementById('inc-date').value = dateStr(now);
+    document.getElementById('inc-time').value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    document.getElementById('loc-sel').value   = '';
+    document.getElementById('inf-search').value    = '';
+    document.getElementById('inf-sel-value').value = '';
+    document.getElementById('description').value = '';
+    document.getElementById('include-desc-email').checked = false;
+    document.getElementById('point-preview').innerHTML = '';
+  }
 }
 
 // ── Utilities ─────────────────────────────────────────────────
@@ -590,6 +880,20 @@ function dateStr(d) { return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.g
 function pad(n) { return n < 10 ? '0'+n : ''+n; }
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Converts a "HH:MM" (24-hr) string to "H:MM AM/PM" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatTime12h(t) {
+  if (!t) return '';
+  var m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  var h = parseInt(m[1], 10);
+  var min = m[2];
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ':' + min + ' ' + period;
 }
 </script>
 </body>
