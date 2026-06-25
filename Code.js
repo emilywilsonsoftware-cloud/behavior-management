@@ -1223,7 +1223,7 @@ function getStudentProfile(studentId) {
       Status:               str(row[ci['Status']]) || 'Open',
       AdminNotes:           str(row[ci['AdminNotes']]),
       TimestampFormatted:   (ts instanceof Date)
-        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM/dd/yyyy h:mm a')
+        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
         : str(ts)
     });
   }
@@ -1388,7 +1388,7 @@ function getReportData(filters) {
       Status:               row[ci['Status']]      ? row[ci['Status']].toString()      : 'Open',
       AdminNotes:           row[ci['AdminNotes']]  ? row[ci['AdminNotes']].toString()  : '',
       TimestampFormatted:   (ts instanceof Date)
-        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM/dd/yyyy h:mm a')
+        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
         : '',
       CurrentPoints:        ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.semesterPoints
     });

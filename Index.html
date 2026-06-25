@@ -604,7 +604,7 @@ function renderNwPanel(block, data) {
     _nwRefLookup[r.id] = r;
 
     html += '<tr>' +
-      '<td style="white-space:nowrap;">'+esc(r.incidentDate)+'</td>' +
+      '<td style="white-space:nowrap;">'+esc(formatDateMDY(r.incidentDate))+'</td>' +
       '<td style="white-space:nowrap;color:#6b7280;">'+esc(formatTime12h(r.incidentTime))+'</td>' +
       '<td>'+esc(r.infractionType)+'</td>' +
       '<td style="font-weight:700;'+ptsCls+'">'+ptsStr+'</td>' +
@@ -624,7 +624,7 @@ function openDescModal(refId) {
   var r = _nwRefLookup[refId];
   if (!r) return;
   document.getElementById('desc-modal-sub').textContent =
-    r.incidentDate + (r.incidentTime ? ' at ' + formatTime12h(r.incidentTime) : '') +
+    formatDateMDY(r.incidentDate) + (r.incidentTime ? ' at ' + formatTime12h(r.incidentTime) : '') +
     ' · ' + r.infractionType + (r.teacherName ? ' · ' + r.teacherName : '');
   document.getElementById('desc-modal-body').textContent = r.description || '(No description on file.)';
   document.getElementById('desc-overlay').classList.add('open');
@@ -894,6 +894,19 @@ function formatTime12h(t) {
   var h12 = h % 12;
   if (h12 === 0) h12 = 12;
   return h12 + ':' + min + ' ' + period;
+}
+
+// Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+// Native <input type="date"> fields are left untouched — they always
+// store/submit YYYY-MM-DD and render in the browser/OS locale format,
+// which can't be overridden without replacing them with custom text
+// inputs. This only affects dates shown as plain text.
+function formatDateMDY(d) {
+  if (!d) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return m[2] + '-' + m[3] + '-' + m[1];
 }
 </script>
 </body>

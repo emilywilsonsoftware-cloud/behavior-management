@@ -194,7 +194,7 @@ function render(d) {
   if (d.currentNineWeeks) {
     document.getElementById('nw-badge-row').innerHTML =
       '<div class="nw-badge">📅 ' + d.currentNineWeeks.label +
-      ': ' + d.currentNineWeeks.start + ' – ' + d.currentNineWeeks.end + '</div>';
+      ': ' + formatDateMDY(d.currentNineWeeks.start) + ' – ' + formatDateMDY(d.currentNineWeeks.end) + '</div>';
   }
 
   var s = d.stats;
@@ -237,10 +237,9 @@ function render(d) {
         return '<div class="activity-item">' +
           '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
           '<div class="a-main"><div class="a-stu">' +
-            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a>' +
-            ' <span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></div>' +
+            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
           '<div class="a-det">'+esc(r.infractionType)+' · '+esc(r.teacherName)+'</div></div>' +
-          '<div class="a-meta"><div class="a-date">'+esc(r.incidentDate)+'</div>' +
+          '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+'</div>' +
           '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div></div></div>';
       }).join('');
 
@@ -267,6 +266,15 @@ function renderHbars(id, items, colorClass) {
 
 function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatDateMDY(d) {
+  if (!d) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return m[2] + '-' + m[3] + '-' + m[1];
+}
 </script>
 </body>
 </html>
