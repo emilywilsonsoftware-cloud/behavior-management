@@ -72,10 +72,16 @@ function _setupConfig(ss) {
 
   // Redirections and Motivations columns intentionally removed —
   // Behavior Context section no longer exists on the referral form.
+  // PointTierThresholds / PointTierColors seed the default 3-tier
+  // green/amber/red point-balance coloring (70/40/0). Both lists must
+  // stay the same length and be edited together via the Settings page —
+  // editing them directly in the sheet risks producing mismatched rows
+  // that getConfig() will reject and silently replace with this default.
   var headers = [
     'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
-    'Locations', 'NineWeeksStartDates'
+    'Locations', 'NineWeeksStartDates',
+    'PointTierThresholds', 'PointTierColors'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -84,22 +90,41 @@ function _setupConfig(ss) {
     'Our School', '100', 'Yes', '15:30',
     'If you have questions, please contact the school office.\n\n' +
     'This is an automated message — please do not reply.',
-    'Classroom', ''
+    'Classroom', '',
+    '70', 'green'
   ];
   sheet.getRange(2, 1, 1, row2.length).setValues([row2]);
 
-  var extraLocations = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
-  var extraNineWeeks = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
-  var maxExtra = Math.max(extraLocations.length, extraNineWeeks.length);
+  var extraLocations    = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
+  var extraNineWeeks    = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
+  var extraThresholds   = ['40', '0'];
+  var extraColors       = ['amber', 'red'];
+  var maxExtra = Math.max(
+    extraLocations.length, extraNineWeeks.length,
+    extraThresholds.length, extraColors.length
+  );
   for (var r = 0; r < maxExtra; r++) {
-    sheet.getRange(r + 3, 1, 1, 7).setValues([[
+    sheet.getRange(r + 3, 1, 1, 9).setValues([[
       '', '', '', '', '',
-      extraLocations[r] || '',
-      extraNineWeeks[r] || ''
+      extraLocations[r]  || '',
+      extraNineWeeks[r]  || '',
+      extraThresholds[r] || '',
+      extraColors[r]     || ''
     ]]);
   }
   sheet.setColumnWidth(5, 300);
   sheet.autoResizeColumns(1, 4);
+
+  sheet.getRange(1, 8).setNote(
+    'Pairs row-by-row with PointTierColors.\n' +
+    'Defines the percentage thresholds for point-balance color tiers.\n' +
+    'Edit via Settings > General in the web app, not directly here.'
+  );
+  sheet.getRange(1, 9).setNote(
+    'Pairs row-by-row with PointTierThresholds.\n' +
+    'Allowed values: green, blue, purple, amber, orange, red.\n' +
+    'Edit via Settings > General in the web app, not directly here.'
+  );
 }
 
 // ── Infractions sheet ─────────────────────────────────────────

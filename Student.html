@@ -220,6 +220,7 @@
 <script>
 var allStudents   = [];
 var semPts        = 100;
+var pointTiers    = []; // admin-configured point-balance color tiers
 var currentStudent = null;
 var activeNwIdx   = -1; // index into nineWeeks array; -1 = all
 
@@ -233,6 +234,7 @@ window.addEventListener('load', function() {
       if (typeof updateNavUser === 'function') updateNavUser(data.user);
       allStudents = data.students || [];
       semPts      = data.semesterPoints || 100;
+      pointTiers  = data.pointTiers || [];
 
       // Build grade filter from actual student data
       var grades = [];
@@ -294,10 +296,10 @@ function onSearch(query) {
   }
 
   results.innerHTML = hits.map(function(s) {
-    var pct    = semPts > 0 ? Math.round(s.currentPoints / semPts * 100) : 0;
-    var ptsCls = pct >= 70 ? 'pts-hi' : pct >= 40 ? 'pts-md' : 'pts-lo';
-    var init   = initials(s.studentName);
-    var bg     = avatarColor(s.studentId);
+    var pct      = semPts > 0 ? Math.round(s.currentPoints / semPts * 100) : 0;
+    var ptsColor = s.pointColor || getPointColor(pct, pointTiers);
+    var init     = initials(s.studentName);
+    var bg       = avatarColor(s.studentId);
     return '<div class="stu-row" onclick="loadProfile(\''+esc(s.studentId)+'\')">' +
       '<div class="stu-avatar" style="background:'+bg+';">'+esc(init)+'</div>' +
       '<div class="stu-info">' +
@@ -305,7 +307,7 @@ function onSearch(query) {
         '<div class="stu-sub">Grade '+esc(s.grade)+' · ID: '+esc(s.studentId)+'</div>' +
       '</div>' +
       '<div class="stu-pts">' +
-        '<div class="pts-val '+ptsCls+'">'+s.currentPoints+'</div>' +
+        '<div class="pts-val" style="color:'+ptsColor+';">'+s.currentPoints+'</div>' +
         '<div class="pts-pct">'+pct+'% of '+semPts+'</div>' +
       '</div></div>';
   }).join('');
@@ -353,8 +355,8 @@ function renderProfile(data) {
   var sp     = data.semesterPoints;
   var isAdm  = data.user && data.user.role === 'admin';
   var pct    = sp > 0 ? Math.max(0,Math.min(100,Math.round(s.currentPoints/sp*100))) : 0;
-  var ptColor = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
-  var ptBg    = pct >= 70 ? '#dcfce7' : pct >= 40 ? '#fef9c3' : '#fee2e2';
+  var ptColor = s.pointColor || getPointColor(pct, data.pointTiers);
+  var ptBg    = hexToLightTint(ptColor);
   var init    = initials(s.studentName);
   var bg      = avatarColor(s.studentId);
   var sum     = data.summary;
@@ -436,7 +438,7 @@ function renderProfile(data) {
     '<div class="card-bdy">' +
     (data.pointTimeline.length === 0
       ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
-      : buildTimelineSVG(data.pointTimeline, sp)) +
+      : buildTimelineSVG(data.pointTimeline, sp, data.pointTiers)) +
     '</div></div>' +
 
     '<div class="card">' +
@@ -517,14 +519,15 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
 }
 
 // ── SVG Timeline ──────────────────────────────────────────────
-function buildTimelineSVG(timeline, sp) {
+function buildTimelineSVG(timeline, sp, tiers) {
   var W = 280, H = 100, PAD = 14;
   var pts  = timeline.map(function(t){ return Math.max(0, t.points); });
   var n    = pts.length;
   var maxV = Math.max.apply(null, pts.concat([sp]));
   var range = Math.max(maxV, 1);
   var last  = pts[n - 1];
-  var ec    = last >= sp * 0.7 ? '#10b981' : last >= sp * 0.4 ? '#f59e0b' : '#ef4444';
+  var lastPct = sp > 0 ? Math.round(last / sp * 100) : 0;
+  var ec    = getPointColor(lastPct, tiers);
 
   function x(i) { return n === 1 ? W / 2 : PAD + (i / (n - 1)) * (W - PAD * 2); }
   function y(v) { return PAD + ((maxV - v) / range) * (H - PAD * 2); }
@@ -593,6 +596,46 @@ function formatDateMDY(d) {
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
   if (!m) return d;
   return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
+// admins can choose from in Settings. Used only as a fallback below;
+// the student object from the server already carries a resolved
+// pointColor hex value, so this path should rarely run.
+var POINT_COLOR_PALETTE = {
+  green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
+  amber: '#eab308', orange: '#f97316', red: '#ef4444'
+};
+
+// Resolves a percentage (0-100) to a hex color using the admin-configured
+// point tiers (key/threshold pairs, as returned by getStudentProfile()
+// and getAllStudents()). Mirrors getPointColor() in Code.gs. tiers must
+// be sorted descending by threshold, which parsePointTiers() guarantees.
+function getPointColor(pct, tiers) {
+  var list = (tiers && tiers.length) ? tiers : [
+    { threshold: 70, color: 'green' },
+    { threshold: 40, color: 'amber' },
+    { threshold: 0,  color: 'red'   }
+  ];
+  for (var i = 0; i < list.length; i++) {
+    if (pct >= list[i].threshold) {
+      return POINT_COLOR_PALETTE[list[i].color] || '#94a3b8';
+    }
+  }
+  return '#94a3b8';
+}
+
+// Converts a hex color to a light background tint (mixed toward white)
+// for use behind a solid-colored point display. Works for any of the
+// 6 palette colors without needing a separate server-side tint table.
+function hexToLightTint(hex) {
+  var h = (hex || '').replace('#', '');
+  if (h.length !== 6) return '#f1f5f9';
+  var r = parseInt(h.substr(0, 2), 16);
+  var g = parseInt(h.substr(2, 2), 16);
+  var b = parseInt(h.substr(4, 2), 16);
+  var mix = function(c) { return Math.round(c + (255 - c) * 0.85); };
+  return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
 }
 
 // ══════════════════════════════════════════════════════════

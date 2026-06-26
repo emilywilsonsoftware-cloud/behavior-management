@@ -219,7 +219,7 @@ function render(d) {
     ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
     : d.atRisk.map(function(s) {
         var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
-        var color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
+        var color = s.pointColor || getPointColor(pct, d.pointTiers);
         return '<tr><td><a class="stu-link" href="?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
                '<td>'+esc(s.grade)+'</td>' +
                '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
@@ -274,6 +274,33 @@ function formatDateMDY(d) {
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
   if (!m) return d;
   return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
+// admins can choose from in Settings. Used only as a fallback below;
+// every student/row object from the server already carries a resolved
+// pointColor/CurrentPointsColor hex value, so this path should rarely run.
+var POINT_COLOR_PALETTE = {
+  green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
+  amber: '#eab308', orange: '#f97316', red: '#ef4444'
+};
+
+// Resolves a percentage (0-100) to a hex color using the admin-configured
+// point tiers (key/threshold pairs, as returned by getDashboardData()).
+// Mirrors getPointColor() in Code.gs. tiers must be sorted descending by
+// threshold, which Code.gs's parsePointTiers() guarantees.
+function getPointColor(pct, tiers) {
+  var list = (tiers && tiers.length) ? tiers : [
+    { threshold: 70, color: 'green' },
+    { threshold: 40, color: 'amber' },
+    { threshold: 0,  color: 'red'   }
+  ];
+  for (var i = 0; i < list.length; i++) {
+    if (pct >= list[i].threshold) {
+      return POINT_COLOR_PALETTE[list[i].color] || '#94a3b8';
+    }
+  }
+  return '#94a3b8';
 }
 </script>
 </body>

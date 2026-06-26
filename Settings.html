@@ -117,7 +117,103 @@
                    transition: background 0.1s; border: none; width: 100%;
                    font-family: inherit; }
     .tbl-add-row:hover { background: #edf0f7; color: #1e3a5f; }
+    .tbl-add-row:disabled { color: #c8d0e0; cursor: not-allowed; }
+    .tbl-add-row:disabled:hover { background: #f4f6f9; }
     .tbl-add-row svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ── Point tier — live preview ── */
+    .tier-preview-block { margin-bottom: 18px; }
+    .tier-preview-heading { font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+                            letter-spacing: 0.06em; color: #1e3a5f; margin-bottom: 8px;
+                            display: flex; align-items: center; gap: 6px; }
+    .tier-preview-heading svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .tier-preview { display: flex; height: 40px; border-radius: 8px; overflow: hidden;
+                    border: 1px solid #c8d0e0; box-shadow: 0 1px 3px rgba(30,58,95,0.08); }
+    .tier-preview-seg { display: flex; align-items: center; justify-content: center;
+                        font-size: 0.74rem; font-weight: 700; color: white;
+                        text-shadow: 0 1px 1px rgba(0,0,0,0.25); min-width: 32px;
+                        transition: flex-basis 0.25s ease, background-color 0.2s ease; }
+    .tier-preview-ticks { display: flex; justify-content: space-between; margin-top: 6px;
+                          padding: 0 1px; }
+    .tier-preview-ticks span { font-size: 0.7rem; color: #8a96a8; font-weight: 600; }
+
+    /* ── Point tier — column headers ── */
+    .tier-col-headers { display: flex; align-items: center; gap: 10px; padding: 0 14px;
+                        margin-bottom: 6px; }
+    .tier-col-headers span { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+                             letter-spacing: 0.05em; color: #8a96a8; }
+    .tier-col-range  { width: 200px; flex-shrink: 0; }
+    .tier-col-color  { width: 190px; flex-shrink: 0; }
+    .tier-col-actions{ width: 32px; flex-shrink: 0; text-align: center; }
+
+    /* ── Point tier rows — compact card style ── */
+    .tier-list { display: flex; flex-direction: column; gap: 6px; }
+    .tier-row { display: flex; align-items: center; gap: 10px;
+                background: white; border: 1px solid #dde3ef; border-radius: 8px;
+                padding: 8px 14px; border-left: 5px solid #94a3b8;
+                box-shadow: 0 1px 2px rgba(30,58,95,0.04);
+                transition: box-shadow 0.15s ease, border-color 0.15s ease, opacity 0.2s ease, transform 0.2s ease;
+                animation: tierRowIn 0.22s ease; }
+    .tier-row:hover { box-shadow: 0 3px 10px rgba(30,58,95,0.1); }
+    .tier-row.has-warning { border-left-width: 5px; }
+    @keyframes tierRowIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .tier-range-block { width: 200px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+    .tier-threshold-input { width: 60px; box-sizing: border-box; padding: 6px 2px; text-align: center;
+                            font-weight: 700; background: white; border: 1px solid #c8d0e0;
+                            border-radius: 6px; font-size: 0.88rem; color: #1a1a2e;
+                            transition: border-color 0.12s, box-shadow 0.12s;
+                            -moz-appearance: textfield; }
+    .tier-threshold-input::-webkit-outer-spin-button,
+    .tier-threshold-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .tier-threshold-input:focus { outline: none; border-color: #1e3a5f;
+                                  box-shadow: 0 0 0 3px rgba(30,58,95,0.12); }
+    .tier-range-arrow { font-size: 0.82rem; color: #8a96a8; flex-shrink: 0; }
+    .tier-range-pts-lbl { font-size: 0.76rem; color: #8a96a8; }
+
+    .tier-color-block { width: 190px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+    .tier-color-swatch { width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+                         border: 1px solid rgba(0,0,0,0.1); transition: background-color 0.15s ease; }
+    .tier-color-dropdown { padding: 6px 8px; font-size: 0.86rem; flex: 1; min-width: 0;
+                           background: white; border: 1px solid #c8d0e0; border-radius: 6px;
+                           color: #1a1a2e; transition: border-color 0.12s, box-shadow 0.12s; }
+    .tier-color-dropdown:focus { outline: none; border-color: #1e3a5f;
+                                 box-shadow: 0 0 0 3px rgba(30,58,95,0.12); }
+
+    .tier-del-btn { width: 30px; height: 30px; flex-shrink: 0; border-radius: 6px;
+                    background: none; border: none; cursor: pointer; color: #b8c0d0;
+                    display: flex; align-items: center; justify-content: center;
+                    transition: background 0.12s, color 0.12s; }
+    .tier-del-btn:hover { background: #fee2e2; color: #dc2626; }
+    .tier-del-btn svg { width: 16px; height: 16px; }
+
+    .tier-warning { font-size: 0.74rem; color: #92400e; background: #fef3c7;
+                    border-radius: 5px; padding: 3px 8px; margin-left: 4px;
+                    display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .tier-warning svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+    /* ── Add Tier panel ── */
+    .tier-add-panel { display: flex; align-items: center; justify-content: center; gap: 7px;
+                      border: 1.5px dashed #c8d0e0; border-radius: 8px; padding: 11px;
+                      margin-top: 8px; cursor: pointer; color: #5a6a7e; font-size: 0.86rem;
+                      font-weight: 600; background: #fafbfd; transition: background 0.12s, border-color 0.12s, color 0.12s;
+                      font-family: inherit; width: 100%; }
+    .tier-add-panel:hover { background: #f0f4fa; border-color: #1e3a5f; color: #1e3a5f; }
+    .tier-add-panel:disabled { opacity: 0.45; cursor: not-allowed; }
+    .tier-add-panel:disabled:hover { background: #fafbfd; border-color: #c8d0e0; color: #5a6a7e; }
+    .tier-add-panel svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+    /* ── Save row becomes sticky + highlighted only while there are
+       unsaved tier changes — a single Save button, not a duplicate. ── */
+    .tier-save-row.dirty { position: sticky; bottom: 12px; z-index: 40;
+                           background: white; border: 1px solid #c8d0e0;
+                           border-radius: 8px; padding: 10px 14px;
+                           box-shadow: 0 4px 16px rgba(30,58,95,0.16);
+                           transition: box-shadow 0.2s ease; }
+    .tier-save-row.dirty .save-msg:empty::before { content: 'Unsaved changes'; color: #92400e; font-weight: 600; }
 
     /* ── Toggle ── */
     .toggle-row { display: flex; align-items: center; justify-content: space-between;
@@ -236,7 +332,7 @@
           </div>
           <div class="form-row">
             <label>Semester Start Points</label>
-            <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100">
+            <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
           </div>
         </div>
         <div class="save-row">
@@ -304,6 +400,47 @@
         <div class="save-row" style="margin-top:12px;">
           <span class="save-msg" id="msg-nineWeeks"></span>
           <button class="btn-save" onclick="saveSection('nineWeeks')">Save</button>
+        </div>
+      </div>
+
+      <!-- Point Balance Colors -->
+      <div class="card" style="position:relative;">
+        <div class="section-title">Point Balance Colors</div>
+        <p class="section-desc">
+          Controls the colors shown for student point balances across the Dashboard, Reports,
+          and Student profiles. Set a point range for each color — for example, 90–100 could be
+          green and 75–89 could be yellow. Requires 2–6 tiers and ranges cannot overlap or leave gaps.
+        </p>
+
+        <div class="tier-preview-block">
+          <div class="tier-preview-heading">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+              <path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
+            </svg>
+            Live Preview
+          </div>
+          <div class="tier-preview" id="tier-preview"></div>
+          <div class="tier-preview-ticks" id="tier-preview-ticks"></div>
+        </div>
+
+        <div class="tier-col-headers">
+          <span class="tier-col-range">Point Range</span>
+          <span class="tier-col-color">Color</span>
+          <span class="tier-col-actions"></span>
+        </div>
+
+        <div class="tier-list" id="tier-tbody"></div>
+
+        <button type="button" class="tier-add-panel" id="tier-add-btn" onclick="addTierRow()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add Another Tier
+        </button>
+
+        <div class="save-row tier-save-row" style="margin-top:14px;" id="tier-inline-save">
+          <span class="save-msg" id="msg-pointTiers"></span>
+          <button class="btn-save" onclick="saveSection('pointTiers')">Save</button>
         </div>
       </div>
 
@@ -513,6 +650,7 @@ var _csvRows       = null; // parsed CSV rows waiting to import
 var _infsLoaded    = false;
 var _staffLoaded   = false;
 var _studentsLoaded = false;
+var _colorPalette  = {};   // {key: hex} — the constrained palette from the server
 
 // ── Bootstrap ─────────────────────────────────────────────────
 window.addEventListener('load', function() {
@@ -534,6 +672,7 @@ function onBootstrap(data) {
     return;
   }
 
+  _colorPalette = data.colorPalette || {};
   document.getElementById('settings-body').style.display = 'block';
   populateGeneral(data.config);
 }
@@ -566,6 +705,8 @@ function populateGeneral(cfg) {
 
   buildList('locations',    cfg.Locations           || []);
   buildList('nineWeeks',    cfg.NineWeeksStartDates || []);
+
+  buildTierEditor(cfg.PointTierThresholds || [], cfg.PointTierColors || []);
 }
 
 // Simple list editor helpers
@@ -617,15 +758,369 @@ function saveSection(section) {
     payload.EmailFooterText    = [document.getElementById('cfg-emailFooter').value.trim()];
   } else if (section === 'locations')    { payload.Locations           = getListValues('locations'); }
   else if (section === 'nineWeeks')      { payload.NineWeeksStartDates = getListValues('nineWeeks'); }
+  else if (section === 'pointTiers')     {
+    var tierData = getTierValues();
+    if (tierData.error) { setMsg('pointTiers', tierData.error, 'err'); return; }
+    payload.PointTierThresholds = tierData.thresholds;
+    payload.PointTierColors     = tierData.colors;
+  }
 
   setMsg(section, 'Saving...', 'ld');
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { setMsg(section, '✓ Saved', 'ok'); setTimeout(function(){ setMsg(section,'',''); }, 3000); }
-      else setMsg(section, 'Error: ' + (r.error || 'Unknown'), 'err');
+      if (r.success) {
+        setMsg(section, '✓ Saved', 'ok');
+        setTimeout(function(){ setMsg(section,'',''); }, 3000);
+        if (section === 'pointTiers') {
+          _tierDirty = false;
+          updateTierStickyBar();
+        }
+      } else {
+        setMsg(section, 'Error: ' + (r.error || 'Unknown'), 'err');
+      }
     })
     .withFailureHandler(function(err) { setMsg(section, 'Error: ' + (err.message||err), 'err'); })
     .saveConfigSection(payload);
+}
+
+// ══════════════════════════════════════════════════════════
+// POINT BALANCE COLOR TIERS
+// ══════════════════════════════════════════════════════════
+var TIER_MIN = 2;
+var TIER_MAX = 6;
+var _tierDirty = false; // tracks unsaved changes for the sticky save row
+
+// Reads the live value of the Semester Start Points field. Tiers are
+// always stored/saved as percentages (so the same config still makes
+// sense if the point total changes later), but admins think in actual
+// points earned/lost, not percentages — this converts on the fly for
+// display only.
+function getSemesterPointsValue() {
+  var v = parseFloat(document.getElementById('cfg-semesterPoints').value);
+  return (!isNaN(v) && v > 0) ? v : 100;
+}
+
+// Tiers are stored on the server as PERCENTAGES (0-100) so a saved
+// configuration stays sensible even if Semester Start Points changes
+// later — but the admin never sees a percent sign anywhere. This
+// section converts in both directions: percentages in from the server
+// become point ranges on screen, and point ranges typed by the admin
+// convert back to percentages right before saving.
+function buildTierEditor(thresholds, colors) {
+  var list = document.getElementById('tier-tbody');
+  list.innerHTML = '';
+
+  // Pair up thresholds/colors; fall back to the standard 3-tier default
+  // if the bootstrap somehow sent mismatched or empty lists (shouldn't
+  // happen — getConfig() already validates server-side — but this keeps
+  // the editor usable rather than blank if it ever does).
+  var tierPcts = [];
+  if (thresholds.length === colors.length && thresholds.length >= TIER_MIN) {
+    for (var i = 0; i < thresholds.length; i++) {
+      tierPcts.push({ pct: parseFloat(thresholds[i]), color: colors[i] });
+    }
+  } else {
+    tierPcts = [
+      { pct: 70, color: 'green' },
+      { pct: 40, color: 'amber' },
+      { pct: 0,  color: 'red'   }
+    ];
+  }
+  tierPcts.sort(function(a, b) { return b.pct - a.pct; });
+
+  // Convert each tier's starting percentage into a point MIN/MAX pair.
+  // The top tier's max is the semester total; each lower tier's max is
+  // one point below the tier above it's min.
+  var sp = getSemesterPointsValue();
+  for (var j = 0; j < tierPcts.length; j++) {
+    var min = Math.round(tierPcts[j].pct / 100 * sp);
+    var max = (j === 0) ? sp : Math.round(tierPcts[j - 1].pct / 100 * sp) - 1;
+    appendTierRow(min, max, tierPcts[j].color);
+  }
+
+  _tierDirty = false;
+  refreshTierUI();
+}
+
+// Builds one tier row with two independently editable point inputs —
+// Min and Max — and no locked/disabled fields anywhere. The color
+// swatch sits directly beside its dropdown so the row's color is
+// obvious without looking elsewhere.
+function appendTierRow(min, max, color) {
+  var list = document.getElementById('tier-tbody');
+  var row = document.createElement('div');
+  row.className = 'tier-row';
+  row.style.borderLeftColor = (_colorPalette[color] || '#94a3b8');
+
+  row.innerHTML =
+    '<div class="tier-range-block">' +
+      '<input type="number" class="tier-threshold-input" data-role="min" value="'+esc(min)+'" oninput="onTierInputChange()">' +
+      '<span class="tier-range-arrow">–</span>' +
+      '<input type="number" class="tier-threshold-input" data-role="max" value="'+esc(max)+'" oninput="onTierInputChange()">' +
+      '<span class="tier-range-pts-lbl">pts</span>' +
+    '</div>' +
+    '<div class="tier-color-block">' +
+      '<div class="tier-color-swatch" data-role="swatch" style="background:'+(_colorPalette[color]||'#94a3b8')+';"></div>' +
+      buildColorDropdownHtml(color) +
+    '</div>' +
+    '<span data-role="row-warning"></span>' +
+    '<button class="tier-del-btn" onclick="removeTierRow(this)" title="Remove tier">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/>' +
+      '<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>' +
+      '<path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>' +
+    '</button>';
+
+  list.appendChild(row);
+}
+
+// Builds the <select> of color choices for a row, defaulting to the
+// given color key. Falls back to a hardcoded palette if the bootstrap
+// response was ever missing colorPalette, so the picker stays usable.
+function buildColorDropdownHtml(selectedColor) {
+  var keys = Object.keys(_colorPalette);
+  if (keys.length === 0) {
+    _colorPalette = { green:'#10b981', blue:'#3b82f6', purple:'#8b5cf6',
+                       amber:'#eab308', orange:'#f97316', red:'#ef4444' };
+    keys = Object.keys(_colorPalette);
+  }
+  var options = keys.map(function(key) {
+    var label = key.charAt(0).toUpperCase() + key.slice(1);
+    var sel = (key === selectedColor) ? ' selected' : '';
+    return '<option value="'+esc(key)+'"'+sel+'>'+esc(label)+'</option>';
+  }).join('');
+  return '<select class="tier-color-dropdown" onchange="onTierColorChange(this)">' + options + '</select>';
+}
+
+// When a row's color dropdown changes, update that row's swatch preview
+// and left-border color immediately, mark the form dirty, then refresh
+// the live preview bar and validation.
+function onTierColorChange(select) {
+  var row = select.closest('.tier-row');
+  var key = select.value;
+  var hex = _colorPalette[key] || '#94a3b8';
+  row.querySelector('[data-role="swatch"]').style.background = hex;
+  row.style.borderLeftColor = hex;
+  onTierInputChange();
+}
+
+// Called on any threshold input or color change. Marks the form dirty
+// and re-runs validation/preview.
+function onTierInputChange() {
+  _tierDirty = true;
+  refreshTierUI();
+}
+
+function addTierRow() {
+  var rowCount = document.querySelectorAll('.tier-row').length;
+  if (rowCount >= TIER_MAX) return;
+
+  // New tier defaults to a small range below the current lowest tier's
+  // minimum, with a color not already in use if one is free.
+  var rows = document.querySelectorAll('.tier-row');
+  var lowestMin = 0;
+  if (rows.length > 0) {
+    var lastMin = parseFloat(rows[rows.length - 1].querySelector('[data-role="min"]').value);
+    lowestMin = isNaN(lastMin) ? 0 : lastMin;
+  }
+  var newMax = Math.max(lowestMin - 1, 0);
+  var newMin = Math.max(newMax - 10, 0);
+
+  var usedColors = Array.prototype.slice.call(document.querySelectorAll('.tier-color-dropdown'))
+    .map(function(s) { return s.value; });
+  var freeColor = Object.keys(_colorPalette).find(function(k) { return usedColors.indexOf(k) < 0; })
+    || Object.keys(_colorPalette)[0];
+
+  appendTierRow(newMin, newMax, freeColor);
+  onTierInputChange();
+}
+
+function removeTierRow(btn) {
+  var rowCount = document.querySelectorAll('.tier-row').length;
+  if (rowCount <= TIER_MIN) {
+    setMsg('pointTiers', 'At least ' + TIER_MIN + ' tiers are required.', 'err');
+    return;
+  }
+  var row = btn.closest('.tier-row');
+  row.style.opacity = '0';
+  row.style.transform = 'translateY(-4px)';
+  setTimeout(function() {
+    row.remove();
+    onTierInputChange();
+  }, 160);
+}
+
+// Re-reads the current editor state, updates per-row validation
+// warnings, Add button availability, the sticky save row, and redraws
+// the live preview bar (including its point-value tick marks). This is
+// the single function that keeps everything in sync with whatever the
+// admin has typed so far.
+function refreshTierUI() {
+  document.getElementById('tier-add-btn').disabled =
+    document.querySelectorAll('.tier-row').length >= TIER_MAX;
+
+  updateTierStickyBar();
+
+  var rows = document.querySelectorAll('.tier-row');
+  var sp = getSemesterPointsValue();
+
+  // ── Live, per-row validation ──────────────────────────────────
+  // Surfaces overlapping ranges, gaps between ranges, inverted min/max,
+  // and duplicate boundaries inline, next to the row(s) involved,
+  // rather than waiting for Save to report a single generic error.
+  var warnings = computeTierWarnings(rows, sp);
+  for (var w = 0; w < rows.length; w++) {
+    var warnEl = rows[w].querySelector('[data-role="row-warning"]');
+    var msg = warnings[w];
+    if (msg) {
+      warnEl.innerHTML =
+        '<span class="tier-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>' +
+        '<line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' + esc(msg) + '</span>';
+      rows[w].classList.add('has-warning');
+      rows[w].style.borderLeftColor = '#dc2626';
+    } else {
+      warnEl.innerHTML = '';
+      rows[w].classList.remove('has-warning');
+      var sel = rows[w].querySelector('.tier-color-dropdown');
+      rows[w].style.borderLeftColor = _colorPalette[sel.value] || '#94a3b8';
+    }
+  }
+
+  var data = getTierValues();
+  if (data.error) {
+    document.getElementById('tier-preview').innerHTML =
+      '<div style="display:flex;align-items:center;padding:0 10px;font-size:0.78rem;color:#8a96a8;">' +
+      esc(data.error) + '</div>';
+    document.getElementById('tier-preview-ticks').innerHTML = '';
+    return;
+  }
+
+  // Build preview segments proportional to each tier's width in points,
+  // sized against the current semester total — labels show point
+  // ranges directly, never percentages.
+  var preview = document.getElementById('tier-preview');
+  var segs = [];
+  for (var i2 = 0; i2 < data.ranges.length; i2++) {
+    var r = data.ranges[i2];
+    var width = Math.max(r.max - r.min + 1, 1);
+    var hex = _colorPalette[r.color] || '#94a3b8';
+    segs.push(
+      '<div class="tier-preview-seg" style="flex:'+width+';background:'+hex+';" ' +
+      'title="'+r.min+'–'+r.max+' pts">' + r.min + '–' + r.max + '</div>'
+    );
+  }
+  preview.innerHTML = segs.join('');
+
+  // Tick marks beneath the preview show actual point values (0, the
+  // semester total, and evenly spaced values between) rather than
+  // fixed percentages.
+  var ticks = document.getElementById('tier-preview-ticks');
+  var tickCount = 5;
+  var tickHtml = '';
+  for (var t = 0; t <= tickCount; t++) {
+    tickHtml += '<span>' + Math.round(sp * t / tickCount) + '</span>';
+  }
+  ticks.innerHTML = tickHtml;
+}
+
+// Detects per-row issues without requiring a full valid set: inverted
+// min/max within a row, gaps or overlaps between adjacent rows, and
+// out-of-range values. Rows are assumed to be listed top (highest) to
+// bottom (lowest) as they appear on screen. Returns an array of warning
+// strings (or null) aligned 1:1 with the rows passed in.
+function computeTierWarnings(rows, sp) {
+  var warnings = new Array(rows.length).fill(null);
+  var ranges = Array.prototype.map.call(rows, function(r) {
+    var min = parseFloat(r.querySelector('[data-role="min"]').value);
+    var max = parseFloat(r.querySelector('[data-role="max"]').value);
+    return { min: isNaN(min) ? null : min, max: isNaN(max) ? null : max };
+  });
+
+  for (var i = 0; i < ranges.length; i++) {
+    var min = ranges[i].min, max = ranges[i].max;
+    if (min === null || max === null) { warnings[i] = 'Enter both a minimum and maximum.'; continue; }
+    if (min < 0 || max > sp) { warnings[i] = 'Must be within 0–' + sp + ' points.'; continue; }
+    if (min > max) { warnings[i] = 'Minimum cannot be greater than maximum.'; continue; }
+
+    if (i > 0) {
+      var prevMin = ranges[i - 1].min;
+      if (prevMin !== null) {
+        if (max >= prevMin) {
+          warnings[i] = 'Overlaps the tier above (which starts at ' + prevMin + ').';
+        } else if (max + 1 < prevMin) {
+          warnings[i] = 'Gap between this tier (' + max + ') and the tier above (' + prevMin + ') — every point value must be covered.';
+        }
+      }
+    }
+  }
+  return warnings;
+}
+
+// Adds a subtle sticky + highlighted treatment to the single save row
+// while there are unsaved tier changes, so the action stays reachable
+// without showing a second, separate Save button.
+function updateTierStickyBar() {
+  document.getElementById('tier-inline-save').classList.toggle('dirty', _tierDirty);
+}
+
+// Reads the tier rows into a list of {min, max, color} point ranges,
+// validating as it goes, then converts to the percentage-based
+// thresholds the server expects. Returns { thresholds, colors, ranges }
+// on success (ranges kept in points, for the preview bar) or { error }
+// on failure.
+function getTierValues() {
+  var rows = document.querySelectorAll('.tier-row');
+  if (rows.length < TIER_MIN) return { error: 'At least ' + TIER_MIN + ' tiers are required.' };
+  if (rows.length > TIER_MAX) return { error: 'No more than ' + TIER_MAX + ' tiers are allowed.' };
+
+  var sp = getSemesterPointsValue();
+  var ranges = [];
+
+  for (var i = 0; i < rows.length; i++) {
+    var min = parseFloat(rows[i].querySelector('[data-role="min"]').value);
+    var max = parseFloat(rows[i].querySelector('[data-role="max"]').value);
+    if (isNaN(min) || isNaN(max)) {
+      return { error: 'Row ' + (i + 1) + ': enter both a minimum and maximum.' };
+    }
+    if (min < 0 || max > sp) {
+      return { error: 'Row ' + (i + 1) + ': must be within 0–' + sp + ' points.' };
+    }
+    if (min > max) {
+      return { error: 'Row ' + (i + 1) + ': minimum cannot be greater than maximum.' };
+    }
+
+    var dropdown = rows[i].querySelector('.tier-color-dropdown');
+    if (!dropdown || !dropdown.value) {
+      return { error: 'Row ' + (i + 1) + ': select a color.' };
+    }
+
+    ranges.push({ min: min, max: max, color: dropdown.value });
+  }
+
+  // Ranges must be contiguous and non-overlapping, covering every point
+  // from 0 to the semester total with no gaps.
+  for (var j = 1; j < ranges.length; j++) {
+    if (ranges[j].max >= ranges[j - 1].min) {
+      return { error: 'Row ' + (j + 1) + ': overlaps the tier above it.' };
+    }
+    if (ranges[j].max + 1 !== ranges[j - 1].min) {
+      return { error: 'Row ' + (j + 1) + ': there is a gap between this tier and the tier above it.' };
+    }
+  }
+  if (ranges[0].max !== sp) {
+    return { error: 'The top tier\'s maximum must equal the Semester Start Points value (' + sp + ').' };
+  }
+  if (ranges[ranges.length - 1].min !== 0) {
+    return { error: 'The bottom tier\'s minimum must be 0.' };
+  }
+
+  // Convert point ranges to the percentage thresholds the server stores.
+  // Each tier's threshold is its MIN expressed as a percentage of the
+  // semester total — this is what parsePointTiers() in Code.gs expects.
+  var thresholds = ranges.map(function(r) { return sp > 0 ? (r.min / sp * 100) : 0; });
+  var colors     = ranges.map(function(r) { return r.color; });
+
+  return { thresholds: thresholds, colors: colors, ranges: ranges };
 }
 
 function confirmReset() {
