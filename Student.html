@@ -133,6 +133,11 @@
 
     .empty-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
     .loading-msg { color: #94a3b8; padding: 24px; text-align: center; }
+    .loading-msg .spin { display: inline-block; width: 14px; height: 14px;
+                         border: 2px solid #dbe3ee; border-top-color: #94a3b8;
+                         border-radius: 50%; margin-right: 8px; vertical-align: -2px;
+                         animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Parent contact editor (admin only) ── */
     .contact-editor { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
@@ -183,6 +188,65 @@
     .ce-msg.err { color: #dc2626; }
     .ce-msg.ld  { color: #64748b; }
 
+    /* ── Contacts tab ── */
+    .contacts-disclaimer { display: flex; gap: 9px; align-items: flex-start;
+                           background: #eff6ff; border: 1px solid #bfdbfe;
+                           border-radius: 8px; padding: 11px 13px; margin-bottom: 14px;
+                           font-size: 0.8rem; color: #1e40af; line-height: 1.5; }
+    .contacts-disclaimer svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+    .contacts-disclaimer b { font-weight: 700; }
+    .contact-card { display: flex; align-items: center; gap: 12px; padding: 11px 13px;
+                    border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;
+                    background: white; }
+    .contact-card:last-child { margin-bottom: 0; }
+    .contact-role-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+                          letter-spacing: 0.04em; padding: 3px 9px; border-radius: 20px;
+                          background: #eef2ff; color: #3730a3; flex-shrink: 0; white-space: nowrap; }
+    .contact-card-info { flex: 1; min-width: 0; }
+    .contact-card-name { font-weight: 600; font-size: 0.88rem; color: #1e293b; }
+    .contact-card-email { font-size: 0.8rem; color: #64748b; }
+    .contact-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .contact-card-actions button { background: none; border: none; cursor: pointer;
+                                   padding: 5px 8px; border-radius: 5px; font-size: 0.78rem;
+                                   color: #64748b; font-family: inherit; }
+    .contact-card-actions button:hover { background: #f1f5f9; }
+    .contact-card-actions button.danger:hover { background: #fee2e2; color: #dc2626; }
+    .contacts-empty { color: #94a3b8; padding: 20px; text-align: center; font-size: 0.86rem; }
+    .add-contact-btn { display: flex; align-items: center; justify-content: center; gap: 6px;
+                       border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 10px;
+                       margin-top: 10px; cursor: pointer; color: #64748b; font-size: 0.84rem;
+                       font-weight: 600; background: #fafbfc; width: 100%; font-family: inherit;
+                       transition: background 0.12s, border-color 0.12s, color 0.12s; }
+    .add-contact-btn:hover { background: #f0f4fa; border-color: #1e3a5f; color: #1e3a5f; }
+    .ce-grid select#ce-role { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
+                              border-radius: 5px; font-size: 0.86rem; font-family: inherit;
+                              background: white; }
+    .ce-grid select#ce-role:focus { outline: none; border-color: #1d4ed8; }
+
+    /* ── Referral detail modal (View button on each referral row) ── */
+    .ref-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+                          z-index: 200; display: none; align-items: center; justify-content: center;
+                          padding: 16px; }
+    .ref-detail-overlay.open { display: flex; }
+    .ref-detail-modal { background: white; border-radius: 10px; max-width: 460px; width: 100%;
+                        padding: 20px 22px; box-shadow: 0 10px 32px rgba(0,0,0,0.2);
+                        max-height: 85vh; overflow-y: auto; }
+    .ref-detail-hdr { display: flex; justify-content: space-between; align-items: flex-start;
+                      margin-bottom: 14px; gap: 10px; }
+    .ref-detail-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+    .ref-detail-sub { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+    .ref-detail-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+                        color: #9ca3af; line-height: 1; padding: 0 4px; flex-shrink: 0; }
+    .ref-detail-close:hover { color: #4b5563; }
+    .ref-detail-row { display: flex; gap: 8px; margin-bottom: 9px; font-size: 0.84rem; }
+    .ref-detail-label { width: 110px; color: #94a3b8; flex-shrink: 0; padding-top: 1px; }
+    .ref-detail-val { font-weight: 500; color: #1e293b; flex: 1; }
+    .ref-detail-hr { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
+    .view-detail-btn { background: white; border: 1px solid #cbd5e1; color: #374151;
+                       border-radius: 5px; padding: 3px 10px; font-size: 0.74rem;
+                       font-weight: 600; cursor: pointer; font-family: inherit; }
+    .view-detail-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+
     @media (max-width:680px) { .two-col { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -217,12 +281,27 @@
 
 </div>
 
+<!-- Referral detail modal — opened by the View button on each referral row -->
+<div class="ref-detail-overlay" id="ref-detail-overlay" onclick="if(event.target===this) closeRefDetailModal()">
+  <div class="ref-detail-modal">
+    <div class="ref-detail-hdr">
+      <div>
+        <div class="ref-detail-title">Referral Details</div>
+        <div class="ref-detail-sub" id="ref-detail-sub"></div>
+      </div>
+      <button class="ref-detail-close" onclick="closeRefDetailModal()">×</button>
+    </div>
+    <div id="ref-detail-body"></div>
+  </div>
+</div>
+
 <script>
 var allStudents   = [];
 var semPts        = 100;
 var pointTiers    = []; // admin-configured point-balance color tiers
 var currentStudent = null;
 var activeNwIdx   = -1; // index into nineWeeks array; -1 = all
+var _refDetailLookup = {}; // referral ID → full referral object, for the View Details modal
 
 // ── Load all students once ────────────────────────────────────
 window.addEventListener('load', function() {
@@ -371,13 +450,12 @@ function renderProfile(data) {
         '<div class="p-name">'+esc(s.studentName)+'</div>' +
         '<div class="p-meta">Grade '+esc(s.grade)+' · ID: '+esc(s.studentId)+'</div>' +
         '<div class="p-contact">' +
-          (s.parentName  ? '<span>👤 '+esc(s.parentName)+'</span>' : '') +
-          (s.parentEmail ? '<span>✉ <a href="mailto:'+esc(s.parentEmail)+'">'+esc(s.parentEmail)+'</a></span>' : '') +
-          (s.parentPhone ? '<span>📞 '+esc(s.parentPhone)+'</span>' : '') +
-          (!s.parentName && !s.parentEmail ? '<span style="color:#94a3b8;">No parent contact on file</span>' : '') +
+          '<span style="color:#94a3b8;">' +
+            (s.contactCount > 0
+              ? s.contactCount + ' referral email contact' + (s.contactCount > 1 ? 's' : '') + ' on file'
+              : 'No referral email contacts on file') +
+          '</span>' +
         '</div>' +
-        // Contact editor — admin only
-        (isAdm ? buildContactEditorHtml(s) : '') +
       '</div>' +
       '<div class="pts-display" style="border-color:'+ptColor+';background:'+ptBg+';">' +
         '<div class="pts-big" style="color:'+ptColor+';">'+s.currentPoints+'</div>' +
@@ -408,7 +486,8 @@ function renderProfile(data) {
     html += '</div>';
   }
 
-  // Nine-weeks filter tabs
+  // Filter tabs — Nine Weeks periods, plus an admin-only Contacts tab
+  // in the same row.
   var tabs = '<div class="nw-tabs">' +
     '<div class="nw-tab active" id="tab-all" onclick="filterByNW(-1)">All Referrals</div>';
   if (data.nineWeeks) {
@@ -418,15 +497,18 @@ function renderProfile(data) {
               esc(nw.label) + (isCur ? ' ★' : '') + '</div>';
     });
   }
+  if (isAdm) {
+    tabs += '<div class="nw-tab" id="tab-contacts" onclick="showContactsTab()">Contacts</div>';
+  }
   tabs += '</div>';
 
   // Two-column layout
   html += '<div class="two-col">';
 
-  // Referral history
+  // Referral history / Contacts panel (swapped via JS, same tab row)
   html += '<div>' + tabs +
     '<div class="card" style="border-radius:0 10px 10px 10px;">' +
-    '<div class="card-bdy" style="padding:0;overflow-x:auto;">' +
+    '<div class="card-bdy" style="padding:0;overflow-x:auto;" id="left-panel-wrap">' +
     '<div id="ref-table-wrap">' + buildRefTable(data.referrals, -1, data.nineWeeks) + '</div>' +
     '</div></div></div>';
 
@@ -475,8 +557,20 @@ function filterByNW(idx) {
       if (t) t.className = 'nw-tab' + (i === idx ? ' active' : '');
     });
   }
-  // Re-render table
+  var contactsTab = document.getElementById('tab-contacts');
+  if (contactsTab) contactsTab.className = 'nw-tab';
+
+  // Swap the left panel back to the referral table if Contacts was showing
+  var wrapOuter = document.getElementById('left-panel-wrap');
+  if (wrapOuter) wrapOuter.style.overflowX = 'auto';
+
   var wrap = document.getElementById('ref-table-wrap');
+  if (!wrap) {
+    // Contacts panel is currently shown in its place — rebuild the
+    // referral table container first.
+    document.getElementById('left-panel-wrap').innerHTML = '<div id="ref-table-wrap"></div>';
+    wrap = document.getElementById('ref-table-wrap');
+  }
   if (wrap && currentStudent) {
     wrap.innerHTML = buildRefTable(currentStudent.referrals, idx, currentStudent.nineWeeks);
   }
@@ -497,13 +591,18 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
 
   var html = '<table><thead><tr>' +
     '<th>#</th><th>Date</th><th>Infraction</th>' +
-    '<th>Pts Δ</th><th>Balance</th><th>Teacher</th><th>Status</th>' +
+    '<th>Pts Δ</th><th>Balance</th><th>Teacher</th><th></th>' +
     '</tr></thead><tbody>';
   filtered.forEach(function(r) {
     var pts    = parseInt(r['PointValue'], 10) || 0;
     var ptsStr = pts > 0 ? '+'+pts : pts.toString();
     var ptsCls = pts < 0 ? 'pts-neg' : 'pts-pos';
-    var status = (r['Status'] || 'Open').toString();
+
+    // Store the full referral object keyed by ID so the View Details
+    // modal can look it up without embedding (possibly quote-containing)
+    // text directly inside an onclick attribute.
+    _refDetailLookup[r['ID']] = r;
+
     html += '<tr>' +
       '<td style="color:#94a3b8;">'+esc(r['ID'])+'</td>' +
       '<td style="white-space:nowrap;">'+esc(formatDateMDY(r['IncidentDate']))+
@@ -513,11 +612,73 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
       '<td class="'+ptsCls+'">'+ptsStr+'</td>' +
       '<td>'+esc(r['PointsAfterReferral']||'')+'</td>' +
       '<td style="font-size:0.77rem;color:#64748b;">'+esc(r['TeacherName']||'')+'</td>' +
-      '<td><span class="badge badge-'+status.toLowerCase()+'">'+esc(status)+'</span></td>' +
+      '<td><button class="view-detail-btn" onclick="openRefDetailModal(\''+esc(r['ID'])+'\')">View</button></td>' +
       '</tr>';
   });
   return html + '</tbody></table>';
 }
+
+// ── Referral Detail Modal ──────────────────────────────────────
+// Mirrors the "View" pattern used for the nine-weeks history on the
+// referral form (Index.html) — a centered modal with full referral
+// details, opened from a button on each row rather than navigating away.
+function openRefDetailModal(refId) {
+  var r = _refDetailLookup[refId];
+  if (!r) return;
+
+  document.getElementById('ref-detail-sub').textContent =
+    formatDateMDY(r['IncidentDate']) +
+    (r['IncidentTime'] ? ' at ' + formatTime12h(r['IncidentTime']) : '') +
+    ' · ' + r['InfractionType'];
+
+  var pts    = parseInt(r['PointValue'], 10) || 0;
+  var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
+  var status = (r['Status'] || 'Open').toString();
+
+  var fields = [
+    ['Location',     r['Location']    || ''],
+    ['Infraction',   r['InfractionType'] || ''],
+    ['Points',       '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span> &nbsp;('+
+                     (r['PointsBeforeReferral']||0)+' → '+(r['PointsAfterReferral']||0)+')'],
+    ['Teacher',      r['TeacherName'] || ''],
+    ['Status',       '<span class="badge badge-'+status.toLowerCase()+'">'+esc(status)+'</span>'],
+    ['Parent Notif.',r['ParentNotified']  || ''],
+    ['Submitted',    r['TimestampFormatted'] || '']
+  ];
+
+  var html = fields.map(function(f) {
+    return '<div class="ref-detail-row"><div class="ref-detail-label">'+esc(f[0])+'</div>' +
+           '<div class="ref-detail-val">'+f[1]+'</div></div>';
+  }).join('');
+
+  if (r['Description']) {
+    var inEmail = (r['IncludeDescriptionInEmail']||'').toString().toLowerCase() === 'yes';
+    html += '<hr class="ref-detail-hr"><div class="ref-detail-row">' +
+            '<div class="ref-detail-label">Description</div>' +
+            '<div class="ref-detail-val">'+esc(r['Description'])+
+            '<div style="margin-top:4px;font-size:0.74rem;color:'+(inEmail?'#166534':'#94a3b8')+';">' +
+            (inEmail ? '✓ Included in parent email' : '✕ Not included in parent email') +
+            '</div></div></div>';
+  }
+
+  if (r['AdminNotes']) {
+    html += '<hr class="ref-detail-hr"><div class="ref-detail-row">' +
+            '<div class="ref-detail-label">Admin Notes</div>' +
+            '<div class="ref-detail-val">'+esc(r['AdminNotes'])+'</div></div>';
+  }
+
+  document.getElementById('ref-detail-body').innerHTML = html;
+  document.getElementById('ref-detail-overlay').classList.add('open');
+}
+
+function closeRefDetailModal() {
+  document.getElementById('ref-detail-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeRefDetailModal();
+});
 
 // ── SVG Timeline ──────────────────────────────────────────────
 function buildTimelineSVG(timeline, sp, tiers) {
@@ -530,16 +691,21 @@ function buildTimelineSVG(timeline, sp, tiers) {
   var lastPct = sp > 0 ? Math.round(last / sp * 100) : 0;
   var ec    = getPointColor(lastPct, tiers);
 
+  // The plotted line still uses the original PAD so the chart itself
+  // keeps its proportions; only the text labels get extra breathing
+  // room via TEXT_PAD so long date strings (MM-DD-YYYY) don't run past
+  // the edges of the viewBox and get clipped by the card around it.
   function x(i) { return n === 1 ? W / 2 : PAD + (i / (n - 1)) * (W - PAD * 2); }
   function y(v) { return PAD + ((maxV - v) / range) * (H - PAD * 2); }
 
   var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" ' +
-            'style="width:100%;height:auto;">';
+            'style="width:100%;height:auto;overflow:visible;">';
 
-  // Reference line at sp
+  // Reference line at sp — label right-aligned and pulled in from the
+  // edge so it never runs past the viewBox.
   svg += '<line x1="'+PAD+'" y1="'+y(sp)+'" x2="'+(W-PAD)+'" y2="'+y(sp)+'" ' +
          'stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>' +
-         '<text x="'+(W-PAD+2)+'" y="'+(y(sp)+4)+'" font-size="8" fill="#94a3b8">'+sp+'</text>';
+         '<text x="'+(W-4)+'" y="'+(y(sp)-3)+'" font-size="8" fill="#94a3b8" text-anchor="end">'+sp+'</text>';
 
   if (n === 1) {
     // Single point — just show a labeled dot
@@ -556,10 +722,16 @@ function buildTimelineSVG(timeline, sp, tiers) {
            '<polyline points="'+poly+'" fill="none" stroke="#1e3a5f" ' +
            'stroke-width="1.8" stroke-linejoin="round"/>' +
            '<circle cx="'+x(n-1)+'" cy="'+y(last)+'" r="3.5" fill="'+ec+'"/>' +
-           '<text x="'+x(0)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
-           'text-anchor="middle">'+esc(formatDateMDY(timeline[0].date))+'</text>' +
-           '<text x="'+x(n-1)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
-           'text-anchor="middle">'+esc(formatDateMDY(timeline[n-1].date))+'</text>';
+           // Start date label: anchored "start" and pinned to the left
+           // edge, so it grows rightward into the chart instead of
+           // spilling left past x=0.
+           '<text x="2" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
+           'text-anchor="start">'+esc(formatDateMDY(timeline[0].date))+'</text>' +
+           // End date label: anchored "end" and pinned to the right
+           // edge, so it grows leftward into the chart instead of
+           // spilling right past x=W.
+           '<text x="'+(W-2)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
+           'text-anchor="end">'+esc(formatDateMDY(timeline[n-1].date))+'</text>';
   }
 
   return svg + '</svg>';
@@ -654,118 +826,207 @@ function hexToLightTint(hex) {
 }
 
 // ══════════════════════════════════════════════════════════
-// PARENT CONTACT EDITOR (admin only)
+// CONTACTS TAB (admin only)
+// A student can have multiple contacts — Parent/Guardian, Administrator,
+// Counselor, Case Manager — all of whom receive the same end-of-day
+// referral email digest for that student. This list controls ONLY who
+// receives that email; it is not synced from Infinite Campus or any
+// other system and must be kept current manually.
 // ══════════════════════════════════════════════════════════
 
-// State for the contact editor
-var _ceStudentId  = null;
-var _ceGuid       = '';
-var _ceSiblings   = [];
-var _ceSearchTimer = null;
+var _contactsForStudent = []; // cached list for the currently open student
+var _ceGuid        = '';      // GUID of the contact currently being edited/created
+var _ceRowIndex     = null;   // sheet row of the contact being edited (null = new)
+var _ceSiblings     = [];
+var _ceSearchTimer  = null;
 
-/**
- * Builds the contact editor HTML injected into the profile header.
- * Shows the edit button if admin; the form is hidden until Edit is clicked.
- */
-function buildContactEditorHtml(s) {
-  var hasContact = s.parentName || s.parentEmail;
-  return '<div class="contact-editor" id="contact-editor">' +
-    '<div class="contact-view">' +
-      '<button class="back-btn" style="font-size:0.78rem;" ' +
-              'onclick="openContactEditor(\''+esc(s.studentId)+'\')">' +
-        (hasContact ? '✎ Edit Contact' : '+ Add Contact') +
-      '</button>' +
-      (hasContact ?
-        '<button class="back-btn" style="font-size:0.78rem;color:#dc2626;" ' +
-                'onclick="confirmDeleteContact(\''+esc(s.studentId)+'\')">' +
-          '🗑 Remove' +
-        '</button>' : '') +
-    '</div>' +
-    '<div class="contact-edit-form" id="ce-form">' +
-      // Search before create
-      '<div class="ce-search" id="ce-search-wrap" style="display:none;">' +
-        '<label style="font-size:0.76rem;font-weight:600;color:#374151;margin-bottom:4px;display:block;">' +
-          'Search existing parent records' +
-          '<span style="font-weight:400;color:#94a3b8;margin-left:6px;">— or fill in new below</span>' +
-        '</label>' +
-        '<input type="text" id="ce-search-input" placeholder="Type parent name or email..."' +
-               ' oninput="onParentSearch(this.value)">' +
-        '<div class="ce-search-results" id="ce-search-results"></div>' +
-      '</div>' +
-      // Contact fields
-      '<div class="ce-grid">' +
-        '<div><label>First Name</label><input type="text" id="ce-first" placeholder="First"></div>' +
-        '<div><label>Last Name</label><input type="text" id="ce-last"  placeholder="Last"></div>' +
-        '<div><label>Email</label><input type="email" id="ce-email" placeholder="parent@email.com"></div>' +
-        '<div><label>Phone</label><input type="text" id="ce-phone" placeholder="555-0100"></div>' +
-      '</div>' +
-      // Sibling checkboxes (shown when siblings exist)
-      '<div class="ce-siblings" id="ce-siblings" style="display:none;">' +
-        '<div class="ce-siblings-title">Also update for siblings? (unchecked by default)</div>' +
-        '<div id="ce-siblings-list"></div>' +
-      '</div>' +
-      '<div class="ce-btn-row">' +
-        '<span class="ce-msg" id="ce-msg"></span>' +
-        '<button class="ce-btn secondary" onclick="closeContactEditor()">Cancel</button>' +
-        '<button class="ce-btn primary" onclick="saveContact()">Save</button>' +
-      '</div>' +
-    '</div>' +
-  '</div>';
+// Switches the left panel from the referral table to the Contacts list.
+// Lives in the same tab row as "All Referrals" / "Nine Weeks N".
+function showContactsTab() {
+  document.getElementById('tab-all').className = 'nw-tab';
+  if (currentStudent && currentStudent.nineWeeks) {
+    currentStudent.nineWeeks.forEach(function(_, i) {
+      var t = document.getElementById('tab-' + i);
+      if (t) t.className = 'nw-tab';
+    });
+  }
+  document.getElementById('tab-contacts').className = 'nw-tab active';
+
+  // Contacts panel needs overflow visible so the search-results dropdown
+  // (in the add/edit form) isn't clipped by the card's scroll container.
+  document.getElementById('left-panel-wrap').style.overflowX = 'visible';
+  document.getElementById('left-panel-wrap').innerHTML =
+    '<div id="contacts-panel"><div class="loading-msg"><span class="spin"></span>Loading contacts...</div></div>';
+
+  loadContactsList();
 }
 
-function openContactEditor(studentId) {
-  _ceStudentId = studentId;
-  _ceGuid      = '';
-  _ceSiblings  = [];
+function loadContactsList() {
+  if (!currentStudent || !currentStudent.student) return;
+  var studentId = currentStudent.student.studentId;
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) {
+        document.getElementById('contacts-panel').innerHTML =
+          '<div style="color:#dc2626;padding:16px;">'+esc(r.error)+'</div>';
+        return;
+      }
+      _contactsForStudent = r.contacts || [];
+      renderContactsList();
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('contacts-panel').innerHTML =
+        '<div style="color:#dc2626;padding:16px;">Error: '+esc(err.message||err)+'</div>';
+    })
+    .getStudentContacts(studentId);
+}
+
+function renderContactsList() {
+  var panel = document.getElementById('contacts-panel');
+  var html =
+    '<div style="padding:14px 16px 4px;">' +
+      '<div class="contacts-disclaimer">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">' +
+          '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>' +
+        '</svg>' +
+        '<span><b>This list controls who receives the end-of-day referral email</b> for ' +
+        'this student. It is <b>not synced from Infinite Campus</b> or any other system — ' +
+        'an admin must manually add or remove referral contacts here if the list of ' +
+        'recipients changes.</span>' +
+      '</div>';
+
+  if (_contactsForStudent.length === 0) {
+    html += '<div class="contacts-empty">No contacts on file for this student.</div>';
+  } else {
+    html += _contactsForStudent.map(function(c) {
+      return '<div class="contact-card">' +
+        '<span class="contact-role-badge">'+esc(c.role || 'Unspecified')+'</span>' +
+        '<div class="contact-card-info">' +
+          '<div class="contact-card-name">'+esc(c.name)+'</div>' +
+          '<div class="contact-card-email">'+esc(c.email)+'</div>' +
+        '</div>' +
+        '<div class="contact-card-actions">' +
+          '<button onclick="openContactEditor('+c.rowIndex+')">Edit</button>' +
+          '<button class="danger" onclick="confirmDeleteContact('+c.rowIndex+',\''+esc(c.name)+'\')">Remove</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  html += '<button class="add-contact-btn" onclick="openContactEditor(null)">+ Add Contact</button>';
+  html += '<div class="contact-edit-form" id="ce-form">' + buildContactFormHtml() + '</div>';
+  html += '</div>';
+
+  panel.innerHTML = html;
+}
+
+// Builds the (initially hidden) add/edit form shell — fields get
+// populated by openContactEditor.
+function buildContactFormHtml() {
+  return (
+    '<div class="ce-search" id="ce-search-wrap" style="display:none;">' +
+      '<label style="font-size:0.76rem;font-weight:600;color:#374151;margin-bottom:4px;display:block;">' +
+        'Search existing contacts' +
+        '<span style="font-weight:400;color:#94a3b8;margin-left:6px;">— or fill in new below</span>' +
+      '</label>' +
+      '<input type="text" id="ce-search-input" placeholder="Type a name or email..."' +
+             ' oninput="onContactSearch(this.value)">' +
+      '<div class="ce-search-results" id="ce-search-results"></div>' +
+    '</div>' +
+    '<div class="ce-grid">' +
+      '<div class="full" style="grid-column:1/-1;"><label>Role</label>' +
+        '<select id="ce-role">' +
+          '<option value="">— Select —</option>' +
+          CONTACT_ROLES_JS.map(function(r) { return '<option value="'+esc(r)+'">'+esc(r)+'</option>'; }).join('') +
+        '</select>' +
+      '</div>' +
+      '<div><label>First Name</label><input type="text" id="ce-first" placeholder="First"></div>' +
+      '<div><label>Last Name</label><input type="text" id="ce-last"  placeholder="Last"></div>' +
+      '<div style="grid-column:1/-1;"><label>Email</label><input type="email" id="ce-email" placeholder="name@email.com"></div>' +
+    '</div>' +
+    '<div class="ce-siblings" id="ce-siblings" style="display:none;">' +
+      '<div class="ce-siblings-title">Also update for siblings? (unchecked by default)</div>' +
+      '<div id="ce-siblings-list"></div>' +
+    '</div>' +
+    '<div class="ce-btn-row">' +
+      '<span class="ce-msg" id="ce-msg"></span>' +
+      '<button class="ce-btn secondary" onclick="closeContactEditor()">Cancel</button>' +
+      '<button class="ce-btn primary" onclick="submitContactForm()">Save</button>' +
+    '</div>'
+  );
+}
+
+// Role list is mirrored from CONTACT_ROLES in Code.gs (kept in sync
+// manually since this is a small fixed list, same approach as the
+// point-tier color palette).
+var CONTACT_ROLES_JS = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
+
+// rowIndex === null → adding a brand new contact.
+// rowIndex !== null → editing the contact at that sheet row.
+function openContactEditor(rowIndex) {
+  _ceRowIndex = rowIndex;
+  _ceGuid     = '';
+  _ceSiblings = [];
 
   var form = document.getElementById('ce-form');
   form.classList.add('open');
   setCeMsg('', '');
 
-  // Load existing contact and siblings from server
-  google.script.run
-    .withSuccessHandler(function(r) {
-      if (!r.success) { setCeMsg('Error loading contact: ' + r.error, 'err'); return; }
+  clearVal('ce-first'); clearVal('ce-last'); clearVal('ce-email');
+  document.getElementById('ce-role').value = '';
 
-      var c = r.contact;
-      _ceGuid     = c ? c.guid : '';
-      _ceSiblings = r.siblings || [];
+  if (rowIndex === null) {
+    // New contact — show search-before-create, no siblings yet.
+    document.getElementById('ce-search-wrap').style.display = 'block';
+    document.getElementById('ce-search-input').value = '';
+    document.getElementById('ce-siblings').style.display = 'none';
+  } else {
+    // Editing an existing contact — find it in the cached list.
+    document.getElementById('ce-search-wrap').style.display = 'none';
+    var existing = _contactsForStudent.find(function(c) { return c.rowIndex === rowIndex; });
+    if (existing) {
+      _ceGuid = existing.guid || '';
+      setVal('ce-first', existing.firstName || '');
+      setVal('ce-last',  existing.lastName  || '');
+      setVal('ce-email', existing.email     || '');
+      document.getElementById('ce-role').value = existing.role || '';
+    }
 
-      // If existing contact, pre-fill form
-      if (c) {
-        setVal('ce-first', c.firstName   || '');
-        setVal('ce-last',  c.lastName    || '');
-        setVal('ce-email', c.parentEmail || '');
-        setVal('ce-phone', c.phone       || '');
-        // Hide search — already have a contact
-        document.getElementById('ce-search-wrap').style.display = 'none';
-      } else {
-        // New contact — show search-before-create
-        document.getElementById('ce-search-wrap').style.display = 'block';
-        clearVal('ce-first'); clearVal('ce-last');
-        clearVal('ce-email'); clearVal('ce-phone');
-      }
+    // Look up siblings sharing this contact's GUID (same person linked
+    // to other students) so the admin can optionally push the same
+    // update to them too.
+    if (_ceGuid) {
+      google.script.run
+        .withSuccessHandler(function(siblings) {
+          _ceSiblings = siblings || [];
+          renderSiblingCheckboxes();
+        })
+        .withFailureHandler(function() { _ceSiblings = []; renderSiblingCheckboxes(); })
+        .findContactSiblings(_ceGuid, currentStudent.student.studentId);
+    } else {
+      document.getElementById('ce-siblings').style.display = 'none';
+    }
+  }
 
-      // Show siblings if any (unchecked by default — opt-in)
-      if (_ceSiblings.length > 0) {
-        var list = document.getElementById('ce-siblings-list');
-        list.innerHTML = _ceSiblings.map(function(sib) {
-          return '<div class="ce-sibling-item">' +
-            '<input type="checkbox" id="sib-'+esc(sib.studentId)+'" value="'+esc(sib.studentId)+'">' +
-            '<label for="sib-'+esc(sib.studentId)+'" style="margin:0;font-weight:400;font-size:0.84rem;">' +
-              esc(sib.studentName) +
-            '</label>' +
-          '</div>';
-        }).join('');
-        document.getElementById('ce-siblings').style.display = 'block';
-      } else {
-        document.getElementById('ce-siblings').style.display = 'none';
-      }
-    })
-    .withFailureHandler(function(err) {
-      setCeMsg('Error: ' + (err.message || err), 'err');
-    })
-    .getStudentContacts(studentId);
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderSiblingCheckboxes() {
+  if (_ceSiblings.length === 0) {
+    document.getElementById('ce-siblings').style.display = 'none';
+    return;
+  }
+  var list = document.getElementById('ce-siblings-list');
+  list.innerHTML = _ceSiblings.map(function(sib) {
+    return '<div class="ce-sibling-item">' +
+      '<input type="checkbox" id="sib-'+esc(sib.studentId)+'" value="'+esc(sib.studentId)+'">' +
+      '<label for="sib-'+esc(sib.studentId)+'" style="margin:0;font-weight:400;font-size:0.84rem;">' +
+        esc(sib.studentName) +
+      '</label>' +
+    '</div>';
+  }).join('');
+  document.getElementById('ce-siblings').style.display = 'block';
 }
 
 function closeContactEditor() {
@@ -775,8 +1036,10 @@ function closeContactEditor() {
   if (results) results.style.display = 'none';
 }
 
-// Search existing parents as the admin types
-function onParentSearch(query) {
+// Search existing contacts as the admin types (search-before-create —
+// prevents accidentally creating a duplicate GUID for someone already
+// on file for another student).
+function onContactSearch(query) {
   clearTimeout(_ceSearchTimer);
   var results = document.getElementById('ce-search-results');
   if (!query || query.length < 2) {
@@ -791,9 +1054,9 @@ function onParentSearch(query) {
           return;
         }
         results.innerHTML = r.results.map(function(p) {
-          return '<div class="ce-search-item" onclick="selectParent('+
+          return '<div class="ce-search-item" onclick="selectExistingContact('+
             JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
-            '<div class="ce-si-name">'+esc(p.name)+'</div>' +
+            '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.role||'—')+')</span></div>' +
             '<div class="ce-si-email">'+esc(p.email)+'</div>' +
           '</div>';
         }).join('');
@@ -804,23 +1067,25 @@ function onParentSearch(query) {
   }, 300);
 }
 
-// Admin selected an existing parent from search results
-function selectParent(p) {
+// Admin selected an existing contact from search results — reuse their
+// GUID so this new row is recognized as the same person.
+function selectExistingContact(p) {
   _ceGuid = p.guid;
   setVal('ce-first', p.firstName || '');
   setVal('ce-last',  p.lastName  || '');
   setVal('ce-email', p.email || '');
-  setVal('ce-phone', p.phone || '');
+  if (p.role) document.getElementById('ce-role').value = p.role;
   document.getElementById('ce-search-results').style.display = 'none';
   document.getElementById('ce-search-input').value = p.name || '';
 }
 
-function saveContact() {
+function submitContactForm() {
+  var role  = document.getElementById('ce-role').value;
   var first = document.getElementById('ce-first').value.trim();
   var last  = document.getElementById('ce-last').value.trim();
   var email = document.getElementById('ce-email').value.trim();
-  var phone = document.getElementById('ce-phone').value.trim();
 
+  if (!role)  { setCeMsg('Select a role.', 'err'); return; }
   if (!first || !last || !email) {
     setCeMsg('First name, last name, and email are required.', 'err');
     return;
@@ -834,22 +1099,23 @@ function saveContact() {
   });
 
   var contact = {
-    guid:        _ceGuid,
-    firstName:   first,
-    lastName:    last,
-    parentEmail: email,
-    phone:       phone
+    guid:      _ceGuid,
+    role:      role,
+    firstName: first,
+    lastName:  last,
+    email:     email
   };
+  if (_ceRowIndex !== null) contact.rowIndex = _ceRowIndex;
 
   setCeMsg('Saving...', 'ld');
   google.script.run
     .withSuccessHandler(function(r) {
       if (r.success) {
-        setCeMsg('✓ Saved' + (r.updated > 1 ? ' (' + r.updated + ' records updated)' : '') + '.', 'ok');
+        setCeMsg('✓ Saved' + (r.updatedSiblings > 0 ? ' (' + r.updatedSiblings + ' sibling record(s) updated)' : '') + '.', 'ok');
         setTimeout(function() {
-          // Reload the profile to reflect updated contact info
-          loadProfile(_ceStudentId);
-        }, 1000);
+          closeContactEditor();
+          loadContactsList();
+        }, 800);
       } else {
         setCeMsg('Error: ' + (r.error || 'Unknown'), 'err');
       }
@@ -857,18 +1123,18 @@ function saveContact() {
     .withFailureHandler(function(err) {
       setCeMsg('Error: ' + (err.message || err), 'err');
     })
-    .saveParentContact(_ceStudentId, contact, siblingIds);
+    .saveContact(currentStudent.student.studentId, contact, siblingIds);
 }
 
-function confirmDeleteContact(studentId) {
-  if (!confirm('Remove parent contact for this student?\n\nSibling records will not be affected.')) return;
+function confirmDeleteContact(rowIndex, name) {
+  if (!confirm('Remove ' + name + ' from this student\'s referral email contacts?\n\nThis only removes this one contact — other contacts for this student are unaffected.')) return;
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) loadProfile(studentId);
+      if (r.success) loadContactsList();
       else alert('Error: ' + (r.error || 'Unknown'));
     })
     .withFailureHandler(function(err) { alert('Error: ' + (err.message || err)); })
-    .deleteParentContact(studentId);
+    .deleteContact(rowIndex);
 }
 
 function setCeMsg(text, type) {
