@@ -390,11 +390,10 @@ function renderProfile(data) {
   // Summary badges
   html +=
     '<div class="sum-badges">' +
-      badge2(sum.total,   'Total',    'all')  +
-      badge2(sum.open,    'Open',     'open') +
-      badge2(sum.major,   'Major',    'maj')  +
-      badge2(sum.minor,   'Minor',    'min')  +
-      badge2(sum.positive,'Positive', 'pos')  +
+      badge2(sum.total,    'Total',    'all')  +
+      badge2(sum.open,     'Open',     'open') +
+      badge2(sum.negative, 'Negative', 'maj')  +
+      badge2(sum.positive, 'Positive', 'pos')  +
     '</div>';
 
   // Nine-weeks summary mini-cards

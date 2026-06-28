@@ -462,7 +462,7 @@
     <div id="tab-infractions" class="tab-panel">
       <div class="card">
         <div class="section-title">Infractions</div>
-        <p class="section-desc">Add, edit, or remove infraction types. Positive point values add points; negative values deduct points. Severity must be Major, Minor, or Positive.</p>
+        <p class="section-desc">Add, edit, or remove infraction types. Positive point values add points; negative values deduct points. Severity can be Major, Minor, Positive, or left as None if no severity should be assigned. Major and Minor are shown to teachers simply as "Negative."</p>
 
         <div class="tbl-wrap">
           <table class="tbl-editor">
@@ -1167,13 +1167,15 @@ function addInfractionRow() {
 
 function appendInfractionRow(r) {
   var tr = document.createElement('tr');
+  var sevVal = r.severity || '';
   tr.innerHTML =
     '<td><input type="text" value="'+esc(r.name)+'" placeholder="Infraction name"></td>' +
     '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
     '<td><select>' +
-      '<option value="Minor"'   +(r.severity==='Minor'   ?' selected':'')+'>Minor</option>' +
-      '<option value="Major"'   +(r.severity==='Major'   ?' selected':'')+'>Major</option>' +
-      '<option value="Positive"'+(r.severity==='Positive'?' selected':'')+'>Positive</option>' +
+      '<option value=""'        +(sevVal===''        ?' selected':'')+'>None</option>' +
+      '<option value="Minor"'   +(sevVal==='Minor'   ?' selected':'')+'>Minor</option>' +
+      '<option value="Major"'   +(sevVal==='Major'   ?' selected':'')+'>Major</option>' +
+      '<option value="Positive"'+(sevVal==='Positive'?' selected':'')+'>Positive</option>' +
     '</select></td>' +
     '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
     '<td class="td-del"><button class="del-btn" onclick="this.closest(\'tr\').remove()" title="Remove">×</button></td>';

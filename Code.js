@@ -266,6 +266,23 @@ function displayName(first, last) {
   return (((first || '').trim()) + ' ' + ((last || '').trim())).trim().replace(/\s+/g, ' ');
 }
 
+/**
+ * Maps the stored severity value to the word shown on teacher-facing
+ * surfaces (emails, etc). Major and Minor both collapse into the single
+ * word "Negative" — teachers no longer see the Major/Minor distinction
+ * anywhere. Positive stays Positive. An infraction with no severity
+ * assigned (empty string) maps to an empty string here too, so it's
+ * simply omitted from any "(Severity)" parenthetical in generated text.
+ * The underlying stored value in the Referrals/Infractions sheets is
+ * NEVER changed by this — it only affects what's displayed/sent.
+ */
+function displaySeverity(severity) {
+  var s = (severity || '').toString().trim();
+  if (s === 'Major' || s === 'Minor') return 'Negative';
+  if (s === 'Positive') return 'Positive';
+  return '';
+}
+
 // =============================================================
 // CONFIG & INFRACTIONS READERS  (cached per execution)
 // =============================================================
@@ -898,6 +915,8 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       : 'Points Added:    +' + pointValue + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')';
 
     var subject = '✓ Referral Saved — ' + referral.studentName + ' — #' + referralId;
+    var dispSev = displaySeverity(referral.severity);
+    var sevSuffix = dispSev ? ' (' + dispSev + ')' : '';
     var body    =
       'Hello ' + referral.teacherName + ',\n\n' +
       'Your referral has been saved.\n\n' +
@@ -905,7 +924,7 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       'Student:         ' + referral.studentName + ' (Grade ' + referral.grade + ')\n' +
       'Date:            ' + referral.incidentDate + ' at ' + referral.incidentTime + '\n' +
       'Location:        ' + referral.location + '\n' +
-      'Infraction:      ' + referral.infractionType + ' (' + referral.severity + ')\n\n' +
+      'Infraction:      ' + referral.infractionType + sevSuffix + '\n\n' +
       ptLine + '\n' +
       'Current Balance: ' + pointsAfter + ' pts\n\n' +
       (cfg.emailEnabled
@@ -1042,10 +1061,12 @@ function sendDailyParentEmails() {
 
       refs.forEach(function(ref, idx) {
         if (refs.length > 1) body += '\nReferral ' + (idx + 1) + ':\n';
+        var dispSev = displaySeverity(ref.severity);
+        var sevSuffix = dispSev ? ' (' + dispSev + ')' : '';
         body +=
           'Time:        ' + ref.incidentTime + '\n' +
           'Location:    ' + ref.location + '\n' +
-          'Infraction:  ' + ref.infractionType + ' (' + ref.severity + ')\n' +
+          'Infraction:  ' + ref.infractionType + sevSuffix + '\n' +
           'Teacher:     ' + ref.teacherName + '\n' +
           'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
         if (ref.description) {
@@ -1129,7 +1150,7 @@ function getDashboardData() {
   var openReferrals  = 0;
   var todayReferrals = 0;
   var weekReferrals  = 0;
-  var majorCount     = 0;
+  var negativeCount  = 0; // Major + Minor combined — teachers see one "Negative" bucket
 
   var allRefs = [];
 
@@ -1144,7 +1165,7 @@ function getDashboardData() {
     if (stat !== 'Resolved') openReferrals++;
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
-    if (sev === 'Major')     majorCount++;
+    if (sev === 'Major' || sev === 'Minor') negativeCount++;
 
     var d = ts instanceof Date ? ts : (ts ? new Date(ts) : null);
     if (d && !isNaN(d.getTime())) {
@@ -1252,7 +1273,7 @@ function getDashboardData() {
       openReferrals:   openReferrals,
       todayReferrals:  todayReferrals,
       weekReferrals:   weekReferrals,
-      majorCount:      majorCount,
+      negativeCount:   negativeCount,
       totalStudents:   stuData.length - 1,
       atRiskCount:     atRiskCount
     },
@@ -1403,12 +1424,11 @@ function getStudentProfile(studentId) {
     return { label: nw.label, start: nw.start, end: nw.end, count: count };
   });
 
-  var sumTotal = 0, sumOpen = 0, sumMajor = 0, sumMinor = 0, sumPos = 0;
+  var sumTotal = 0, sumOpen = 0, sumNegative = 0, sumPos = 0;
   referrals.forEach(function(r) {
     sumTotal++;
     if (r.Status !== 'Resolved') sumOpen++;
-    if (r.Severity === 'Major')    sumMajor++;
-    if (r.Severity === 'Minor')    sumMinor++;
+    if (r.Severity === 'Major' || r.Severity === 'Minor') sumNegative++;
     if (r.Severity === 'Positive') sumPos++;
   });
 
@@ -1427,8 +1447,7 @@ function getStudentProfile(studentId) {
     summary: {
       total:    sumTotal,
       open:     sumOpen,
-      major:    sumMajor,
-      minor:    sumMinor,
+      negative: sumNegative,
       positive: sumPos
     }
   };
@@ -1813,8 +1832,10 @@ function saveInfractions(rows) {
     return { success: false, error: 'At least one infraction is required.' };
   }
 
-  // Validate each row
-  var VALID_SEVERITIES = ['Major', 'Minor', 'Positive'];
+  // Validate each row. Severity is optional — an empty string means
+  // "None" (no severity assigned). Major/Minor/Positive remain the
+  // only non-empty values allowed.
+  var VALID_SEVERITIES = ['Major', 'Minor', 'Positive', ''];
   for (var v = 0; v < rows.length; v++) {
     var r = rows[v];
     if (!r.name || r.name.toString().trim() === '') {
@@ -1823,8 +1844,8 @@ function saveInfractions(rows) {
     if (isNaN(parseInt(r.pointValue, 10))) {
       return { success: false, error: 'Row ' + (v + 1) + ': Point value must be a number.' };
     }
-    if (VALID_SEVERITIES.indexOf(r.severity) < 0) {
-      return { success: false, error: 'Row ' + (v + 1) + ': Severity must be Major, Minor, or Positive.' };
+    if (VALID_SEVERITIES.indexOf((r.severity || '').toString().trim()) < 0) {
+      return { success: false, error: 'Row ' + (v + 1) + ': Severity must be Major, Minor, Positive, or left blank for None.' };
     }
   }
 

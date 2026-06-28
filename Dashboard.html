@@ -124,7 +124,7 @@
     <div class="stat-card amber"> <div class="stat-value" id="st-open">—</div>   <div class="stat-label">Open</div></div>
     <div class="stat-card teal">  <div class="stat-value" id="st-today">—</div>  <div class="stat-label">Today</div></div>
     <div class="stat-card indigo"><div class="stat-value" id="st-week">—</div>   <div class="stat-label">This Week</div></div>
-    <div class="stat-card red">   <div class="stat-value" id="st-major">—</div>  <div class="stat-label">Major Infractions</div></div>
+    <div class="stat-card red">   <div class="stat-value" id="st-negative">—</div>  <div class="stat-label">Negative Referrals</div></div>
     <div class="stat-card green"> <div class="stat-value" id="st-stus">—</div>   <div class="stat-label">Total Students</div></div>
     <div class="stat-card red">   <div class="stat-value" id="st-risk">—</div>   <div class="stat-label">At-Risk Students</div></div>
     <div class="stat-card purple"><div class="stat-value" id="st-pts">—</div>    <div class="stat-label">Starting Points</div></div>
@@ -200,7 +200,7 @@ function render(d) {
   var s = d.stats;
   setText('st-total', s.totalReferrals); setText('st-open', s.openReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
-  setText('st-major', s.majorCount);     setText('st-stus', s.totalStudents);
+  setText('st-negative', s.negativeCount); setText('st-stus', s.totalStudents);
   setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.semesterPoints + ' pts');
 
   var maxM = Math.max.apply(null, d.monthlyTrend.map(function(m){ return m.count; })) || 1;
