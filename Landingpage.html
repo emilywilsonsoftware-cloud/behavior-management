@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Behavior Tracker — Staff Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:      #1e3a5f;
+      --navy-mid:  #2a4d7a;
+      --navy-lite: #7eb4d8;
+      --gold:      #7eb4d8;
+      --gold-lite: #b8d8ee;
+      --red:       #9b1b2a;
+      --cream:     #f4f6f9;
+      --white:     #ffffff;
+      --muted:     #5a6a7e;
+      --border:    rgba(30,58,95,0.12);
+      --shadow-sm: 0 2px 8px rgba(30,58,95,0.08);
+      --shadow-md: 0 6px 24px rgba(30,58,95,0.12);
+      --radius:    12px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--navy);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .site-header {
+      background: var(--navy);
+      padding: 0 32px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .site-header .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+      text-decoration: none;
+    }
+    .site-header .brand-icon {
+      width: 28px; height: 28px;
+      background: var(--gold);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .site-header .brand-icon svg { width: 16px; height: 16px; stroke: white; }
+    .site-header .brand-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      letter-spacing: 0.01em;
+    }
+    .site-header .school-name {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--navy);
+      padding: 56px 32px 72px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 80% at 20% 110%, rgba(59,110,160,0.35) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 80% -10%,  rgba(126,180,216,0.12) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      background: rgba(126,180,216,0.15);
+      color: #b8d8ee;
+      border: 1px solid var(--red);
+      border-radius: 20px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .hero h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      color: white;
+      line-height: 1.15;
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .hero p {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.62);
+      max-width: 480px;
+      margin: 0 auto 32px;
+      line-height: 1.65;
+      position: relative;
+    }
+
+    /* ── Hero button ── */
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .hero-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.12s, box-shadow 0.12s;
+      cursor: pointer;
+    }
+    .hero-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+    .hero-btn.primary {
+      background: var(--gold);
+      color: white;
+    }
+    .hero-btn.primary:hover {
+      background: var(--red);
+      color: white;
+    }
+    .hero-btn svg { width: 15px; height: 15px; }
+
+    /* ── Footer ── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .site-footer p { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .hero { padding: 40px 20px 56px; }
+      .site-header { padding: 0 16px; }
+      .school-name { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="site-header">
+  <a class="brand" href="#">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4">
+        <path d="M9 11l3 3L22 4"/>
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+    </div>
+    <span class="brand-name">Behavior Tracker</span>
+  </a>
+  <span class="school-name">Northmont Middle School</span>
+</header>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="hero-eyebrow">Staff Portal</div>
+  <h1>Student Behavior<br>Management System</h1>
+  <p>Submit referrals, monitor student progress, and review behavior data — all in one place.</p>
+  <div class="hero-actions">
+    <!--
+      REPLACE the href value below with your actual Apps Script Web App URL.
+      Example: https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+    -->
+    <a class="hero-btn primary" href="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec" target="_blank">
+      Get Started
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </a>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer class="site-footer">
+  <p>Behavior Tracker &copy; <span id="yr"></span> &mdash; Powered by Google Workspace for Education</p>
+  <p>Questions? Contact your school administrator.</p>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
