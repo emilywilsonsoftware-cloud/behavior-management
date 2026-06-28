@@ -145,6 +145,15 @@
       background: var(--red);
       color: white;
     }
+    .hero-btn.secondary {
+      background: transparent;
+      color: white;
+      border: 1.5px solid rgba(255,255,255,0.4);
+    }
+    .hero-btn.secondary:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.6);
+    }
     .hero-btn svg { width: 15px; height: 15px; }
 
     /* ── Footer ── */
@@ -180,7 +189,7 @@
     </div>
     <span class="brand-name">Behavior Tracker</span>
   </a>
-  <span class="school-name">Northmont Middle School</span>
+  <span class="school-name">Your School Name Here</span>
 </header>
 
 <!-- ── Hero ── -->
@@ -190,11 +199,24 @@
   <p>Submit referrals, monitor student progress, and review behavior data — all in one place.</p>
   <div class="hero-actions">
     <!--
-      REPLACE the href value below with your actual Apps Script Web App URL.
-      Example: https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+      REPLACE YOUR_WEBAPP_URL below (in both buttons) with your actual
+      Apps Script Web App URL. Example:
+      https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+
+      The first button opens the Dashboard (the default page).
+      The second opens the New Referral form directly via ?page=form,
+      for teachers who want to skip the dashboard and submit a referral
+      right away.
     -->
-    <a class="hero-btn primary" href="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec" target="_blank">
-      Get Started
+    <a class="hero-btn primary" href="YOUR_WEBAPP_URL" target="_blank">
+      Go to Dashboard
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </a>
+    <a class="hero-btn secondary" href="YOUR_WEBAPP_URL?page=form" target="_blank">
+      Submit a Referral
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="5" y1="12" x2="19" y2="12"/>
         <polyline points="12 5 19 12 12 19"/>
