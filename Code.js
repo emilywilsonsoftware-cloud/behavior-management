@@ -1193,6 +1193,7 @@ function getDashboardData() {
       severity:       sev,
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
       incidentDate:   inc,
+      incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       teacherName:    row[ci['TeacherName']] ? row[ci['TeacherName']].toString() : '',
       status:         stat
     });

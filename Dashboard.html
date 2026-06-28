@@ -80,6 +80,7 @@
     .a-det  { font-size: 0.76rem; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .a-meta { text-align: right; flex-shrink: 0; }
     .a-date { font-size: 0.73rem; color: #94a3b8; }
+    .a-time { font-size: 0.73rem; color: #c2c8d2; }
     .a-pts  { font-size: 0.76rem; font-weight: 700; }
     .pts-neg { color: #dc2626; } .pts-pos { color: #166534; }
 
@@ -239,7 +240,8 @@ function render(d) {
           '<div class="a-main"><div class="a-stu">' +
             '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
           '<div class="a-det">'+esc(r.infractionType)+' · '+esc(r.teacherName)+'</div></div>' +
-          '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+'</div>' +
+          '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
+            (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
           '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div></div></div>';
       }).join('');
 
@@ -274,6 +276,20 @@ function formatDateMDY(d) {
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
   if (!m) return d;
   return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Converts a "HH:MM" (24-hr) string to "H:MM AM/PM" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatTime12h(t) {
+  if (!t) return '';
+  var m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  var h = parseInt(m[1], 10);
+  var min = m[2];
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ':' + min + ' ' + period;
 }
 
 // Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors

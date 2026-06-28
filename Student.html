@@ -506,7 +506,9 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
     var status = (r['Status'] || 'Open').toString();
     html += '<tr>' +
       '<td style="color:#94a3b8;">'+esc(r['ID'])+'</td>' +
-      '<td style="white-space:nowrap;">'+esc(formatDateMDY(r['IncidentDate']))+'</td>' +
+      '<td style="white-space:nowrap;">'+esc(formatDateMDY(r['IncidentDate']))+
+        (r['IncidentTime'] ? '<div style="font-size:0.72rem;color:#9ca3af;">'+esc(formatTime12h(r['IncidentTime']))+'</div>' : '')+
+      '</td>' +
       '<td>'+esc(r['InfractionType'])+'</td>' +
       '<td class="'+ptsCls+'">'+ptsStr+'</td>' +
       '<td>'+esc(r['PointsAfterReferral']||'')+'</td>' +
@@ -595,6 +597,20 @@ function formatDateMDY(d) {
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
   if (!m) return d;
   return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Converts a "HH:MM" (24-hr) string to "H:MM AM/PM" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatTime12h(t) {
+  if (!t) return '';
+  var m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  var h = parseInt(m[1], 10);
+  var min = m[2];
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ':' + min + ' ' + period;
 }
 
 // Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
