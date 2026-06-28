@@ -126,11 +126,7 @@
            <select id="f-tch"><option value="">All Teachers</option></select></div>
       <div><label class="fl">Infraction</label>
            <select id="f-inf"><option value="">All Infractions</option></select></div>
-      <div><label class="fl">Severity</label>
-           <select id="f-sev">
-             <option value="All">All</option><option value="Major">Major</option>
-             <option value="Minor">Minor</option><option value="Positive">Positive</option>
-           </select></div>
+      <input type="hidden" id="f-sev" value="All">
       <div><label class="fl">Status</label>
            <select id="f-sta">
              <option value="All">All</option><option value="Open">Open</option>
@@ -162,7 +158,6 @@
           <th onclick="sortBy('StudentName')">Student</th>
           <th onclick="sortBy('Grade')">Gr</th>
           <th onclick="sortBy('InfractionType')">Infraction</th>
-          <th onclick="sortBy('Severity')">Sev</th>
           <th onclick="sortBy('PointValue')">Pts Δ</th>
           <th onclick="sortBy('CurrentPoints')">Balance</th>
           <th onclick="sortBy('TeacherName')">Teacher</th>
@@ -171,7 +166,7 @@
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody id="tbl-body"><tr><td colspan="12" class="empty-msg">Loading...</td></tr></tbody>
+      <tbody id="tbl-body"><tr><td colspan="11" class="empty-msg">Loading...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -185,6 +180,7 @@
 
 <script>
 var allRows = [], filteredRows = [], sortCol = 'IncidentDate', sortAsc = false, semPts = 100;
+var pointTiers = []; // admin-configured point-balance color tiers
 var detailIdx = null;
 
 window.addEventListener('load', function() {
@@ -194,7 +190,7 @@ window.addEventListener('load', function() {
     .withFailureHandler(function(err) {
       showLoading(false);
       document.getElementById('tbl-body').innerHTML =
-        '<tr><td colspan="12" class="empty-msg" style="color:#dc2626;">Error: '+esc(err.message||err)+'</td></tr>';
+        '<tr><td colspan="11" class="empty-msg" style="color:#dc2626;">Error: '+esc(err.message||err)+'</td></tr>';
     })
     .getReportData({});
 });
@@ -204,6 +200,7 @@ function onDataLoaded(data) {
   if (typeof updateNavUser === 'function') updateNavUser(data.user);
   allRows = data.rows || [];
   semPts  = data.semesterPoints || 100;
+  pointTiers = data.pointTiers || [];
 
   var tchSel = document.getElementById('f-tch');
   (data.teacherOptions||[]).forEach(function(t) {
@@ -273,28 +270,26 @@ function renderTable() {
 
   if (filteredRows.length === 0) {
     document.getElementById('tbl-body').innerHTML =
-      '<tr><td colspan="12" class="empty-msg">No referrals match the filters.</td></tr>';
+      '<tr><td colspan="11" class="empty-msg">No referrals match the filters.</td></tr>';
     return;
   }
 
   document.getElementById('tbl-body').innerHTML = filteredRows.map(function(row, idx) {
-    var sev      = (row['Severity']||'').toString();
     var pts      = parseFloat(row['PointValue'])||0;
     var ptsStr   = pts > 0 ? '+'+pts : pts.toString();
     var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : '';
     var balance  = parseInt(row['CurrentPoints'])||0;
-    var bPct     = semPts > 0 ? balance/semPts : 0;
-    var bColor   = bPct >= 0.7 ? '#166534' : bPct >= 0.4 ? '#b45309' : '#b91c1c';
-    var bBg      = bPct >= 0.7 ? '#dcfce7' : bPct >= 0.4 ? '#fef9c3' : '#fee2e2';
+    var bPct     = semPts > 0 ? Math.round(balance/semPts*100) : 0;
+    var bColor   = row['CurrentPointsColor'] || getPointColor(bPct, pointTiers);
+    var bBg      = hexToLightTint(bColor);
     var status   = (row['Status']||'Open').toString();
     var studentId = (row['StudentID']||'').toString();
     return '<tr'+(status==='Resolved'?' class="resolved"':'')+'>' +
       '<td style="color:#94a3b8;">'+esc(row['ID']||'')+'</td>' +
-      '<td style="white-space:nowrap;">'+esc(row['IncidentDate']||'')+'</td>' +
+      '<td style="white-space:nowrap;">'+esc(formatDateMDY(row['IncidentDate']||''))+'</td>' +
       '<td><a class="stu-link" href="?page=student&id='+esc(studentId)+'">'+esc(row['StudentName']||'')+'</a></td>' +
       '<td>'+esc(row['Grade']||'')+'</td>' +
       '<td>'+esc(row['InfractionType']||'')+'</td>' +
-      '<td><span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></td>' +
       '<td class="'+ptsCls+'">'+ptsStr+'</td>' +
       '<td><span class="bal-pill" style="background:'+bBg+';color:'+bColor+';">'+balance+'</span></td>' +
       '<td>'+esc(row['TeacherName']||'')+'</td>' +
@@ -320,7 +315,6 @@ function openDetail(idx) {
   var row   = filteredRows[idx];
   document.getElementById('d-title').textContent = 'Referral #'+(row['ID']||'')+' — '+(row['StudentName']||'');
 
-  var sev    = (row['Severity']||'').toString();
   var pts    = parseFloat(row['PointValue'])||0;
   var ptsStr = pts > 0 ? '+'+pts : pts.toString();
   var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
@@ -328,11 +322,10 @@ function openDetail(idx) {
   var fields = [
     ['Student',     (row['StudentName']||'')+' (Grade '+(row['Grade']||'')+')'],
     ['Student ID',  row['StudentID']||''],
-    ['Date / Time', (row['IncidentDate']||'')+' at '+formatTime12h(row['IncidentTime']||'')],
+    ['Date / Time', formatDateMDY(row['IncidentDate']||'')+' at '+formatTime12h(row['IncidentTime']||'')],
     ['Submitted',   row['TimestampFormatted']||''],
     ['Location',    row['Location']||''],
     ['Infraction',  row['InfractionType']||''],
-    ['Severity',    '<span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span>'],
     ['Points',      '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span> &nbsp;('+
                     (row['PointsBeforeReferral']||0)+' → '+(row['PointsAfterReferral']||0)+')'],
     ['Balance',     '<strong>'+(row['CurrentPoints']||0)+' pts</strong>'],
@@ -405,7 +398,7 @@ function saveDetail() {
 function exportCsv() {
   if (filteredRows.length === 0) { alert('No data to export.'); return; }
   var cols = ['ID','IncidentDate','IncidentTime','StudentName','Grade','InfractionType',
-              'Severity','PointValue','PointsBeforeReferral','PointsAfterReferral','CurrentPoints',
+              'PointValue','PointsBeforeReferral','PointsAfterReferral','CurrentPoints',
               'Location','Description','IncludeDescriptionInEmail','TeacherName',
               'ParentNotified','TeacherNotified','Status','AdminNotes'];
   var csv = cols.join(',') + '\n' + filteredRows.map(function(row) {
@@ -440,6 +433,56 @@ function formatTime12h(t) {
   var h12 = h % 12;
   if (h12 === 0) h12 = 12;
   return h12 + ':' + min + ' ' + period;
+}
+
+// Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+// Sorting (sortBy) and the Date From/To filters intentionally keep
+// reading the raw YYYY-MM-DD value — only display text is reformatted.
+function formatDateMDY(d) {
+  if (!d) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
+// admins can choose from in Settings. Used only as a fallback below;
+// each row from getReportData() already carries a resolved
+// CurrentPointsColor hex value, so this path should rarely run.
+var POINT_COLOR_PALETTE = {
+  green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
+  amber: '#eab308', orange: '#f97316', red: '#ef4444'
+};
+
+// Resolves a percentage (0-100) to a hex color using the admin-configured
+// point tiers. Mirrors getPointColor() in Code.gs. tiers must be sorted
+// descending by threshold, which parsePointTiers() guarantees.
+function getPointColor(pct, tiers) {
+  var list = (tiers && tiers.length) ? tiers : [
+    { threshold: 70, color: 'green' },
+    { threshold: 40, color: 'amber' },
+    { threshold: 0,  color: 'red'   }
+  ];
+  for (var i = 0; i < list.length; i++) {
+    if (pct >= list[i].threshold) {
+      return POINT_COLOR_PALETTE[list[i].color] || '#94a3b8';
+    }
+  }
+  return '#94a3b8';
+}
+
+// Converts a hex color to a light background tint (mixed toward white)
+// for use behind the balance pill. Works for any of the 6 palette colors
+// without needing a separate server-side tint table.
+function hexToLightTint(hex) {
+  var h = (hex || '').replace('#', '');
+  if (h.length !== 6) return '#f1f5f9';
+  var r = parseInt(h.substr(0, 2), 16);
+  var g = parseInt(h.substr(2, 2), 16);
+  var b = parseInt(h.substr(4, 2), 16);
+  var mix = function(c) { return Math.round(c + (255 - c) * 0.85); };
+  return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
 }
 </script>
 </body>

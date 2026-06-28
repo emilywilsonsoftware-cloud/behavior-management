@@ -194,7 +194,7 @@
 
   <!-- Search panel -->
   <div class="search-card" id="search-panel">
-    <h2>Student Search</h2>
+    <h2>Student Lookup</h2>
     <div class="filter-bar">
       <select id="filter-grade" onchange="onSearch(document.getElementById('stu-search').value)">
         <option value="">All Grades</option>
@@ -220,6 +220,7 @@
 <script>
 var allStudents   = [];
 var semPts        = 100;
+var pointTiers    = []; // admin-configured point-balance color tiers
 var currentStudent = null;
 var activeNwIdx   = -1; // index into nineWeeks array; -1 = all
 
@@ -233,6 +234,7 @@ window.addEventListener('load', function() {
       if (typeof updateNavUser === 'function') updateNavUser(data.user);
       allStudents = data.students || [];
       semPts      = data.semesterPoints || 100;
+      pointTiers  = data.pointTiers || [];
 
       // Build grade filter from actual student data
       var grades = [];
@@ -294,10 +296,10 @@ function onSearch(query) {
   }
 
   results.innerHTML = hits.map(function(s) {
-    var pct    = semPts > 0 ? Math.round(s.currentPoints / semPts * 100) : 0;
-    var ptsCls = pct >= 70 ? 'pts-hi' : pct >= 40 ? 'pts-md' : 'pts-lo';
-    var init   = initials(s.studentName);
-    var bg     = avatarColor(s.studentId);
+    var pct      = semPts > 0 ? Math.round(s.currentPoints / semPts * 100) : 0;
+    var ptsColor = s.pointColor || getPointColor(pct, pointTiers);
+    var init     = initials(s.studentName);
+    var bg       = avatarColor(s.studentId);
     return '<div class="stu-row" onclick="loadProfile(\''+esc(s.studentId)+'\')">' +
       '<div class="stu-avatar" style="background:'+bg+';">'+esc(init)+'</div>' +
       '<div class="stu-info">' +
@@ -305,7 +307,7 @@ function onSearch(query) {
         '<div class="stu-sub">Grade '+esc(s.grade)+' · ID: '+esc(s.studentId)+'</div>' +
       '</div>' +
       '<div class="stu-pts">' +
-        '<div class="pts-val '+ptsCls+'">'+s.currentPoints+'</div>' +
+        '<div class="pts-val" style="color:'+ptsColor+';">'+s.currentPoints+'</div>' +
         '<div class="pts-pct">'+pct+'% of '+semPts+'</div>' +
       '</div></div>';
   }).join('');
@@ -353,8 +355,8 @@ function renderProfile(data) {
   var sp     = data.semesterPoints;
   var isAdm  = data.user && data.user.role === 'admin';
   var pct    = sp > 0 ? Math.max(0,Math.min(100,Math.round(s.currentPoints/sp*100))) : 0;
-  var ptColor = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
-  var ptBg    = pct >= 70 ? '#dcfce7' : pct >= 40 ? '#fef9c3' : '#fee2e2';
+  var ptColor = s.pointColor || getPointColor(pct, data.pointTiers);
+  var ptBg    = hexToLightTint(ptColor);
   var init    = initials(s.studentName);
   var bg      = avatarColor(s.studentId);
   var sum     = data.summary;
@@ -388,11 +390,10 @@ function renderProfile(data) {
   // Summary badges
   html +=
     '<div class="sum-badges">' +
-      badge2(sum.total,   'Total',    'all')  +
-      badge2(sum.open,    'Open',     'open') +
-      badge2(sum.major,   'Major',    'maj')  +
-      badge2(sum.minor,   'Minor',    'min')  +
-      badge2(sum.positive,'Positive', 'pos')  +
+      badge2(sum.total,    'Total',    'all')  +
+      badge2(sum.open,     'Open',     'open') +
+      badge2(sum.negative, 'Negative', 'maj')  +
+      badge2(sum.positive, 'Positive', 'pos')  +
     '</div>';
 
   // Nine-weeks summary mini-cards
@@ -436,7 +437,7 @@ function renderProfile(data) {
     '<div class="card-bdy">' +
     (data.pointTimeline.length === 0
       ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
-      : buildTimelineSVG(data.pointTimeline, sp)) +
+      : buildTimelineSVG(data.pointTimeline, sp, data.pointTiers)) +
     '</div></div>' +
 
     '<div class="card">' +
@@ -495,20 +496,20 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
     return '<div class="empty-msg">No referrals for this period.</div>';
 
   var html = '<table><thead><tr>' +
-    '<th>#</th><th>Date</th><th>Infraction</th><th>Sev</th>' +
+    '<th>#</th><th>Date</th><th>Infraction</th>' +
     '<th>Pts Δ</th><th>Balance</th><th>Teacher</th><th>Status</th>' +
     '</tr></thead><tbody>';
   filtered.forEach(function(r) {
     var pts    = parseInt(r['PointValue'], 10) || 0;
     var ptsStr = pts > 0 ? '+'+pts : pts.toString();
     var ptsCls = pts < 0 ? 'pts-neg' : 'pts-pos';
-    var sev    = (r['Severity'] || '').toString();
     var status = (r['Status'] || 'Open').toString();
     html += '<tr>' +
       '<td style="color:#94a3b8;">'+esc(r['ID'])+'</td>' +
-      '<td style="white-space:nowrap;">'+esc(r['IncidentDate'])+'</td>' +
+      '<td style="white-space:nowrap;">'+esc(formatDateMDY(r['IncidentDate']))+
+        (r['IncidentTime'] ? '<div style="font-size:0.72rem;color:#9ca3af;">'+esc(formatTime12h(r['IncidentTime']))+'</div>' : '')+
+      '</td>' +
       '<td>'+esc(r['InfractionType'])+'</td>' +
-      '<td><span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></td>' +
       '<td class="'+ptsCls+'">'+ptsStr+'</td>' +
       '<td>'+esc(r['PointsAfterReferral']||'')+'</td>' +
       '<td style="font-size:0.77rem;color:#64748b;">'+esc(r['TeacherName']||'')+'</td>' +
@@ -519,14 +520,15 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
 }
 
 // ── SVG Timeline ──────────────────────────────────────────────
-function buildTimelineSVG(timeline, sp) {
+function buildTimelineSVG(timeline, sp, tiers) {
   var W = 280, H = 100, PAD = 14;
   var pts  = timeline.map(function(t){ return Math.max(0, t.points); });
   var n    = pts.length;
   var maxV = Math.max.apply(null, pts.concat([sp]));
   var range = Math.max(maxV, 1);
   var last  = pts[n - 1];
-  var ec    = last >= sp * 0.7 ? '#10b981' : last >= sp * 0.4 ? '#f59e0b' : '#ef4444';
+  var lastPct = sp > 0 ? Math.round(last / sp * 100) : 0;
+  var ec    = getPointColor(lastPct, tiers);
 
   function x(i) { return n === 1 ? W / 2 : PAD + (i / (n - 1)) * (W - PAD * 2); }
   function y(v) { return PAD + ((maxV - v) / range) * (H - PAD * 2); }
@@ -543,7 +545,7 @@ function buildTimelineSVG(timeline, sp) {
     // Single point — just show a labeled dot
     svg += '<circle cx="'+x(0)+'" cy="'+y(pts[0])+'" r="4" fill="'+ec+'"/>' +
            '<text x="'+x(0)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
-           'text-anchor="middle">'+esc(timeline[0].date)+'</text>';
+           'text-anchor="middle">'+esc(formatDateMDY(timeline[0].date))+'</text>';
   } else {
     var poly = pts.map(function(v, i){ return x(i) + ',' + y(v); }).join(' ');
     var area = 'M ' + x(0) + ',' + y(pts[0]) + ' ' +
@@ -555,9 +557,9 @@ function buildTimelineSVG(timeline, sp) {
            'stroke-width="1.8" stroke-linejoin="round"/>' +
            '<circle cx="'+x(n-1)+'" cy="'+y(last)+'" r="3.5" fill="'+ec+'"/>' +
            '<text x="'+x(0)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
-           'text-anchor="middle">'+esc(timeline[0].date)+'</text>' +
+           'text-anchor="middle">'+esc(formatDateMDY(timeline[0].date))+'</text>' +
            '<text x="'+x(n-1)+'" y="'+(H-2)+'" font-size="8" fill="#94a3b8" ' +
-           'text-anchor="middle">'+esc(timeline[n-1].date)+'</text>';
+           'text-anchor="middle">'+esc(formatDateMDY(timeline[n-1].date))+'</text>';
   }
 
   return svg + '</svg>';
@@ -586,6 +588,69 @@ function initials(name) {
 }
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatDateMDY(d) {
+  if (!d) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Converts a "HH:MM" (24-hr) string to "H:MM AM/PM" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatTime12h(t) {
+  if (!t) return '';
+  var m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  var h = parseInt(m[1], 10);
+  var min = m[2];
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ':' + min + ' ' + period;
+}
+
+// Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
+// admins can choose from in Settings. Used only as a fallback below;
+// the student object from the server already carries a resolved
+// pointColor hex value, so this path should rarely run.
+var POINT_COLOR_PALETTE = {
+  green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
+  amber: '#eab308', orange: '#f97316', red: '#ef4444'
+};
+
+// Resolves a percentage (0-100) to a hex color using the admin-configured
+// point tiers (key/threshold pairs, as returned by getStudentProfile()
+// and getAllStudents()). Mirrors getPointColor() in Code.gs. tiers must
+// be sorted descending by threshold, which parsePointTiers() guarantees.
+function getPointColor(pct, tiers) {
+  var list = (tiers && tiers.length) ? tiers : [
+    { threshold: 70, color: 'green' },
+    { threshold: 40, color: 'amber' },
+    { threshold: 0,  color: 'red'   }
+  ];
+  for (var i = 0; i < list.length; i++) {
+    if (pct >= list[i].threshold) {
+      return POINT_COLOR_PALETTE[list[i].color] || '#94a3b8';
+    }
+  }
+  return '#94a3b8';
+}
+
+// Converts a hex color to a light background tint (mixed toward white)
+// for use behind a solid-colored point display. Works for any of the
+// 6 palette colors without needing a separate server-side tint table.
+function hexToLightTint(hex) {
+  var h = (hex || '').replace('#', '');
+  if (h.length !== 6) return '#f1f5f9';
+  var r = parseInt(h.substr(0, 2), 16);
+  var g = parseInt(h.substr(2, 2), 16);
+  var b = parseInt(h.substr(4, 2), 16);
+  var mix = function(c) { return Math.round(c + (255 - c) * 0.85); };
+  return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
 }
 
 // ══════════════════════════════════════════════════════════

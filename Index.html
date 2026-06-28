@@ -352,6 +352,7 @@ var state = {
   infMap:      {},   // name → { pointValue, severity }
   infList:     [],   // flat list of infractions for autofill search
   semPts:      100,
+  pointTiers:  [],   // admin-configured point-balance color tiers
   nwLabel:     'Current Nine Weeks',
   lastIncident: null // cached incident details for "Submit and Copy"
 };
@@ -380,6 +381,7 @@ function onBootstrap(data) {
   state.teacherEmail = data.user.email;
   state.allStudents  = data.students   || [];
   state.semPts       = data.semesterPoints || 100;
+  state.pointTiers   = data.pointTiers || [];
   state.nwLabel      = data.currentNineWeeks ? data.currentNineWeeks.label : 'Current Nine Weeks';
 
   document.getElementById('teacher-name').value  = state.teacherName;
@@ -437,14 +439,14 @@ function searchStudents(query) {
   container.innerHTML = hits.map(function(s) {
     var isSelected = state.selected.some(function(x) { return x.studentId === s.studentId; });
     var pct = state.semPts > 0 ? Math.round(s.currentPoints / state.semPts * 100) : 0;
-    var ptsCls = pct >= 70 ? 'pts-hi' : pct >= 40 ? 'pts-md' : 'pts-lo';
+    var ptsColor = s.pointColor || getPointColor(pct, state.pointTiers);
     return '<div class="stu-result-item" onclick="toggleStudent(\''+esc(s.studentId)+'\')">' +
       '<input type="checkbox" id="chk_'+esc(s.studentId)+'" ' + (isSelected ? 'checked' : '') +
              ' onclick="event.stopPropagation();toggleStudent(\''+esc(s.studentId)+'\')">' +
       '<span class="stu-result-name">'+esc(s.studentName)+'</span>' +
       '<div class="stu-result-meta">' +
         '<span class="stu-result-sub">Gr '+esc(s.grade)+' · '+esc(s.studentId)+'</span>' +
-        '<span class="stu-result-pts '+ptsCls+'">'+s.currentPoints+' pts</span>' +
+        '<span class="stu-result-pts" style="color:'+ptsColor+';">'+s.currentPoints+' pts</span>' +
       '</div>' +
       '</div>';
   }).join('');
@@ -604,7 +606,7 @@ function renderNwPanel(block, data) {
     _nwRefLookup[r.id] = r;
 
     html += '<tr>' +
-      '<td style="white-space:nowrap;">'+esc(r.incidentDate)+'</td>' +
+      '<td style="white-space:nowrap;">'+esc(formatDateMDY(r.incidentDate))+'</td>' +
       '<td style="white-space:nowrap;color:#6b7280;">'+esc(formatTime12h(r.incidentTime))+'</td>' +
       '<td>'+esc(r.infractionType)+'</td>' +
       '<td style="font-weight:700;'+ptsCls+'">'+ptsStr+'</td>' +
@@ -624,7 +626,7 @@ function openDescModal(refId) {
   var r = _nwRefLookup[refId];
   if (!r) return;
   document.getElementById('desc-modal-sub').textContent =
-    r.incidentDate + (r.incidentTime ? ' at ' + formatTime12h(r.incidentTime) : '') +
+    formatDateMDY(r.incidentDate) + (r.incidentTime ? ' at ' + formatTime12h(r.incidentTime) : '') +
     ' · ' + r.infractionType + (r.teacherName ? ' · ' + r.teacherName : '');
   document.getElementById('desc-modal-body').textContent = r.description || '(No description on file.)';
   document.getElementById('desc-overlay').classList.add('open');
@@ -894,6 +896,46 @@ function formatTime12h(t) {
   var h12 = h % 12;
   if (h12 === 0) h12 = 12;
   return h12 + ':' + min + ' ' + period;
+}
+
+// Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+// Native <input type="date"> fields are left untouched — they always
+// store/submit YYYY-MM-DD and render in the browser/OS locale format,
+// which can't be overridden without replacing them with custom text
+// inputs. This only affects dates shown as plain text.
+function formatDateMDY(d) {
+  if (!d) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
+// admins can choose from in Settings. Used only as a fallback below;
+// every student object from the server already carries a resolved
+// pointColor hex value, so this path should rarely run.
+var POINT_COLOR_PALETTE = {
+  green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
+  amber: '#eab308', orange: '#f97316', red: '#ef4444'
+};
+
+// Resolves a percentage (0-100) to a hex color using the admin-configured
+// point tiers (key/threshold pairs, as returned by getFormBootstrap()).
+// Mirrors getPointColor() in Code.gs. tiers must be sorted descending by
+// threshold, which Code.gs's parsePointTiers() guarantees.
+function getPointColor(pct, tiers) {
+  var list = (tiers && tiers.length) ? tiers : [
+    { threshold: 70, color: 'green' },
+    { threshold: 40, color: 'amber' },
+    { threshold: 0,  color: 'red'   }
+  ];
+  for (var i = 0; i < list.length; i++) {
+    if (pct >= list[i].threshold) {
+      return POINT_COLOR_PALETTE[list[i].color] || '#94a3b8';
+    }
+  }
+  return '#94a3b8';
 }
 </script>
 </body>

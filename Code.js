@@ -1,23 +1,27 @@
 // ============================================================
 // Behavior Tracker — Google Apps Script Web App
-// Code.gs  v11 — Split first/last/middle name columns
+// Code.gs  v12 — Configurable point-balance color tiers
 //
-// CHANGES FROM v10:
-//   • Students sheet: FirstName(1), LastName(2), MiddleName(3), Grade(4),
-//     CurrentPoints(5), PointsLastUpdated(6)
-//   • Staff sheet: FirstName(0), LastName(1), StaffEmail(2), Role(3)
-//   • ParentContacts: FirstName(2), LastName(3), ParentEmail(4), Phone(5)
-//   • STU_COL_* constants updated throughout
-//   • STAFF_COL_FIRST / STAFF_COL_LAST replace STAFF_COL_NAME
-//   • PARENT_COL_FIRST / PARENT_COL_LAST replace PARENT_COL_NAME
-//   • displayName(first, last) helper added — returns "First Last"
-//   • All functions that read name columns updated to use split fields
-//   • submitReferrals() builds StudentName as "First Last" at write time
-//   • sendTeacherConfirmation() uses "First Last" for teacher name
-//   • sendDailyParentEmails() salutation uses parent first name
-//   • getCurrentUser() uses "First Last" for nav display name
-//   • Sibling checkbox default changed to unchecked (opt-in) —
-//     a contact change only affects selected children
+// CHANGES FROM v11:
+//   • New Config columns: PointTierThresholds, PointTierColors —
+//     parallel lists defining how many tiers exist, where each tier
+//     starts (percentage of semester points), and which color from the
+//     constrained palette each tier uses.
+//   • POINT_COLOR_PALETTE constant — the fixed set of color keys/hex
+//     values admins can choose from (green, blue, purple, amber, orange,
+//     red). Prevents illegible or off-brand color choices.
+//   • getConfig() now parses, validates, and returns pointTiers — falls
+//     back to the original 3-tier default (green/amber/red at 70/40/0)
+//     if the columns are missing, malformed, have fewer than 2 or more
+//     than 6 tiers, or reference an unknown color key.
+//   • getPointColor(pct, tiers) — shared helper resolving a percentage
+//     to a hex color using a tier list; used wherever points are colored.
+//   • getFormBootstrap(), getDashboardData(), getStudentProfile(),
+//     getAllStudents(), getReportData() all now return pointTiers so
+//     each page can resolve colors client-side with the same logic.
+//   • getSettingsBootstrap() exposes the raw tier columns for editing.
+//   • saveConfigSection() needed no changes — it already creates/updates
+//     arbitrary Config columns generically based on payload keys.
 // ============================================================
 
 // ── SHEET NAMES ───────────────────────────────────────────────
@@ -37,8 +41,33 @@ var CONFIG_COL_EMAIL_ENABLED    = 'EmailNotificationsEnabled';
 var CONFIG_COL_EMAIL_FOOTER     = 'EmailFooterText';
 var CONFIG_COL_EMAIL_SEND_TIME  = 'DailyEmailSendTime';
 var CONFIG_COL_NINE_WEEKS       = 'NineWeeksStartDates';
+var CONFIG_COL_POINT_THRESHOLDS = 'PointTierThresholds';
+var CONFIG_COL_POINT_COLORS     = 'PointTierColors';
 // NOTE: CONFIG_COL_ADMIN_EMAILS intentionally removed.
 // Admin role is now determined by Role = 'admin' in the Staff sheet.
+
+// ── POINT BALANCE COLOR PALETTE (constrained — admins pick from this) ──
+// Keeps color choices visually consistent with the rest of the app and
+// prevents illegible or off-brand selections. Both the key (stored in
+// Config) and hex value (used for rendering) live here as the single
+// source of truth on the server; Settings.html mirrors this list for
+// the picker UI.
+var POINT_COLOR_PALETTE = {
+  green:  '#10b981',
+  blue:   '#3b82f6',
+  purple: '#8b5cf6',
+  amber:  '#eab308',
+  orange: '#f97316',
+  red:    '#ef4444'
+};
+var POINT_COLOR_DEFAULT = '#94a3b8'; // neutral gray fallback for unknown keys
+
+// Default 3-tier setup, used whenever Config has no valid tier data yet.
+var DEFAULT_POINT_TIERS = [
+  { threshold: 70, color: 'green' },
+  { threshold: 40, color: 'amber' },
+  { threshold: 0,  color: 'red'   }
+];
 
 // ── STUDENTS SHEET COLUMN INDICES (0-based) ───────────────────
 // Layout: StudentID | FirstName | LastName | MiddleName | Grade |
@@ -237,6 +266,23 @@ function displayName(first, last) {
   return (((first || '').trim()) + ' ' + ((last || '').trim())).trim().replace(/\s+/g, ' ');
 }
 
+/**
+ * Maps the stored severity value to the word shown on teacher-facing
+ * surfaces (emails, etc). Major and Minor both collapse into the single
+ * word "Negative" — teachers no longer see the Major/Minor distinction
+ * anywhere. Positive stays Positive. An infraction with no severity
+ * assigned (empty string) maps to an empty string here too, so it's
+ * simply omitted from any "(Severity)" parenthetical in generated text.
+ * The underlying stored value in the Referrals/Infractions sheets is
+ * NEVER changed by this — it only affects what's displayed/sent.
+ */
+function displaySeverity(severity) {
+  var s = (severity || '').toString().trim();
+  if (s === 'Major' || s === 'Minor') return 'Negative';
+  if (s === 'Positive') return 'Positive';
+  return '';
+}
+
 // =============================================================
 // CONFIG & INFRACTIONS READERS  (cached per execution)
 // =============================================================
@@ -289,6 +335,11 @@ function getConfig() {
     }
   }
 
+  var pointTiers = parsePointTiers(
+    col(CONFIG_COL_POINT_THRESHOLDS),
+    col(CONFIG_COL_POINT_COLORS)
+  );
+
   _cfg = {
     locations:        col(CONFIG_COL_LOCATIONS),
     schoolName:       val(CONFIG_COL_SCHOOL_NAME,     'Our School'),
@@ -300,10 +351,60 @@ function getConfig() {
     emailSendTime:    val(CONFIG_COL_EMAIL_SEND_TIME, '15:30'),
     nineWeeks:        nineWeeks,
     currentNineWeeks: curNW,
+    pointTiers:       pointTiers,
     _raw:             colMap
     // NOTE: adminEmails intentionally absent — use getCurrentUser() for role checks.
   };
   return _cfg;
+}
+
+/**
+ * Validates and normalizes raw Config column data into a clean tier list.
+ * Falls back to DEFAULT_POINT_TIERS if the data is missing, malformed,
+ * has fewer than 2 or more than 6 tiers, contains an unknown color key,
+ * or any threshold isn't a number between 0 and 100.
+ * Returned tiers are always sorted descending by threshold, and the
+ * lowest tier's threshold is forced to 0 regardless of what was stored,
+ * since the bottom tier must always catch every remaining percentage.
+ */
+function parsePointTiers(rawThresholds, rawColors) {
+  try {
+    if (!rawThresholds || !rawColors) return DEFAULT_POINT_TIERS;
+    if (rawThresholds.length !== rawColors.length) return DEFAULT_POINT_TIERS;
+    if (rawThresholds.length < 2 || rawThresholds.length > 6) return DEFAULT_POINT_TIERS;
+
+    var tiers = [];
+    for (var i = 0; i < rawThresholds.length; i++) {
+      var t = parseFloat(rawThresholds[i]);
+      var c = (rawColors[i] || '').toString().trim().toLowerCase();
+      if (isNaN(t) || t < 0 || t > 100)        return DEFAULT_POINT_TIERS;
+      if (!POINT_COLOR_PALETTE.hasOwnProperty(c)) return DEFAULT_POINT_TIERS;
+      tiers.push({ threshold: t, color: c });
+    }
+
+    tiers.sort(function(a, b) { return b.threshold - a.threshold; });
+    tiers[tiers.length - 1].threshold = 0; // bottom tier always catches the rest
+
+    return tiers;
+  } catch (e) {
+    return DEFAULT_POINT_TIERS;
+  }
+}
+
+/**
+ * Resolves a percentage (0-100) to a hex color using a tier list.
+ * Tiers must be sorted descending by threshold (parsePointTiers
+ * guarantees this). Returns POINT_COLOR_DEFAULT if no tier matches,
+ * which should only happen if tiers is empty.
+ */
+function getPointColor(pct, tiers) {
+  var list = (tiers && tiers.length) ? tiers : DEFAULT_POINT_TIERS;
+  for (var i = 0; i < list.length; i++) {
+    if (pct >= list[i].threshold) {
+      return POINT_COLOR_PALETTE[list[i].color] || POINT_COLOR_DEFAULT;
+    }
+  }
+  return POINT_COLOR_DEFAULT;
 }
 
 function getInfractions() {
@@ -433,6 +534,7 @@ function getSettingsBootstrap() {
 
   return {
     user: user,
+    colorPalette: POINT_COLOR_PALETTE, // {key: hex} — drives the Settings color picker
     config: {
       SchoolName:                raw[CONFIG_COL_SCHOOL_NAME]       || [],
       SemesterStartPoints:       raw[CONFIG_COL_SEMESTER_POINTS]   || [],
@@ -440,7 +542,12 @@ function getSettingsBootstrap() {
       DailyEmailSendTime:        raw[CONFIG_COL_EMAIL_SEND_TIME]   || [],
       EmailFooterText:           raw[CONFIG_COL_EMAIL_FOOTER]      || [],
       Locations:                 raw[CONFIG_COL_LOCATIONS]         || [],
-      NineWeeksStartDates:       raw[CONFIG_COL_NINE_WEEKS]        || []
+      NineWeeksStartDates:       raw[CONFIG_COL_NINE_WEEKS]        || [],
+      // Tier columns reflect the VALIDATED tiers, not raw sheet content —
+      // so if the sheet had malformed data, the editor opens already
+      // showing the safe 3-tier default rather than broken values.
+      PointTierThresholds:       cfg.pointTiers.map(function(t) { return t.threshold; }),
+      PointTierColors:           cfg.pointTiers.map(function(t) { return t.color; })
       // AdminEmails intentionally absent — managed via Staff manager
     }
   };
@@ -450,6 +557,35 @@ function saveConfigSection(payload) {
   var user = getCurrentUser();
   if (!user || user.role !== 'admin') {
     return { success: false, error: 'Admin access required.' };
+  }
+
+  // ── Tier-specific validation ──────────────────────────────────
+  // Catches bad data before it's written, so a malformed save fails
+  // loudly here rather than silently falling back to defaults the
+  // next time getConfig() reads it back.
+  if (payload.hasOwnProperty(CONFIG_COL_POINT_THRESHOLDS) || payload.hasOwnProperty(CONFIG_COL_POINT_COLORS)) {
+    var thresholds = payload[CONFIG_COL_POINT_THRESHOLDS] || [];
+    var colors     = payload[CONFIG_COL_POINT_COLORS]     || [];
+
+    if (thresholds.length !== colors.length) {
+      return { success: false, error: 'Point tier thresholds and colors must have the same number of entries.' };
+    }
+    if (thresholds.length < 2) {
+      return { success: false, error: 'At least 2 point tiers are required.' };
+    }
+    if (thresholds.length > 6) {
+      return { success: false, error: 'No more than 6 point tiers are allowed.' };
+    }
+    for (var ti = 0; ti < thresholds.length; ti++) {
+      var tVal = parseFloat(thresholds[ti]);
+      if (isNaN(tVal) || tVal < 0 || tVal > 100) {
+        return { success: false, error: 'Each tier threshold must be a number between 0 and 100.' };
+      }
+      var cVal = (colors[ti] || '').toString().trim().toLowerCase();
+      if (!POINT_COLOR_PALETTE.hasOwnProperty(cVal)) {
+        return { success: false, error: 'Unknown color "' + colors[ti] + '". Choose from: ' + Object.keys(POINT_COLOR_PALETTE).join(', ') + '.' };
+      }
+    }
   }
 
   try {
@@ -525,11 +661,15 @@ function getFormBootstrap() {
   var students = [];
   for (var i = 1; i < stuData.length; i++) {
     var pts = parseInt(stuData[i][STU_COL_POINTS], 10);
+    if (isNaN(pts)) pts = cfg.semesterPoints;
+    var pct = cfg.semesterPoints > 0 ? Math.round(pts / cfg.semesterPoints * 100) : 0;
     students.push({
       studentId:     stuData[i][STU_COL_ID].toString(),
       studentName:   displayName(stuData[i][STU_COL_FIRST], stuData[i][STU_COL_LAST]),
       grade:         stuData[i][STU_COL_GRADE].toString(),
-      currentPoints: isNaN(pts) ? cfg.semesterPoints : pts
+      currentPoints: pts,
+      pct:           pct,
+      pointColor:    getPointColor(pct, cfg.pointTiers)
     });
   }
   students.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
@@ -542,6 +682,7 @@ function getFormBootstrap() {
     locations:        cfg.locations,
     currentNineWeeks: cfg.currentNineWeeks,
     nineWeeks:        cfg.nineWeeks,
+    pointTiers:       cfg.pointTiers,
     infractions:      infs.map(function(inf) {
       return { name: inf.name, pointValue: inf.pointValue, severity: inf.severity };
     }),
@@ -774,6 +915,8 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       : 'Points Added:    +' + pointValue + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')';
 
     var subject = '✓ Referral Saved — ' + referral.studentName + ' — #' + referralId;
+    var dispSev = displaySeverity(referral.severity);
+    var sevSuffix = dispSev ? ' (' + dispSev + ')' : '';
     var body    =
       'Hello ' + referral.teacherName + ',\n\n' +
       'Your referral has been saved.\n\n' +
@@ -781,7 +924,7 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       'Student:         ' + referral.studentName + ' (Grade ' + referral.grade + ')\n' +
       'Date:            ' + referral.incidentDate + ' at ' + referral.incidentTime + '\n' +
       'Location:        ' + referral.location + '\n' +
-      'Infraction:      ' + referral.infractionType + ' (' + referral.severity + ')\n\n' +
+      'Infraction:      ' + referral.infractionType + sevSuffix + '\n\n' +
       ptLine + '\n' +
       'Current Balance: ' + pointsAfter + ' pts\n\n' +
       (cfg.emailEnabled
@@ -918,10 +1061,12 @@ function sendDailyParentEmails() {
 
       refs.forEach(function(ref, idx) {
         if (refs.length > 1) body += '\nReferral ' + (idx + 1) + ':\n';
+        var dispSev = displaySeverity(ref.severity);
+        var sevSuffix = dispSev ? ' (' + dispSev + ')' : '';
         body +=
           'Time:        ' + ref.incidentTime + '\n' +
           'Location:    ' + ref.location + '\n' +
-          'Infraction:  ' + ref.infractionType + ' (' + ref.severity + ')\n' +
+          'Infraction:  ' + ref.infractionType + sevSuffix + '\n' +
           'Teacher:     ' + ref.teacherName + '\n' +
           'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
         if (ref.description) {
@@ -1005,7 +1150,7 @@ function getDashboardData() {
   var openReferrals  = 0;
   var todayReferrals = 0;
   var weekReferrals  = 0;
-  var majorCount     = 0;
+  var negativeCount  = 0; // Major + Minor combined — teachers see one "Negative" bucket
 
   var allRefs = [];
 
@@ -1020,7 +1165,7 @@ function getDashboardData() {
     if (stat !== 'Resolved') openReferrals++;
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
-    if (sev === 'Major')     majorCount++;
+    if (sev === 'Major' || sev === 'Minor') negativeCount++;
 
     var d = ts instanceof Date ? ts : (ts ? new Date(ts) : null);
     if (d && !isNaN(d.getTime())) {
@@ -1048,6 +1193,7 @@ function getDashboardData() {
       severity:       sev,
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
       incidentDate:   inc,
+      incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       teacherName:    row[ci['TeacherName']] ? row[ci['TeacherName']].toString() : '',
       status:         stat
     });
@@ -1096,13 +1242,24 @@ function getDashboardData() {
       studentName:   displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]),
       grade:         stuData[s][STU_COL_GRADE].toString(),
       currentPoints: pts,
-      pct:           pct
+      pct:           pct,
+      pointColor:    getPointColor(pct, cfg.pointTiers)
     });
   }
   atRisk.sort(function(a, b) { return a.currentPoints - b.currentPoints; });
+
+  // "At risk" means falling in the lowest configured tier — uses
+  // whatever threshold the admin has set, not a hardcoded percentage.
+  var lowestTierThreshold = cfg.pointTiers[cfg.pointTiers.length - 1].threshold;
+  // The lowest tier's threshold is always 0, so "at risk" actually means
+  // falling below the SECOND-lowest tier's threshold (i.e. not yet in
+  // a "good" or "middle" tier). Guard for the 2-tier minimum case.
+  var atRiskThreshold = cfg.pointTiers.length > 1
+    ? cfg.pointTiers[cfg.pointTiers.length - 2].threshold
+    : 100;
   var atRiskCount = 0;
   for (var ar = 0; ar < atRisk.length; ar++) {
-    if (atRisk[ar].pct < 40) atRiskCount++;
+    if (atRisk[ar].pct < atRiskThreshold) atRiskCount++;
   }
   atRisk = atRisk.slice(0, 10);
 
@@ -1111,12 +1268,13 @@ function getDashboardData() {
     schoolName:          cfg.schoolName,
     semesterPoints:      sp,
     currentNineWeeks:    cfg.currentNineWeeks,
+    pointTiers:          cfg.pointTiers,
     stats: {
       totalReferrals:  totalReferrals,
       openReferrals:   openReferrals,
       todayReferrals:  todayReferrals,
       weekReferrals:   weekReferrals,
-      majorCount:      majorCount,
+      negativeCount:   negativeCount,
       totalStudents:   stuData.length - 1,
       atRiskCount:     atRiskCount
     },
@@ -1162,6 +1320,7 @@ function getStudentProfile(studentId) {
       currentNineWeeks:    cfg.currentNineWeeks,
       semesterPoints:      cfg.semesterPoints,
       schoolName:          cfg.schoolName,
+      pointTiers:          cfg.pointTiers,
       summary: { total: 0, open: 0, major: 0, minor: 0, positive: 0 }
     };
   }
@@ -1170,11 +1329,15 @@ function getStudentProfile(studentId) {
   for (var s = 1; s < stuData.length; s++) {
     if (stuData[s][STU_COL_ID].toString() === studentId.toString()) {
       var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
+      var curPts = isNaN(pts) ? cfg.semesterPoints : pts;
+      var curPct = cfg.semesterPoints > 0 ? Math.round(curPts / cfg.semesterPoints * 100) : 0;
       student = {
         studentId:         stuData[s][STU_COL_ID].toString(),
         studentName:   displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]),
         grade:             stuData[s][STU_COL_GRADE].toString(),
-        currentPoints:     isNaN(pts) ? cfg.semesterPoints : pts,
+        currentPoints:     curPts,
+        pct:               curPct,
+        pointColor:        getPointColor(curPct, cfg.pointTiers),
         pointsLastUpdated: formatDateStr(stuData[s][STU_COL_POINTS_DATE])
       };
       break;
@@ -1223,7 +1386,7 @@ function getStudentProfile(studentId) {
       Status:               str(row[ci['Status']]) || 'Open',
       AdminNotes:           str(row[ci['AdminNotes']]),
       TimestampFormatted:   (ts instanceof Date)
-        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM/dd/yyyy h:mm a')
+        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
         : str(ts)
     });
   }
@@ -1262,12 +1425,11 @@ function getStudentProfile(studentId) {
     return { label: nw.label, start: nw.start, end: nw.end, count: count };
   });
 
-  var sumTotal = 0, sumOpen = 0, sumMajor = 0, sumMinor = 0, sumPos = 0;
+  var sumTotal = 0, sumOpen = 0, sumNegative = 0, sumPos = 0;
   referrals.forEach(function(r) {
     sumTotal++;
     if (r.Status !== 'Resolved') sumOpen++;
-    if (r.Severity === 'Major')    sumMajor++;
-    if (r.Severity === 'Minor')    sumMinor++;
+    if (r.Severity === 'Major' || r.Severity === 'Minor') sumNegative++;
     if (r.Severity === 'Positive') sumPos++;
   });
 
@@ -1281,12 +1443,12 @@ function getStudentProfile(studentId) {
     currentNineWeeks:    cfg.currentNineWeeks,
     semesterPoints:      cfg.semesterPoints,
     schoolName:          cfg.schoolName,
+    pointTiers:          cfg.pointTiers,
     user:                user,
     summary: {
       total:    sumTotal,
       open:     sumOpen,
-      major:    sumMajor,
-      minor:    sumMinor,
+      negative: sumNegative,
       positive: sumPos
     }
   };
@@ -1307,12 +1469,14 @@ function getAllStudents() {
   for (var i = 1; i < stuData.length; i++) {
     var pts = parseInt(stuData[i][STU_COL_POINTS], 10);
     if (isNaN(pts)) pts = sp;
+    var pct = sp > 0 ? Math.round(pts / sp * 100) : 0;
     results.push({
       studentId:     stuData[i][STU_COL_ID].toString(),
       studentName:   displayName(stuData[i][STU_COL_FIRST], stuData[i][STU_COL_LAST]),
       grade:         stuData[i][STU_COL_GRADE].toString(),
       currentPoints: pts,
-      pct:           sp > 0 ? Math.round(pts / sp * 100) : 0
+      pct:           pct,
+      pointColor:    getPointColor(pct, cfg.pointTiers)
     });
   }
   results.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
@@ -1321,6 +1485,7 @@ function getAllStudents() {
     students:       results,
     semesterPoints: sp,
     schoolName:     cfg.schoolName,
+    pointTiers:     cfg.pointTiers,
     user:           user
   };
 }
@@ -1367,6 +1532,9 @@ function getReportData(filters) {
     if (tch) teacherSet[tch] = true;
     if (inf) infraSet[inf]   = true;
 
+    var curPts = ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.semesterPoints;
+    var curPct = cfg.semesterPoints > 0 ? Math.round(curPts / cfg.semesterPoints * 100) : 0;
+
     rows.push({
       ID:                   row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
       IncidentDate:         formatDateStr(row[ci['IncidentDate']]),
@@ -1388,9 +1556,10 @@ function getReportData(filters) {
       Status:               row[ci['Status']]      ? row[ci['Status']].toString()      : 'Open',
       AdminNotes:           row[ci['AdminNotes']]  ? row[ci['AdminNotes']].toString()  : '',
       TimestampFormatted:   (ts instanceof Date)
-        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM/dd/yyyy h:mm a')
+        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
         : '',
-      CurrentPoints:        ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.semesterPoints
+      CurrentPoints:        curPts,
+      CurrentPointsColor:   getPointColor(curPct, cfg.pointTiers)
     });
   }
 
@@ -1406,6 +1575,7 @@ function getReportData(filters) {
     infractionOptions: Object.keys(infraSet).sort(),
     semesterPoints:    cfg.semesterPoints,
     schoolName:        cfg.schoolName,
+    pointTiers:        cfg.pointTiers,
     user:              user
   };
 }
@@ -1663,8 +1833,10 @@ function saveInfractions(rows) {
     return { success: false, error: 'At least one infraction is required.' };
   }
 
-  // Validate each row
-  var VALID_SEVERITIES = ['Major', 'Minor', 'Positive'];
+  // Validate each row. Severity is optional — an empty string means
+  // "None" (no severity assigned). Major/Minor/Positive remain the
+  // only non-empty values allowed.
+  var VALID_SEVERITIES = ['Major', 'Minor', 'Positive', ''];
   for (var v = 0; v < rows.length; v++) {
     var r = rows[v];
     if (!r.name || r.name.toString().trim() === '') {
@@ -1673,8 +1845,8 @@ function saveInfractions(rows) {
     if (isNaN(parseInt(r.pointValue, 10))) {
       return { success: false, error: 'Row ' + (v + 1) + ': Point value must be a number.' };
     }
-    if (VALID_SEVERITIES.indexOf(r.severity) < 0) {
-      return { success: false, error: 'Row ' + (v + 1) + ': Severity must be Major, Minor, or Positive.' };
+    if (VALID_SEVERITIES.indexOf((r.severity || '').toString().trim()) < 0) {
+      return { success: false, error: 'Row ' + (v + 1) + ': Severity must be Major, Minor, Positive, or left blank for None.' };
     }
   }
 

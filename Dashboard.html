@@ -80,6 +80,7 @@
     .a-det  { font-size: 0.76rem; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .a-meta { text-align: right; flex-shrink: 0; }
     .a-date { font-size: 0.73rem; color: #94a3b8; }
+    .a-time { font-size: 0.73rem; color: #c2c8d2; }
     .a-pts  { font-size: 0.76rem; font-weight: 700; }
     .pts-neg { color: #dc2626; } .pts-pos { color: #166534; }
 
@@ -124,7 +125,7 @@
     <div class="stat-card amber"> <div class="stat-value" id="st-open">—</div>   <div class="stat-label">Open</div></div>
     <div class="stat-card teal">  <div class="stat-value" id="st-today">—</div>  <div class="stat-label">Today</div></div>
     <div class="stat-card indigo"><div class="stat-value" id="st-week">—</div>   <div class="stat-label">This Week</div></div>
-    <div class="stat-card red">   <div class="stat-value" id="st-major">—</div>  <div class="stat-label">Major Infractions</div></div>
+    <div class="stat-card red">   <div class="stat-value" id="st-negative">—</div>  <div class="stat-label">Negative Referrals</div></div>
     <div class="stat-card green"> <div class="stat-value" id="st-stus">—</div>   <div class="stat-label">Total Students</div></div>
     <div class="stat-card red">   <div class="stat-value" id="st-risk">—</div>   <div class="stat-label">At-Risk Students</div></div>
     <div class="stat-card purple"><div class="stat-value" id="st-pts">—</div>    <div class="stat-label">Starting Points</div></div>
@@ -194,13 +195,13 @@ function render(d) {
   if (d.currentNineWeeks) {
     document.getElementById('nw-badge-row').innerHTML =
       '<div class="nw-badge">📅 ' + d.currentNineWeeks.label +
-      ': ' + d.currentNineWeeks.start + ' – ' + d.currentNineWeeks.end + '</div>';
+      ': ' + formatDateMDY(d.currentNineWeeks.start) + ' – ' + formatDateMDY(d.currentNineWeeks.end) + '</div>';
   }
 
   var s = d.stats;
   setText('st-total', s.totalReferrals); setText('st-open', s.openReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
-  setText('st-major', s.majorCount);     setText('st-stus', s.totalStudents);
+  setText('st-negative', s.negativeCount); setText('st-stus', s.totalStudents);
   setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.semesterPoints + ' pts');
 
   var maxM = Math.max.apply(null, d.monthlyTrend.map(function(m){ return m.count; })) || 1;
@@ -219,7 +220,7 @@ function render(d) {
     ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
     : d.atRisk.map(function(s) {
         var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
-        var color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
+        var color = s.pointColor || getPointColor(pct, d.pointTiers);
         return '<tr><td><a class="stu-link" href="?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
                '<td>'+esc(s.grade)+'</td>' +
                '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
@@ -237,10 +238,10 @@ function render(d) {
         return '<div class="activity-item">' +
           '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
           '<div class="a-main"><div class="a-stu">' +
-            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a>' +
-            ' <span class="badge badge-'+sev.toLowerCase()+'">'+esc(sev)+'</span></div>' +
+            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
           '<div class="a-det">'+esc(r.infractionType)+' · '+esc(r.teacherName)+'</div></div>' +
-          '<div class="a-meta"><div class="a-date">'+esc(r.incidentDate)+'</div>' +
+          '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
+            (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
           '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div></div></div>';
       }).join('');
 
@@ -267,6 +268,56 @@ function renderHbars(id, items, colorClass) {
 
 function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatDateMDY(d) {
+  if (!d) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return m[2] + '-' + m[3] + '-' + m[1];
+}
+
+// Converts a "HH:MM" (24-hr) string to "H:MM AM/PM" for display.
+// Returns the input unchanged if it doesn't match the expected pattern.
+function formatTime12h(t) {
+  if (!t) return '';
+  var m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  var h = parseInt(m[1], 10);
+  var min = m[2];
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ':' + min + ' ' + period;
+}
+
+// Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
+// admins can choose from in Settings. Used only as a fallback below;
+// every student/row object from the server already carries a resolved
+// pointColor/CurrentPointsColor hex value, so this path should rarely run.
+var POINT_COLOR_PALETTE = {
+  green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
+  amber: '#eab308', orange: '#f97316', red: '#ef4444'
+};
+
+// Resolves a percentage (0-100) to a hex color using the admin-configured
+// point tiers (key/threshold pairs, as returned by getDashboardData()).
+// Mirrors getPointColor() in Code.gs. tiers must be sorted descending by
+// threshold, which Code.gs's parsePointTiers() guarantees.
+function getPointColor(pct, tiers) {
+  var list = (tiers && tiers.length) ? tiers : [
+    { threshold: 70, color: 'green' },
+    { threshold: 40, color: 'amber' },
+    { threshold: 0,  color: 'red'   }
+  ];
+  for (var i = 0; i < list.length; i++) {
+    if (pct >= list[i].threshold) {
+      return POINT_COLOR_PALETTE[list[i].color] || '#94a3b8';
+    }
+  }
+  return '#94a3b8';
+}
 </script>
 </body>
 </html>
