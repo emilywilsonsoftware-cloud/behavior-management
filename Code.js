@@ -88,13 +88,25 @@ var STAFF_COL_EMAIL = 2;
 var STAFF_COL_ROLE  = 3;
 
 // ── PARENT CONTACTS SHEET COLUMN INDICES (0-based) ────────────
-// Layout: StudentID | ParentGUID | FirstName | LastName | ParentEmail | Phone
+// Layout: StudentID | ContactGUID | Role | FirstName | LastName | Email
+// A student can now have multiple contact rows (Parent/Guardian,
+// Administrator, Counselor, Case Manager) — all of whom receive the
+// same end-of-day referral email for that student. ContactGUID links
+// rows that represent the SAME PERSON across multiple students (e.g.
+// one parent with two kids at the school) — it is unrelated to Role.
+// Phone intentionally removed — this list exists only to drive referral
+// email delivery, not to be a general-purpose contact directory.
 var PARENT_COL_STUDENT_ID = 0;
 var PARENT_COL_GUID       = 1;
-var PARENT_COL_FIRST      = 2;
-var PARENT_COL_LAST       = 3;
-var PARENT_COL_EMAIL      = 4;
-var PARENT_COL_PHONE      = 5;
+var PARENT_COL_ROLE       = 2;
+var PARENT_COL_FIRST      = 3;
+var PARENT_COL_LAST       = 4;
+var PARENT_COL_EMAIL      = 5;
+
+// Constrained list of contact roles — mirrors the pattern used for the
+// point-tier color palette. Keeps role labels consistent across the
+// school rather than allowing free text.
+var CONTACT_ROLES = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
 
 // ── INFRACTIONS SHEET COLUMN NAMES ───────────────────────────
 var INF_COL_NAME     = 'InfractionName';
@@ -979,16 +991,21 @@ function sendDailyParentEmails() {
   var incEmIdx  = REFERRAL_HEADERS.indexOf('IncludeDescriptionInEmail');
   var pnIdx     = REFERRAL_HEADERS.indexOf('ParentNotified');
 
+  // Build a map of studentId → array of contacts (there can be several —
+  // Parent/Guardian, Administrator, Counselor, Case Manager — all of
+  // whom should receive the same digest for that student).
   var contacts  = ss.getSheetByName(SHEET_PARENT).getDataRange().getValues();
-  var parentMap = {};
+  var contactMap = {};
   for (var p = 1; p < contacts.length; p++) {
     var sid = contacts[p][PARENT_COL_STUDENT_ID].toString().trim();
-    if (sid && contacts[p][PARENT_COL_EMAIL]) {
-      parentMap[sid] = {
-        parentFirstName: contacts[p][PARENT_COL_FIRST] ? contacts[p][PARENT_COL_FIRST].toString().trim() : '',
-        parentLastName:  contacts[p][PARENT_COL_LAST]  ? contacts[p][PARENT_COL_LAST].toString().trim()  : '',
-        parentEmail:     contacts[p][PARENT_COL_EMAIL].toString().trim()
-      };
+    var email = contacts[p][PARENT_COL_EMAIL] ? contacts[p][PARENT_COL_EMAIL].toString().trim() : '';
+    if (sid && email) {
+      if (!contactMap[sid]) contactMap[sid] = [];
+      contactMap[sid].push({
+        firstName: contacts[p][PARENT_COL_FIRST] ? contacts[p][PARENT_COL_FIRST].toString().trim() : '',
+        lastName:  contacts[p][PARENT_COL_LAST]  ? contacts[p][PARENT_COL_LAST].toString().trim()  : '',
+        email:     email
+      });
     }
   }
 
@@ -1039,47 +1056,54 @@ function sendDailyParentEmails() {
 
   Object.keys(grouped).forEach(function(studentId) {
     try {
-      var contact = parentMap[studentId];
-      if (!contact || !contact.parentEmail) return;
+      var studentContacts = contactMap[studentId];
+      if (!studentContacts || studentContacts.length === 0) return;
 
       var refs        = grouped[studentId];
       var studentName = refs[0].studentName;
       var grade       = refs[0].grade;
-      var salutation  = contact.parentFirstName || displayName(contact.parentFirstName, contact.parentLastName) || 'Parent/Guardian';
 
       var subject = 'Daily Behavior Summary — ' + studentName + ' — ' + today;
-      var body    =
-        'Dear ' + salutation + ',\n\n' +
+
+      var bodyIntro =
         'This is the daily behavior summary from ' + cfg.schoolName +
         ' for your student.\n\n' +
         'Student: ' + studentName + ' (Grade ' + grade + ')\n' +
         'Date:    ' + today + '\n\n';
 
-      body += refs.length === 1
+      var bodyRefs = refs.length === 1
         ? '── Referral Received ────────────────────\n'
         : '── ' + refs.length + ' Referrals Received ─────────────────\n';
 
       refs.forEach(function(ref, idx) {
-        if (refs.length > 1) body += '\nReferral ' + (idx + 1) + ':\n';
+        if (refs.length > 1) bodyRefs += '\nReferral ' + (idx + 1) + ':\n';
         var dispSev = displaySeverity(ref.severity);
         var sevSuffix = dispSev ? ' (' + dispSev + ')' : '';
-        body +=
+        bodyRefs +=
           'Time:        ' + ref.incidentTime + '\n' +
           'Location:    ' + ref.location + '\n' +
           'Infraction:  ' + ref.infractionType + sevSuffix + '\n' +
           'Teacher:     ' + ref.teacherName + '\n' +
           'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
         if (ref.description) {
-          body += 'Notes:       ' + ref.description + '\n';
+          bodyRefs += 'Notes:       ' + ref.description + '\n';
         }
-        body += '\n';
+        bodyRefs += '\n';
       });
 
-      body += '─────────────────────────────────────────\n';
-      body += 'Current Point Balance: ' + refs[refs.length - 1].pointsAfter + ' pts\n\n';
-      body += cfg.emailFooter + '\n';
+      var bodyClose = '─────────────────────────────────────────\n' +
+        'Current Point Balance: ' + refs[refs.length - 1].pointsAfter + ' pts\n\n' +
+        cfg.emailFooter + '\n';
 
-      GmailApp.sendEmail(contact.parentEmail, subject, body);
+      // Send the same digest to every contact on file for this student —
+      // Parent/Guardian, Administrator, Counselor, Case Manager, etc.
+      // Each gets their own salutation but identical referral details.
+      studentContacts.forEach(function(contact) {
+        var salutation = contact.firstName || displayName(contact.firstName, contact.lastName) || 'there';
+        var body = 'Dear ' + salutation + ',\n\n' + bodyIntro + bodyRefs + bodyClose;
+        GmailApp.sendEmail(contact.email, subject, body);
+      });
+
       sent++;
 
       rowIndices[studentId].forEach(function(rowNum) {
@@ -1321,7 +1345,7 @@ function getStudentProfile(studentId) {
       semesterPoints:      cfg.semesterPoints,
       schoolName:          cfg.schoolName,
       pointTiers:          cfg.pointTiers,
-      summary: { total: 0, open: 0, major: 0, minor: 0, positive: 0 }
+      summary: { total: 0, open: 0, negative: 0, positive: 0 }
     };
   }
 
@@ -1345,17 +1369,15 @@ function getStudentProfile(studentId) {
   }
   if (!student) return { error: 'Student ' + studentId + ' not found.' };
 
+  // Contact info has moved to its own admin-only tab (getStudentContacts);
+  // the profile header only needs to know how many contacts are on file.
+  var contactCount = 0;
   for (var p = 1; p < pData.length; p++) {
     if (pData[p][PARENT_COL_STUDENT_ID].toString() === studentId.toString()) {
-      student.parentGuid  = pData[p][PARENT_COL_GUID]  ? pData[p][PARENT_COL_GUID].toString()  : '';
-      student.parentFirst = pData[p][PARENT_COL_FIRST] ? pData[p][PARENT_COL_FIRST].toString() : '';
-      student.parentLast  = pData[p][PARENT_COL_LAST]  ? pData[p][PARENT_COL_LAST].toString()  : '';
-      student.parentName  = displayName(student.parentFirst, student.parentLast);
-      student.parentEmail = pData[p][PARENT_COL_EMAIL] ? pData[p][PARENT_COL_EMAIL].toString() : '';
-      student.parentPhone = pData[p][PARENT_COL_PHONE] ? pData[p][PARENT_COL_PHONE].toString() : '';
-      break;
+      contactCount++;
     }
   }
+  student.contactCount = contactCount;
 
   function str(v) { return (v === null || v === undefined) ? '' : v.toString(); }
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
@@ -2120,15 +2142,15 @@ function searchParentContacts(query) {
   try {
     var ss    = SpreadsheetApp.getActiveSpreadsheet();
     var data  = ss.getSheetByName(SHEET_PARENT).getDataRange().getValues();
-    var seen  = {}; // deduplicate by GUID
+    var seen  = {}; // deduplicate by GUID — same person, possibly linked to other students
     var results = [];
 
     for (var i = 1; i < data.length; i++) {
       var guid  = data[i][PARENT_COL_GUID]  ? data[i][PARENT_COL_GUID].toString().trim()  : '';
+      var role  = data[i][PARENT_COL_ROLE]  ? data[i][PARENT_COL_ROLE].toString().trim()  : '';
       var first = data[i][PARENT_COL_FIRST] ? data[i][PARENT_COL_FIRST].toString().trim() : '';
       var last  = data[i][PARENT_COL_LAST]  ? data[i][PARENT_COL_LAST].toString().trim()  : '';
       var email = data[i][PARENT_COL_EMAIL] ? data[i][PARENT_COL_EMAIL].toString().trim() : '';
-      var phone = data[i][PARENT_COL_PHONE] ? data[i][PARENT_COL_PHONE].toString().trim() : '';
       var name  = displayName(first, last);
 
       if (!guid) continue;
@@ -2142,8 +2164,8 @@ function searchParentContacts(query) {
       if (matches) {
         seen[guid] = true;
         results.push({
-          guid: guid, firstName: first, lastName: last,
-          name: name, email: email, phone: phone
+          guid: guid, role: role, firstName: first, lastName: last,
+          name: name, email: email
         });
       }
     }
@@ -2157,9 +2179,10 @@ function searchParentContacts(query) {
 }
 
 /**
- * Returns the contact for a student and any siblings sharing the
- * same ParentGUID, for the sibling-checkbox UI on the profile page.
- * Admin only.
+ * Returns ALL contacts on file for a student — Parent/Guardian,
+ * Administrator, Counselor, Case Manager, etc. A student can have any
+ * number of contacts; all of them receive the same end-of-day referral
+ * email for that student. Admin only.
  */
 function getStudentContacts(studentId) {
   var user = getCurrentUser();
@@ -2168,60 +2191,28 @@ function getStudentContacts(studentId) {
   }
 
   try {
-    var ss      = SpreadsheetApp.getActiveSpreadsheet();
-    var pData   = ss.getSheetByName(SHEET_PARENT).getDataRange().getValues();
-    var stuData = ss.getSheetByName(SHEET_STUDENTS).getDataRange().getValues();
-    var id      = studentId.toString().trim();
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var pData = ss.getSheetByName(SHEET_PARENT).getDataRange().getValues();
+    var id    = studentId.toString().trim();
 
-    // Find the contact row for this student
-    var contact   = null;
-    var parentGuid = '';
-
+    var contacts = [];
     for (var i = 1; i < pData.length; i++) {
       if (pData[i][PARENT_COL_STUDENT_ID].toString().trim() === id) {
-        parentGuid = pData[i][PARENT_COL_GUID]  ? pData[i][PARENT_COL_GUID].toString().trim()  : '';
-        var cFirst = pData[i][PARENT_COL_FIRST] ? pData[i][PARENT_COL_FIRST].toString().trim() : '';
-        var cLast  = pData[i][PARENT_COL_LAST]  ? pData[i][PARENT_COL_LAST].toString().trim()  : '';
-        contact = {
-          studentId:   id,
-          guid:        parentGuid,
-          firstName:   cFirst,
-          lastName:    cLast,
-          parentName:  displayName(cFirst, cLast),
-          parentEmail: pData[i][PARENT_COL_EMAIL] ? pData[i][PARENT_COL_EMAIL].toString().trim() : '',
-          phone:       pData[i][PARENT_COL_PHONE] ? pData[i][PARENT_COL_PHONE].toString().trim() : ''
-        };
-        break;
+        var first = pData[i][PARENT_COL_FIRST] ? pData[i][PARENT_COL_FIRST].toString().trim() : '';
+        var last  = pData[i][PARENT_COL_LAST]  ? pData[i][PARENT_COL_LAST].toString().trim()  : '';
+        contacts.push({
+          rowIndex:  i + 1, // 1-based sheet row, used by saveContact/deleteContact
+          guid:      pData[i][PARENT_COL_GUID]  ? pData[i][PARENT_COL_GUID].toString().trim()  : '',
+          role:      pData[i][PARENT_COL_ROLE]  ? pData[i][PARENT_COL_ROLE].toString().trim()  : '',
+          firstName: first,
+          lastName:  last,
+          name:      displayName(first, last),
+          email:     pData[i][PARENT_COL_EMAIL] ? pData[i][PARENT_COL_EMAIL].toString().trim() : ''
+        });
       }
     }
 
-    // Build a student name lookup for sibling display
-    var stuNames = {};
-    for (var s = 1; s < stuData.length; s++) {
-      var sid = stuData[s][STU_COL_ID].toString().trim();
-      stuNames[sid] = displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]);
-    }
-
-    // Find siblings sharing the same ParentGUID (excluding this student)
-    var siblings = [];
-    if (parentGuid) {
-      for (var j = 1; j < pData.length; j++) {
-        var rowGuid = pData[j][PARENT_COL_GUID] ? pData[j][PARENT_COL_GUID].toString().trim() : '';
-        var rowSid  = pData[j][PARENT_COL_STUDENT_ID].toString().trim();
-        if (rowGuid === parentGuid && rowSid !== id) {
-          siblings.push({
-            studentId:   rowSid,
-            studentName: stuNames[rowSid] || rowSid
-          });
-        }
-      }
-    }
-
-    return {
-      success:  true,
-      contact:  contact,   // null if no contact on file
-      siblings: siblings   // [] if no siblings
-    };
+    return { success: true, contacts: contacts, roles: CONTACT_ROLES };
 
   } catch (e) {
     return { success: false, error: e.message };
@@ -2229,102 +2220,151 @@ function getStudentContacts(studentId) {
 }
 
 /**
- * Saves or updates the parent contact for a student.
- * If updateSiblingIds is a non-empty array, updates those sibling rows too.
- * If contact.guid is empty, generates a new ParentGUID.
- * If contact.guid is provided (from search-before-create), reuses it.
- * Admin only.
+ * Finds other students whose contact list includes a row sharing the
+ * given ContactGUID (the same person, e.g. one parent with two kids at
+ * the school). Used by the "also update for siblings" checkbox when
+ * editing an existing contact. Returns [] if no GUID or no matches.
  */
-function saveParentContact(studentId, contact, updateSiblingIds) {
+function findContactSiblings(guid, excludeStudentId) {
   var user = getCurrentUser();
   if (user.role !== 'admin') {
-    return { success: false, error: 'Admin access required.' };
+    return [];
+  }
+  if (!guid) return [];
+  var ss      = SpreadsheetApp.getActiveSpreadsheet();
+  var pData   = ss.getSheetByName(SHEET_PARENT).getDataRange().getValues();
+  var stuData = ss.getSheetByName(SHEET_STUDENTS).getDataRange().getValues();
+
+  var stuNames = {};
+  for (var s = 1; s < stuData.length; s++) {
+    var sid = stuData[s][STU_COL_ID].toString().trim();
+    stuNames[sid] = displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]);
   }
 
-  var id    = studentId.toString().trim();
-  if (!id) return { success: false, error: 'Student ID is required.' };
-
-  var first = sanitizeText(contact.firstName   || '');
-  var last  = sanitizeText(contact.lastName    || '');
-  var email = sanitizeText(contact.parentEmail || '').toLowerCase();
-  var phone = sanitizeText(contact.phone        || '');
-  var guid  = contact.guid ? contact.guid.toString().trim() : generateGuid();
-
-  if (!first) return { success: false, error: 'Parent first name is required.' };
-  if (!last)  return { success: false, error: 'Parent last name is required.' };
-  if (!email) return { success: false, error: 'Parent email is required.' };
-
-  try {
-    var ss    = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName(SHEET_PARENT);
-    var data  = sheet.getDataRange().getValues();
-
-    // Collect all student IDs to update (this student + selected siblings)
-    var toUpdate = [id];
-    if (Array.isArray(updateSiblingIds)) {
-      updateSiblingIds.forEach(function(sid) {
-        var s = sid.toString().trim();
-        if (s && s !== id) toUpdate.push(s);
-      });
+  var seenSid = {};
+  var siblings = [];
+  for (var i = 1; i < pData.length; i++) {
+    var rowGuid = pData[i][PARENT_COL_GUID] ? pData[i][PARENT_COL_GUID].toString().trim() : '';
+    var rowSid  = pData[i][PARENT_COL_STUDENT_ID].toString().trim();
+    if (rowGuid === guid && rowSid !== excludeStudentId && !seenSid[rowSid]) {
+      seenSid[rowSid] = true;
+      siblings.push({ studentId: rowSid, studentName: stuNames[rowSid] || rowSid });
     }
-
-    var updatedRows = {};
-
-    // Update existing rows for each target student
-    for (var i = 1; i < data.length; i++) {
-      var rowSid = data[i][PARENT_COL_STUDENT_ID].toString().trim();
-      if (toUpdate.indexOf(rowSid) >= 0) {
-        sheet.getRange(i + 1, PARENT_COL_GUID  + 1).setValue(guid);
-        sheet.getRange(i + 1, PARENT_COL_FIRST + 1).setValue(first);
-        sheet.getRange(i + 1, PARENT_COL_LAST  + 1).setValue(last);
-        sheet.getRange(i + 1, PARENT_COL_EMAIL + 1).setValue(email);
-        sheet.getRange(i + 1, PARENT_COL_PHONE + 1).setValue(phone);
-        updatedRows[rowSid] = true;
-      }
-    }
-
-    // Append new rows for any target student not yet in the sheet
-    toUpdate.forEach(function(sid) {
-      if (!updatedRows[sid]) {
-        sheet.appendRow([sid, guid, first, last, email, phone]);
-      }
-    });
-
-    SpreadsheetApp.flush();
-    return { success: true, guid: guid, updated: toUpdate.length };
-
-  } catch (e) {
-    return { success: false, error: e.message };
   }
+  return siblings;
 }
 
 /**
- * Removes the parent contact row for a single student.
- * Does not affect sibling rows — those retain their contact info.
+ * Adds a new contact or updates an existing one for a student. A
+ * student can have multiple independent contacts (Parent/Guardian,
+ * Administrator, Counselor, Case Manager) — this is no longer "the one
+ * contact" for a student, so the target row is identified by rowIndex
+ * (when editing) rather than by matching on StudentID alone.
+ *
+ * - contact.rowIndex present  → update that existing sheet row.
+ * - contact.rowIndex absent   → append a new row for this student.
+ * - contact.guid empty        → generates a new ContactGUID.
+ * - contact.guid provided     → reuses it (from search-before-create,
+ *   linking this contact to the same person already on file elsewhere).
+ * - updateSiblingIds, if provided, also pushes the same name/email/role
+ *   to the matching contact row (same GUID) for those other students.
+ *
  * Admin only.
  */
-function deleteParentContact(studentId) {
+function saveContact(studentId, contact, updateSiblingIds) {
   var user = getCurrentUser();
   if (user.role !== 'admin') {
     return { success: false, error: 'Admin access required.' };
   }
 
   var id = studentId.toString().trim();
+  if (!id) return { success: false, error: 'Student ID is required.' };
+
+  var role  = (contact.role || '').toString().trim();
+  var first = sanitizeText(contact.firstName || '');
+  var last  = sanitizeText(contact.lastName  || '');
+  var email = sanitizeText(contact.email     || '').toLowerCase();
+  var guid  = contact.guid ? contact.guid.toString().trim() : generateGuid();
+
+  if (CONTACT_ROLES.indexOf(role) < 0) {
+    return { success: false, error: 'Role must be one of: ' + CONTACT_ROLES.join(', ') + '.' };
+  }
+  if (!first) return { success: false, error: 'First name is required.' };
+  if (!last)  return { success: false, error: 'Last name is required.' };
+  if (!email) return { success: false, error: 'Email is required.' };
 
   try {
     var ss    = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName(SHEET_PARENT);
-    var data  = sheet.getDataRange().getValues();
 
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][PARENT_COL_STUDENT_ID].toString().trim() === id) {
-        sheet.deleteRow(i + 1);
-        SpreadsheetApp.flush();
-        return { success: true };
+    if (contact.rowIndex) {
+      // Editing an existing contact row.
+      var rowNum = parseInt(contact.rowIndex, 10);
+      sheet.getRange(rowNum, PARENT_COL_GUID  + 1).setValue(guid);
+      sheet.getRange(rowNum, PARENT_COL_ROLE  + 1).setValue(role);
+      sheet.getRange(rowNum, PARENT_COL_FIRST + 1).setValue(first);
+      sheet.getRange(rowNum, PARENT_COL_LAST  + 1).setValue(last);
+      sheet.getRange(rowNum, PARENT_COL_EMAIL + 1).setValue(email);
+    } else {
+      // New contact — always appended as a new row, since a student
+      // can have several independent contacts at once.
+      sheet.appendRow([id, guid, role, first, last, email]);
+    }
+
+    // Optionally push the same name/email/role to sibling rows sharing
+    // this GUID for other students (e.g. updating a parent's email for
+    // all of their children at once).
+    var updatedSiblings = 0;
+    if (Array.isArray(updateSiblingIds) && updateSiblingIds.length > 0) {
+      var data = sheet.getDataRange().getValues();
+      var targetSids = updateSiblingIds.map(function(s) { return s.toString().trim(); });
+      for (var i = 1; i < data.length; i++) {
+        var rowSid  = data[i][PARENT_COL_STUDENT_ID].toString().trim();
+        var rowGuid = data[i][PARENT_COL_GUID] ? data[i][PARENT_COL_GUID].toString().trim() : '';
+        if (targetSids.indexOf(rowSid) >= 0 && rowGuid === guid) {
+          sheet.getRange(i + 1, PARENT_COL_ROLE  + 1).setValue(role);
+          sheet.getRange(i + 1, PARENT_COL_FIRST + 1).setValue(first);
+          sheet.getRange(i + 1, PARENT_COL_LAST  + 1).setValue(last);
+          sheet.getRange(i + 1, PARENT_COL_EMAIL + 1).setValue(email);
+          updatedSiblings++;
+        }
       }
     }
-    return { success: false, error: 'No contact found for student: ' + id };
 
+    SpreadsheetApp.flush();
+    return { success: true, guid: guid, updatedSiblings: updatedSiblings };
+
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Removes a single contact row, identified by its sheet row index
+ * (returned by getStudentContacts). A student can have several
+ * contacts now, so deletion must target one specific row rather than
+ * "the" contact for that student. Admin only.
+ */
+function deleteContact(rowIndex) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  var rowNum = parseInt(rowIndex, 10);
+  if (isNaN(rowNum) || rowNum < 2) {
+    return { success: false, error: 'Invalid contact reference.' };
+  }
+
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_PARENT);
+    if (rowNum > sheet.getLastRow()) {
+      return { success: false, error: 'Contact no longer exists — refresh and try again.' };
+    }
+    sheet.deleteRow(rowNum);
+    SpreadsheetApp.flush();
+    return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
   }

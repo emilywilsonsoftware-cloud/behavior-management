@@ -225,33 +225,43 @@ function _setupStaff(ss) {
 }
 
 // ── ParentContacts sheet ──────────────────────────────────────
-// Layout: StudentID | ParentGUID | FirstName | LastName | ParentEmail | Phone
+// Layout: StudentID | ContactGUID | Role | FirstName | LastName | Email
+// A student can have MULTIPLE contact rows — Parent/Guardian,
+// Administrator, Counselor, Case Manager — all of whom receive the
+// same end-of-day referral email digest for that student. This list
+// exists ONLY to drive referral email delivery; it is not synced from
+// Infinite Campus or any other system and must be updated manually by
+// an admin whenever who should receive referral emails changes.
 function _setupParentContacts(ss) {
   if (ss.getSheetByName(SS_PARENT)) return;
   var sheet = ss.insertSheet(SS_PARENT);
 
   var headers = [
-    'StudentID', 'ParentGUID', 'FirstName', 'LastName', 'ParentEmail', 'Phone'
+    'StudentID', 'ContactGUID', 'Role', 'FirstName', 'LastName', 'Email'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
 
-  // S005 and S006 share a ParentGUID to demonstrate sibling-linking
+  // S005 and S006 share a ContactGUID to demonstrate the "update for
+  // siblings" feature — same parent, two kids at the school.
   var data = [
-    ['S001', 'pg-a1b2c3d4', 'John',  'Smith',    'john.smith@email.com',    '555-0101'],
-    ['S002', 'pg-e5f6g7h8', 'Mary',  'Jones',    'mary.jones@email.com',    '555-0102'],
-    ['S003', 'pg-i9j0k1l2', 'Robert','Taylor',   'robert.taylor@email.com', '555-0103'],
-    ['S004', 'pg-m3n4o5p6', 'Sue',   'Anderson', 'sue.anderson@email.com',  '555-0104'],
-    ['S005', 'pg-q7r8s9t0', 'Karen', 'Brown',    'karen.brown@email.com',   '555-0105'],
-    ['S006', 'pg-q7r8s9t0', 'Karen', 'Brown',    'karen.brown@email.com',   '555-0105']
+    ['S001', 'pg-a1b2c3d4', 'Parent/Guardian', 'John',   'Smith',    'john.smith@email.com'],
+    ['S002', 'pg-e5f6g7h8', 'Parent/Guardian', 'Mary',   'Jones',    'mary.jones@email.com'],
+    ['S003', 'pg-i9j0k1l2', 'Parent/Guardian', 'Robert', 'Taylor',   'robert.taylor@email.com'],
+    ['S004', 'pg-m3n4o5p6', 'Parent/Guardian', 'Sue',    'Anderson', 'sue.anderson@email.com'],
+    ['S005', 'pg-q7r8s9t0', 'Parent/Guardian', 'Karen',  'Brown',    'karen.brown@email.com'],
+    ['S006', 'pg-q7r8s9t0', 'Parent/Guardian', 'Karen',  'Brown',    'karen.brown@email.com']
   ];
   sheet.getRange(2, 1, data.length, headers.length).setValues(data);
 
   sheet.getRange(1, 2).setNote(
-    'ParentGUID links siblings to the same parent.\n' +
-    'Students sharing a ParentGUID will be shown together\n' +
-    'when editing contact info in the web app.\n' +
-    'Do not edit GUIDs manually — use the web app.'
+    'ContactGUID links rows that represent the SAME PERSON across\n' +
+    'multiple students (e.g. one parent with two kids at the school).\n' +
+    'Unrelated to Role. Do not edit GUIDs manually — use the web app.'
+  );
+  sheet.getRange(1, 3).setNote(
+    'Must be exactly one of: Parent/Guardian, Administrator,\n' +
+    'Counselor, Case Manager. Edit via the Student page in the web app.'
   );
   sheet.autoResizeColumns(1, headers.length);
 }
