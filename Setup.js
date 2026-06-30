@@ -33,8 +33,28 @@ function onOpen() {
     .addItem('Setup Daily Email Trigger',  'setupDailyTrigger')
     .addItem('Remove Daily Email Trigger', 'removeDailyTrigger')
     .addSeparator()
+    .addItem('Clear All Staff Role Caches', 'clearAllUserCachesMenu')
+    .addSeparator()
     .addItem('Reset Semester Points (NEW SEMESTER)', 'resetSemesterPointsMenu')
     .addToUi();
+}
+
+/**
+ * Spreadsheet-menu wrapper for clearAllUserCaches() (defined in Code.gs).
+ * Use this any time you change a Role directly in the Staff sheet rather
+ * than through Settings > Staff in the web app — that path already
+ * clears the relevant cache automatically; editing the sheet directly
+ * does not, so the old role can otherwise persist for up to 30 minutes.
+ */
+function clearAllUserCachesMenu() {
+  var ui = SpreadsheetApp.getUi();
+  clearAllUserCaches(); // defined in Code.gs — logs the count via Logger.log
+  ui.alert(
+    'Done',
+    'Cleared cached roles for all staff. Everyone will be re-checked ' +
+    'against the Staff sheet on their next page load.',
+    ui.ButtonSet.OK
+  );
 }
 
 // =============================================================

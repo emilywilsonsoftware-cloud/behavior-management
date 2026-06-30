@@ -104,6 +104,17 @@
 
     .loading-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
 
+    /* ── Teacher dashboard ── */
+    .teacher-stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .card-hdr-row { display: flex; align-items: center; justify-content: space-between;
+                    padding: 12px 18px 0; flex-wrap: wrap; gap: 8px; }
+    .my-refs-window { display: flex; gap: 4px; background: #f1f5f9; border-radius: 7px; padding: 3px; }
+    .window-btn { border: none; background: none; padding: 5px 11px; border-radius: 5px;
+                  font-size: 0.74rem; font-weight: 600; color: #64748b; cursor: pointer;
+                  font-family: inherit; transition: background 0.12s, color 0.12s; }
+    .window-btn:hover { color: #1e293b; }
+    .window-btn.active { background: white; color: #1e3a5f; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
     @media (max-width: 900px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
@@ -119,6 +130,11 @@
   <div class="page-sub"   id="pg-sub">Loading...</div>
 
   <div id="nw-badge-row"></div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ADMIN DASHBOARD — full school-wide view
+  ══════════════════════════════════════════════════════════ -->
+  <div id="admin-dashboard" style="display:none;">
 
   <div class="stats-grid">
     <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">Total Referrals</div></div>
@@ -170,6 +186,47 @@
       <div class="card-bdy"><div class="tch-grid" id="tch-grid"><div class="loading-msg" style="grid-column:1/-1;">Loading...</div></div></div>
     </div>
   </div>
+
+  </div><!-- /admin-dashboard -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       TEACHER DASHBOARD — simplified, self-scoped view
+  ══════════════════════════════════════════════════════════ -->
+  <div id="teacher-dashboard" style="display:none;">
+
+  <div class="stats-grid teacher-stats-grid">
+    <div class="stat-card blue"> <div class="stat-value" id="tst-total">—</div> <div class="stat-label">My Total Referrals</div></div>
+    <div class="stat-card teal">  <div class="stat-value" id="tst-today">—</div> <div class="stat-label">Today</div></div>
+    <div class="stat-card indigo"><div class="stat-value" id="tst-week">—</div>  <div class="stat-label">This Week</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hdr-row">
+        <div class="card-hdr" style="padding:0;">My Referrals</div>
+        <div class="my-refs-window" id="my-refs-window">
+          <button class="window-btn active" data-window="today" onclick="setMyRefsWindow('today')">Today</button>
+          <button class="window-btn" data-window="week" onclick="setMyRefsWindow('week')">This Week</button>
+          <button class="window-btn" data-window="all" onclick="setMyRefsWindow('all')">All Time</button>
+        </div>
+      </div>
+      <div class="card-bdy" style="padding-top:8px;">
+        <div class="activity-list" id="my-refs-list"><div class="loading-msg">Loading...</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">Students At Risk — Lowest Balances</div>
+      <div class="card-bdy" style="padding-top:8px;">
+        <table class="ar-table">
+          <thead><tr><th>Student</th><th>Gr</th><th>Balance</th></tr></thead>
+          <tbody id="t-ar-body"><tr><td colspan="3" class="loading-msg">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /teacher-dashboard -->
+
 </div>
 
 <script>
@@ -198,6 +255,18 @@ function render(d) {
       ': ' + formatDateMDY(d.currentNineWeeks.start) + ' – ' + formatDateMDY(d.currentNineWeeks.end) + '</div>';
   }
 
+  if (d.user && d.user.role === 'teacher') {
+    document.getElementById('teacher-dashboard').style.display = 'block';
+    document.getElementById('admin-dashboard').style.display   = 'none';
+    renderTeacher(d);
+  } else {
+    document.getElementById('admin-dashboard').style.display   = 'block';
+    document.getElementById('teacher-dashboard').style.display = 'none';
+    renderAdmin(d);
+  }
+}
+
+function renderAdmin(d) {
   var s = d.stats;
   setText('st-total', s.totalReferrals); setText('st-open', s.openReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
@@ -215,18 +284,7 @@ function render(d) {
   renderHbars('inf-chart', d.infractionBreakdown, 'amber');
   renderHbars('loc-chart', d.locationBreakdown, '');
 
-  var sp = d.semesterPoints;
-  document.getElementById('ar-body').innerHTML = d.atRisk.length === 0
-    ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
-    : d.atRisk.map(function(s) {
-        var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
-        var color = s.pointColor || getPointColor(pct, d.pointTiers);
-        return '<tr><td><a class="stu-link" href="?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
-               '<td>'+esc(s.grade)+'</td>' +
-               '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
-               '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
-               '<span style="font-size:0.7rem;color:#94a3b8;">'+pct+'%</span></div></td></tr>';
-      }).join('');
+  renderAtRiskTable('ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
 
   document.getElementById('act-list').innerHTML = d.recentReferrals.length === 0
     ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
@@ -250,6 +308,88 @@ function render(d) {
     : d.teacherActivity.map(function(t) {
         return '<div class="tch-item"><div class="tch-name">'+esc(t.name)+'</div>' +
                '<div class="tch-count">'+t.count+'</div></div>';
+      }).join('');
+}
+
+// Shared at-risk table renderer — used by both the admin dashboard
+// (#ar-body) and the teacher dashboard (#t-ar-body), same markup either way.
+function renderAtRiskTable(targetId, atRisk, sp, pointTiers) {
+  document.getElementById(targetId).innerHTML = atRisk.length === 0
+    ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
+    : atRisk.map(function(s) {
+        var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
+        var color = s.pointColor || getPointColor(pct, pointTiers);
+        return '<tr><td><a class="stu-link" href="?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
+               '<td>'+esc(s.grade)+'</td>' +
+               '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
+               '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
+               '<span style="font-size:0.7rem;color:#94a3b8;">'+pct+'%</span></div></td></tr>';
+      }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// TEACHER DASHBOARD
+// ══════════════════════════════════════════════════════════
+var _myRefsData   = null; // cached full sorted referral list from the server
+var _myRefsToday  = '';
+var _myRefsWeekAgo = '';
+
+function renderTeacher(d) {
+  var s = d.stats;
+  setText('tst-total', s.myTotal);
+  setText('tst-today', s.myToday);
+  setText('tst-week',  s.myWeek);
+
+  _myRefsData    = d.myReferrals || [];
+  _myRefsToday   = d.today;
+  _myRefsWeekAgo = d.day7ago;
+
+  renderAtRiskTable('t-ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
+
+  // Default window is "Today" per the button already marked active in
+  // the HTML — render that slice immediately.
+  renderMyReferrals('today');
+}
+
+// Switches the My Referrals time window (Today → This Week → All Time).
+// All three windows are pre-sorted/cached client-side from a single
+// server call — no extra round-trip when switching.
+function setMyRefsWindow(windowKey) {
+  document.querySelectorAll('#my-refs-window .window-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.window === windowKey);
+  });
+  renderMyReferrals(windowKey);
+}
+
+function renderMyReferrals(windowKey) {
+  if (!_myRefsData) return;
+
+  var filtered = _myRefsData;
+  if (windowKey === 'today') {
+    filtered = _myRefsData.filter(function(r) { return r.incidentDate === _myRefsToday; });
+  } else if (windowKey === 'week') {
+    filtered = _myRefsData.filter(function(r) { return r.incidentDate >= _myRefsWeekAgo; });
+  }
+  // 'all' uses the full list as-is.
+
+  var list = document.getElementById('my-refs-list');
+  var windowLabel = windowKey === 'today' ? 'today' : windowKey === 'week' ? 'this week' : 'on file';
+
+  list.innerHTML = filtered.length === 0
+    ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals submitted '+windowLabel+'.</div>'
+    : filtered.map(function(r) {
+        var sev    = (r.severity||'').toString();
+        var pts    = parseInt(r.pointValue,10)||0;
+        var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+        var ptsCls = pts < 0 ? 'pts-neg' : 'pts-pos';
+        return '<div class="activity-item">' +
+          '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
+          '<div class="a-main"><div class="a-stu">' +
+            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
+          '<div class="a-det">'+esc(r.infractionType)+'</div></div>' +
+          '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
+            (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
+          '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div></div></div>';
       }).join('');
 }
 
