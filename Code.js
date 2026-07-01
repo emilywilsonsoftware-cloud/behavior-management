@@ -147,8 +147,12 @@ function doGet(e) {
     student:   'Student',
     settings:  'Settings'
   };
-  var file = map[page] || 'Dashboard';
-  var base = ScriptApp.getService().getUrl();
+  var file       = map[page] || 'Dashboard';
+  var base       = ScriptApp.getService().getUrl();
+  var urlIdParam = (e && e.parameter && e.parameter.id) || ''; // e.g. ?page=student&id=S001
+  // Strip characters that could break out of the <script> tag this gets
+  // embedded into client-side (URL parameters are untrusted input).
+  urlIdParam = urlIdParam.toString().replace(/[^a-zA-Z0-9_-]/g, '');
 
   // ── Role gate for the referral form ──────────────────────────
   if (page === 'form') {
@@ -198,6 +202,17 @@ function doGet(e) {
 
   var tmpl = HtmlService.createTemplateFromFile(file);
   tmpl.navHtml = navHtml;
+  tmpl.baseUrl = base; // exposed so each page can build absolute links
+                        // (e.g. to a student profile) instead of relative
+                        // ?page=... hrefs, which can break when the app
+                        // is loaded through the googleusercontent.com
+                        // redirector rather than the canonical /exec URL.
+  tmpl.urlId   = urlIdParam; // server-read ?id=... value — passed through
+                              // templating rather than relying on the
+                              // client reading window.location.search,
+                              // which does not reliably reflect the
+                              // original /exec URL inside the rendered
+                              // HtmlService sandbox.
 
   return tmpl.evaluate()
     .setTitle('Behavior Tracker')
@@ -1302,6 +1317,14 @@ function getDashboardData() {
     // Only relevant for teacher callers, but cheap to compute alongside
     // the main loop rather than re-scanning the sheet a second time.
     if (user.role === 'teacher' && rowTeacherEmail === user.email.toLowerCase()) {
+      // Extra fields only needed for the teacher's own View Details
+      // modal — kept off the shared allRefs objects (used by the admin
+      // Recent Activity feed) so that array doesn't carry unused weight.
+      refObj.location    = row[ci['Location']] ? row[ci['Location']].toString() : '';
+      refObj.description = row[ci['Description']] ? row[ci['Description']].toString() : '';
+      refObj.pointsAfterReferral = row[ci['PointsAfterReferral']] !== undefined
+        ? row[ci['PointsAfterReferral']].toString() : '';
+
       myTotal++;
       if (inc === today)  myToday++;
       if (inc >= day7ago) myWeek++;

@@ -253,6 +253,15 @@
 <body>
 <script>var navCurrentPage = 'student';</script>
 <?!= navHtml ?>
+<script>
+var BASE_URL = "<?!= baseUrl ?>";
+// Read server-side via doGet()'s e.parameter.id rather than
+// window.location.search, which does not reliably reflect the original
+// /exec?...&id=... URL once the page is rendered inside the HtmlService
+// sandbox — this is what was causing student-profile links to load the
+// Student page but not the specific student.
+var URL_ID = "<?!= urlId ?>";
+</script>
 
 <div class="page-body">
 
@@ -305,8 +314,10 @@ var _refDetailLookup = {}; // referral ID → full referral object, for the View
 
 // ── Load all students once ────────────────────────────────────
 window.addEventListener('load', function() {
-  // Check if a student ID was passed in the URL
-  var urlId = getParam('id');
+  // Read from URL_ID (injected server-side by doGet() via templating)
+  // rather than parsing window.location.search on the client — see the
+  // comment on URL_ID above for why.
+  var urlId = URL_ID;
 
   google.script.run
     .withSuccessHandler(function(data) {

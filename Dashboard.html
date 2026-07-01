@@ -115,6 +115,33 @@
     .window-btn:hover { color: #1e293b; }
     .window-btn.active { background: white; color: #1e3a5f; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
 
+    /* ── My Referrals — View button ── */
+    .view-my-ref-btn { background: white; border: 1px solid #cbd5e1; color: #374151;
+                       border-radius: 5px; padding: 3px 10px; font-size: 0.74rem;
+                       font-weight: 600; cursor: pointer; font-family: inherit;
+                       margin-top: 5px; }
+    .view-my-ref-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+
+    /* ── Referral detail modal ── */
+    .ref-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+                          z-index: 200; display: none; align-items: center; justify-content: center;
+                          padding: 16px; }
+    .ref-detail-overlay.open { display: flex; }
+    .ref-detail-modal { background: white; border-radius: 10px; max-width: 460px; width: 100%;
+                        padding: 20px 22px; box-shadow: 0 10px 32px rgba(0,0,0,0.2);
+                        max-height: 85vh; overflow-y: auto; }
+    .ref-detail-hdr { display: flex; justify-content: space-between; align-items: flex-start;
+                      margin-bottom: 14px; gap: 10px; }
+    .ref-detail-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+    .ref-detail-sub { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+    .ref-detail-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+                        color: #9ca3af; line-height: 1; padding: 0 4px; flex-shrink: 0; }
+    .ref-detail-close:hover { color: #4b5563; }
+    .ref-detail-row { display: flex; gap: 8px; margin-bottom: 9px; font-size: 0.84rem; }
+    .ref-detail-label { width: 90px; color: #94a3b8; flex-shrink: 0; padding-top: 1px; }
+    .ref-detail-val { font-weight: 500; color: #1e293b; flex: 1; }
+    .ref-detail-hr { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
+
     @media (max-width: 900px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
@@ -124,6 +151,7 @@
 </head>
 <body>
 <?!= navHtml ?>
+<script>var BASE_URL = "<?!= baseUrl ?>";</script>
 
 <div class="page-body">
   <div class="page-title" id="pg-title">Dashboard</div>
@@ -229,6 +257,20 @@
 
 </div>
 
+<!-- Referral detail modal — opened by the View button on My Referrals -->
+<div class="ref-detail-overlay" id="my-ref-detail-overlay" onclick="if(event.target===this) closeMyRefDetailModal()">
+  <div class="ref-detail-modal">
+    <div class="ref-detail-hdr">
+      <div>
+        <div class="ref-detail-title">Referral Details</div>
+        <div class="ref-detail-sub" id="my-ref-detail-sub"></div>
+      </div>
+      <button class="ref-detail-close" onclick="closeMyRefDetailModal()">×</button>
+    </div>
+    <div id="my-ref-detail-body"></div>
+  </div>
+</div>
+
 <script>
 window.addEventListener('load', function() {
   google.script.run
@@ -296,7 +338,7 @@ function renderAdmin(d) {
         return '<div class="activity-item">' +
           '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
           '<div class="a-main"><div class="a-stu">' +
-            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
+            '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
           '<div class="a-det">'+esc(r.infractionType)+' · '+esc(r.teacherName)+'</div></div>' +
           '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
             (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
@@ -319,7 +361,7 @@ function renderAtRiskTable(targetId, atRisk, sp, pointTiers) {
     : atRisk.map(function(s) {
         var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
         var color = s.pointColor || getPointColor(pct, pointTiers);
-        return '<tr><td><a class="stu-link" href="?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
+        return '<tr><td><a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
                '<td>'+esc(s.grade)+'</td>' +
                '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
                '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
@@ -382,16 +424,74 @@ function renderMyReferrals(windowKey) {
         var pts    = parseInt(r.pointValue,10)||0;
         var ptsStr = pts > 0 ? '+'+pts : pts.toString();
         var ptsCls = pts < 0 ? 'pts-neg' : 'pts-pos';
+
+        // Store the full referral object keyed by ID so the View
+        // Details modal can look it up without embedding (possibly
+        // quote-containing) text directly inside an onclick attribute.
+        _myRefDetailLookup[r.id] = r;
+
         return '<div class="activity-item">' +
           '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
           '<div class="a-main"><div class="a-stu">' +
-            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
+            '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
           '<div class="a-det">'+esc(r.infractionType)+'</div></div>' +
           '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
             (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
-          '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div></div></div>';
+          '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div>' +
+          '<button class="view-my-ref-btn" onclick="openMyRefDetailModal(\''+esc(r.id)+'\')">View</button>' +
+          '</div></div>';
       }).join('');
 }
+
+// ── My Referrals — View Details modal (teacher dashboard) ──────
+// Mirrors the same View Details pattern used in Index.html's nine-weeks
+// history and Student.html's referral table.
+var _myRefDetailLookup = {};
+
+function openMyRefDetailModal(refId) {
+  var r = _myRefDetailLookup[refId];
+  if (!r) return;
+
+  document.getElementById('my-ref-detail-sub').textContent =
+    formatDateMDY(r.incidentDate) +
+    (r.incidentTime ? ' at ' + formatTime12h(r.incidentTime) : '') +
+    ' · ' + r.infractionType;
+
+  var pts    = parseInt(r.pointValue, 10) || 0;
+  var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
+
+  var fields = [
+    ['Student',    '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a>' + (r.grade ? ' (Grade '+esc(r.grade)+')' : '')],
+    ['Location',   r.location || ''],
+    ['Infraction', r.infractionType || ''],
+    ['Points',     '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span>' +
+                   (r.pointsAfterReferral !== '' && r.pointsAfterReferral !== undefined
+                     ? ' &nbsp;(Balance: '+esc(r.pointsAfterReferral)+' pts)' : '')]
+  ];
+
+  var html = fields.map(function(f) {
+    return '<div class="ref-detail-row"><div class="ref-detail-label">'+esc(f[0])+'</div>' +
+           '<div class="ref-detail-val">'+f[1]+'</div></div>';
+  }).join('');
+
+  if (r.description) {
+    html += '<hr class="ref-detail-hr"><div class="ref-detail-row">' +
+            '<div class="ref-detail-label">Description</div>' +
+            '<div class="ref-detail-val">'+esc(r.description)+'</div></div>';
+  }
+
+  document.getElementById('my-ref-detail-body').innerHTML = html;
+  document.getElementById('my-ref-detail-overlay').classList.add('open');
+}
+
+function closeMyRefDetailModal() {
+  document.getElementById('my-ref-detail-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeMyRefDetailModal();
+});
 
 function renderHbars(id, items, colorClass) {
   var el = document.getElementById(id);
