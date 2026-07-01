@@ -106,6 +106,7 @@
 <body>
 <script>var navCurrentPage = 'report';</script>
 <?!= navHtml ?>
+<script>var BASE_URL = "<?!= baseUrl ?>";</script>
 
 <div id="loading-bar"></div>
 
@@ -287,7 +288,7 @@ function renderTable() {
     return '<tr'+(status==='Resolved'?' class="resolved"':'')+'>' +
       '<td style="color:#94a3b8;">'+esc(row['ID']||'')+'</td>' +
       '<td style="white-space:nowrap;">'+esc(formatDateMDY(row['IncidentDate']||''))+'</td>' +
-      '<td><a class="stu-link" href="?page=student&id='+esc(studentId)+'">'+esc(row['StudentName']||'')+'</a></td>' +
+      '<td><a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(studentId)+'">'+esc(row['StudentName']||'')+'</a></td>' +
       '<td>'+esc(row['Grade']||'')+'</td>' +
       '<td>'+esc(row['InfractionType']||'')+'</td>' +
       '<td class="'+ptsCls+'">'+ptsStr+'</td>' +

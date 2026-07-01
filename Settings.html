@@ -291,6 +291,7 @@
 </head>
 <body>
 <?!= navHtml ?>
+<script>var BASE_URL = "<?!= baseUrl ?>";</script>
 
 <main>
   <div id="init-msg">Loading settings...</div>
@@ -328,7 +329,7 @@
         <div class="form-grid-2">
           <div class="form-row">
             <label>School Name</label>
-            <input type="text" id="cfg-schoolName" placeholder="e.g. Northmont Middle School">
+            <input type="text" id="cfg-schoolName" placeholder="e.g. Calloway County Middle School">
           </div>
           <div class="form-row">
             <label>Semester Start Points</label>

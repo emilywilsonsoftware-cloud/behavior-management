@@ -147,8 +147,12 @@ function doGet(e) {
     student:   'Student',
     settings:  'Settings'
   };
-  var file = map[page] || 'Dashboard';
-  var base = ScriptApp.getService().getUrl();
+  var file       = map[page] || 'Dashboard';
+  var base       = ScriptApp.getService().getUrl();
+  var urlIdParam = (e && e.parameter && e.parameter.id) || ''; // e.g. ?page=student&id=S001
+  // Strip characters that could break out of the <script> tag this gets
+  // embedded into client-side (URL parameters are untrusted input).
+  urlIdParam = urlIdParam.toString().replace(/[^a-zA-Z0-9_-]/g, '');
 
   // ── Role gate for the referral form ──────────────────────────
   if (page === 'form') {
@@ -198,6 +202,17 @@ function doGet(e) {
 
   var tmpl = HtmlService.createTemplateFromFile(file);
   tmpl.navHtml = navHtml;
+  tmpl.baseUrl = base; // exposed so each page can build absolute links
+                        // (e.g. to a student profile) instead of relative
+                        // ?page=... hrefs, which can break when the app
+                        // is loaded through the googleusercontent.com
+                        // redirector rather than the canonical /exec URL.
+  tmpl.urlId   = urlIdParam; // server-read ?id=... value — passed through
+                              // templating rather than relying on the
+                              // client reading window.location.search,
+                              // which does not reliably reflect the
+                              // original /exec URL inside the rendered
+                              // HtmlService sandbox.
 
   return tmpl.evaluate()
     .setTitle('Behavior Tracker')
@@ -467,8 +482,16 @@ function getPointValue(infractionName) {
  *
  * Two-level cache:
  *   Level 1 — _user var: free within a single GAS execution.
- *   Level 2 — CacheService.getUserCache() (30 min): persists across page
- *     loads. Invalidated by saveStaff() when the Staff sheet is modified.
+ *   Level 2 — CacheService.getScriptCache() (30 min): persists across page
+ *     loads. Uses the SCRIPT cache, not the user cache — getUserCache()
+ *     is isolated per Google account, so an admin calling
+ *     invalidateUserCache(someone@school.edu) would only ever clear
+ *     their OWN cache entry, never the target person's. getScriptCache()
+ *     is shared script-wide, so any admin's call to invalidateUserCache()
+ *     (or the permanent clearUserCacheByEmail() helper below) actually
+ *     clears the right entry regardless of who runs it.
+ *   Invalidated by saveStaff() when the Staff sheet is modified, and by
+ *   clearUserCacheByEmail() / clearAllUserCaches() for manual use.
  */
 function getCurrentUser() {
   if (_user) return _user;
@@ -477,7 +500,7 @@ function getCurrentUser() {
   var cacheKey = 'bt_user_' + email.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
   try {
-    var cached = CacheService.getUserCache().get(cacheKey);
+    var cached = CacheService.getScriptCache().get(cacheKey);
     if (cached) {
       _user = JSON.parse(cached);
       return _user;
@@ -518,7 +541,7 @@ function getCurrentUser() {
   };
 
   try {
-    CacheService.getUserCache().put(cacheKey, JSON.stringify(_user), 1800);
+    CacheService.getScriptCache().put(cacheKey, JSON.stringify(_user), 1800);
   } catch (e) {
     Logger.log('CacheService write failed: ' + e.message);
   }
@@ -526,13 +549,74 @@ function getCurrentUser() {
   return _user;
 }
 
+/**
+ * Clears the cached role for a single email address. Safe to call from
+ * any account (admin or not) since it now uses the shared script cache —
+ * this is what makes it actually work when called by someone other than
+ * the affected person, unlike the old per-user cache.
+ */
 function invalidateUserCache(email) {
   try {
     var cacheKey = 'bt_user_' + email.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    CacheService.getUserCache().remove(cacheKey);
+    CacheService.getScriptCache().remove(cacheKey);
   } catch (e) {
     Logger.log('Cache invalidation failed for ' + email + ': ' + e.message);
   }
+}
+
+// =============================================================
+// MANUAL ROLE CACHE CLEARING
+// Permanent, callable utilities for when an admin changes someone's
+// role directly in the Staff sheet (bypassing saveStaff(), which
+// already clears the cache automatically). Run either of these from
+// the Apps Script editor's function dropdown after editing the sheet,
+// or call clearUserCacheByEmail() from getCurrentUser-aware tooling.
+// No UI is wired to these on purpose — they're an admin/developer
+// utility, not something exposed to end users.
+// =============================================================
+
+/**
+ * Clears the cached role for ONE person by email. Use this after
+ * editing their Role directly in the Staff sheet (rather than through
+ * the Settings > Staff page, which already clears this automatically).
+ *
+ * To use: open the Apps Script editor, select clearUserCacheByEmail
+ * from the function dropdown, click the gear/Run, and when prompted
+ * for input — Apps Script's editor doesn't support function arguments
+ * from the UI, so instead set EMAIL_TO_CLEAR below and run this function
+ * as-is, or just call invalidateUserCache('person@school.edu') directly
+ * from a scratch line in the editor.
+ */
+function clearUserCacheByEmail() {
+  var EMAIL_TO_CLEAR = 'CHANGE_ME@yourschool.edu'; // ← edit this line, then Run
+  if (EMAIL_TO_CLEAR.indexOf('CHANGE_ME') >= 0) {
+    Logger.log('Edit the EMAIL_TO_CLEAR value in this function before running.');
+    return;
+  }
+  invalidateUserCache(EMAIL_TO_CLEAR);
+  Logger.log('Cache cleared for: ' + EMAIL_TO_CLEAR);
+}
+
+/**
+ * Clears the cached role for EVERY person listed in the Staff sheet.
+ * Use this after making several role changes directly in the sheet at
+ * once, or any time you just want a clean slate without tracking down
+ * which specific emails changed. Safe to run anytime — at worst, each
+ * person's role is simply re-read from the Staff sheet on their next
+ * page load instead of coming from cache.
+ */
+function clearAllUserCaches() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var staff = ss.getSheetByName(SHEET_STAFF).getDataRange().getValues();
+  var count = 0;
+  for (var i = 1; i < staff.length; i++) {
+    var email = staff[i][STAFF_COL_EMAIL] ? staff[i][STAFF_COL_EMAIL].toString().trim() : '';
+    if (email) {
+      invalidateUserCache(email);
+      count++;
+    }
+  }
+  Logger.log('Cleared cached role for ' + count + ' staff member(s).');
 }
 
 // =============================================================
@@ -1176,6 +1260,12 @@ function getDashboardData() {
   var weekReferrals  = 0;
   var negativeCount  = 0; // Major + Minor combined — teachers see one "Negative" bucket
 
+  // Teacher-scoped counters — only this teacher's own referrals.
+  // Matched by email since that's the server-verified identity stored
+  // on each referral row at submit time (see submitReferrals()).
+  var myTotal = 0, myToday = 0, myWeek = 0;
+  var myRefs  = [];
+
   var allRefs = [];
 
   for (var r = 1; r < refData.length; r++) {
@@ -1184,6 +1274,7 @@ function getDashboardData() {
     var sev  = row[ci['Severity']] ? row[ci['Severity']].toString() : '';
     var stat = row[ci['Status']]   ? row[ci['Status']].toString()   : '';
     var ts   = row[ci['Timestamp']];
+    var rowTeacherEmail = row[ci['TeacherEmail']] ? row[ci['TeacherEmail']].toString().trim().toLowerCase() : '';
 
     totalReferrals++;
     if (stat !== 'Resolved') openReferrals++;
@@ -1208,7 +1299,7 @@ function getDashboardData() {
     var loc = row[ci['Location']];
     if (loc) locMap[loc] = (locMap[loc] || 0) + 1;
 
-    allRefs.push({
+    var refObj = {
       id:             row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
       studentId:      row[ci['StudentID']]   ? row[ci['StudentID']].toString()   : '',
       studentName:    row[ci['StudentName']] ? row[ci['StudentName']].toString() : '',
@@ -1220,9 +1311,74 @@ function getDashboardData() {
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       teacherName:    row[ci['TeacherName']] ? row[ci['TeacherName']].toString() : '',
       status:         stat
-    });
+    };
+    allRefs.push(refObj);
+
+    // Only relevant for teacher callers, but cheap to compute alongside
+    // the main loop rather than re-scanning the sheet a second time.
+    if (user.role === 'teacher' && rowTeacherEmail === user.email.toLowerCase()) {
+      // Extra fields only needed for the teacher's own View Details
+      // modal — kept off the shared allRefs objects (used by the admin
+      // Recent Activity feed) so that array doesn't carry unused weight.
+      refObj.location    = row[ci['Location']] ? row[ci['Location']].toString() : '';
+      refObj.description = row[ci['Description']] ? row[ci['Description']].toString() : '';
+      refObj.pointsAfterReferral = row[ci['PointsAfterReferral']] !== undefined
+        ? row[ci['PointsAfterReferral']].toString() : '';
+
+      myTotal++;
+      if (inc === today)  myToday++;
+      if (inc >= day7ago) myWeek++;
+      myRefs.push(refObj);
+    }
   }
 
+  // ── Teacher dashboard: slimmer, self-scoped payload ─────────────
+  if (user.role === 'teacher') {
+    var sp     = cfg.semesterPoints;
+    var atRisk = [];
+    for (var s = 1; s < stuData.length; s++) {
+      var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
+      if (isNaN(pts)) pts = sp;
+      var pct = sp > 0 ? Math.round(pts / sp * 100) : 0;
+      atRisk.push({
+        studentId:     stuData[s][STU_COL_ID].toString(),
+        studentName:   displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]),
+        grade:         stuData[s][STU_COL_GRADE].toString(),
+        currentPoints: pts,
+        pct:           pct,
+        pointColor:    getPointColor(pct, cfg.pointTiers)
+      });
+    }
+    atRisk.sort(function(a, b) { return a.currentPoints - b.currentPoints; });
+    atRisk = atRisk.slice(0, 10);
+
+    // Sort the teacher's own referrals most-recent-first once; the
+    // client slices this single sorted list by date window (Today /
+    // This Week / All Time) without needing another server call.
+    myRefs.sort(function(a, b) {
+      return a.incidentDate > b.incidentDate ? -1 :
+             a.incidentDate < b.incidentDate ?  1 : 0;
+    });
+
+    return {
+      user:             user,
+      schoolName:       cfg.schoolName,
+      semesterPoints:   sp,
+      currentNineWeeks: cfg.currentNineWeeks,
+      pointTiers:       cfg.pointTiers,
+      stats: {
+        myTotal: myTotal,
+        myToday: myToday,
+        myWeek:  myWeek
+      },
+      myReferrals: myRefs,
+      today:       today,
+      day7ago:     day7ago,
+      atRisk:      atRisk
+    };
+  }
+
+  // ── Admin dashboard: full school-wide payload (unchanged) ───────
   var monthlyTrend = [];
   for (var m = 11; m >= 0; m--) {
     var md  = new Date(now.getFullYear(), now.getMonth() - m, 1);

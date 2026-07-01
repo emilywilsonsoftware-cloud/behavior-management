@@ -104,6 +104,44 @@
 
     .loading-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
 
+    /* ── Teacher dashboard ── */
+    .teacher-stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .card-hdr-row { display: flex; align-items: center; justify-content: space-between;
+                    padding: 12px 18px 0; flex-wrap: wrap; gap: 8px; }
+    .my-refs-window { display: flex; gap: 4px; background: #f1f5f9; border-radius: 7px; padding: 3px; }
+    .window-btn { border: none; background: none; padding: 5px 11px; border-radius: 5px;
+                  font-size: 0.74rem; font-weight: 600; color: #64748b; cursor: pointer;
+                  font-family: inherit; transition: background 0.12s, color 0.12s; }
+    .window-btn:hover { color: #1e293b; }
+    .window-btn.active { background: white; color: #1e3a5f; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+    /* ── My Referrals — View button ── */
+    .view-my-ref-btn { background: white; border: 1px solid #cbd5e1; color: #374151;
+                       border-radius: 5px; padding: 3px 10px; font-size: 0.74rem;
+                       font-weight: 600; cursor: pointer; font-family: inherit;
+                       margin-top: 5px; }
+    .view-my-ref-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+
+    /* ── Referral detail modal ── */
+    .ref-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+                          z-index: 200; display: none; align-items: center; justify-content: center;
+                          padding: 16px; }
+    .ref-detail-overlay.open { display: flex; }
+    .ref-detail-modal { background: white; border-radius: 10px; max-width: 460px; width: 100%;
+                        padding: 20px 22px; box-shadow: 0 10px 32px rgba(0,0,0,0.2);
+                        max-height: 85vh; overflow-y: auto; }
+    .ref-detail-hdr { display: flex; justify-content: space-between; align-items: flex-start;
+                      margin-bottom: 14px; gap: 10px; }
+    .ref-detail-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+    .ref-detail-sub { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+    .ref-detail-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+                        color: #9ca3af; line-height: 1; padding: 0 4px; flex-shrink: 0; }
+    .ref-detail-close:hover { color: #4b5563; }
+    .ref-detail-row { display: flex; gap: 8px; margin-bottom: 9px; font-size: 0.84rem; }
+    .ref-detail-label { width: 90px; color: #94a3b8; flex-shrink: 0; padding-top: 1px; }
+    .ref-detail-val { font-weight: 500; color: #1e293b; flex: 1; }
+    .ref-detail-hr { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
+
     @media (max-width: 900px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
@@ -113,12 +151,18 @@
 </head>
 <body>
 <?!= navHtml ?>
+<script>var BASE_URL = "<?!= baseUrl ?>";</script>
 
 <div class="page-body">
   <div class="page-title" id="pg-title">Dashboard</div>
   <div class="page-sub"   id="pg-sub">Loading...</div>
 
   <div id="nw-badge-row"></div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ADMIN DASHBOARD — full school-wide view
+  ══════════════════════════════════════════════════════════ -->
+  <div id="admin-dashboard" style="display:none;">
 
   <div class="stats-grid">
     <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">Total Referrals</div></div>
@@ -170,6 +214,61 @@
       <div class="card-bdy"><div class="tch-grid" id="tch-grid"><div class="loading-msg" style="grid-column:1/-1;">Loading...</div></div></div>
     </div>
   </div>
+
+  </div><!-- /admin-dashboard -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       TEACHER DASHBOARD — simplified, self-scoped view
+  ══════════════════════════════════════════════════════════ -->
+  <div id="teacher-dashboard" style="display:none;">
+
+  <div class="stats-grid teacher-stats-grid">
+    <div class="stat-card blue"> <div class="stat-value" id="tst-total">—</div> <div class="stat-label">My Total Referrals</div></div>
+    <div class="stat-card teal">  <div class="stat-value" id="tst-today">—</div> <div class="stat-label">Today</div></div>
+    <div class="stat-card indigo"><div class="stat-value" id="tst-week">—</div>  <div class="stat-label">This Week</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hdr-row">
+        <div class="card-hdr" style="padding:0;">My Referrals</div>
+        <div class="my-refs-window" id="my-refs-window">
+          <button class="window-btn active" data-window="today" onclick="setMyRefsWindow('today')">Today</button>
+          <button class="window-btn" data-window="week" onclick="setMyRefsWindow('week')">This Week</button>
+          <button class="window-btn" data-window="all" onclick="setMyRefsWindow('all')">All Time</button>
+        </div>
+      </div>
+      <div class="card-bdy" style="padding-top:8px;">
+        <div class="activity-list" id="my-refs-list"><div class="loading-msg">Loading...</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">Students At Risk — Lowest Balances</div>
+      <div class="card-bdy" style="padding-top:8px;">
+        <table class="ar-table">
+          <thead><tr><th>Student</th><th>Gr</th><th>Balance</th></tr></thead>
+          <tbody id="t-ar-body"><tr><td colspan="3" class="loading-msg">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /teacher-dashboard -->
+
+</div>
+
+<!-- Referral detail modal — opened by the View button on My Referrals -->
+<div class="ref-detail-overlay" id="my-ref-detail-overlay" onclick="if(event.target===this) closeMyRefDetailModal()">
+  <div class="ref-detail-modal">
+    <div class="ref-detail-hdr">
+      <div>
+        <div class="ref-detail-title">Referral Details</div>
+        <div class="ref-detail-sub" id="my-ref-detail-sub"></div>
+      </div>
+      <button class="ref-detail-close" onclick="closeMyRefDetailModal()">×</button>
+    </div>
+    <div id="my-ref-detail-body"></div>
+  </div>
 </div>
 
 <script>
@@ -198,6 +297,18 @@ function render(d) {
       ': ' + formatDateMDY(d.currentNineWeeks.start) + ' – ' + formatDateMDY(d.currentNineWeeks.end) + '</div>';
   }
 
+  if (d.user && d.user.role === 'teacher') {
+    document.getElementById('teacher-dashboard').style.display = 'block';
+    document.getElementById('admin-dashboard').style.display   = 'none';
+    renderTeacher(d);
+  } else {
+    document.getElementById('admin-dashboard').style.display   = 'block';
+    document.getElementById('teacher-dashboard').style.display = 'none';
+    renderAdmin(d);
+  }
+}
+
+function renderAdmin(d) {
   var s = d.stats;
   setText('st-total', s.totalReferrals); setText('st-open', s.openReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
@@ -215,18 +326,7 @@ function render(d) {
   renderHbars('inf-chart', d.infractionBreakdown, 'amber');
   renderHbars('loc-chart', d.locationBreakdown, '');
 
-  var sp = d.semesterPoints;
-  document.getElementById('ar-body').innerHTML = d.atRisk.length === 0
-    ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
-    : d.atRisk.map(function(s) {
-        var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
-        var color = s.pointColor || getPointColor(pct, d.pointTiers);
-        return '<tr><td><a class="stu-link" href="?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
-               '<td>'+esc(s.grade)+'</td>' +
-               '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
-               '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
-               '<span style="font-size:0.7rem;color:#94a3b8;">'+pct+'%</span></div></td></tr>';
-      }).join('');
+  renderAtRiskTable('ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
 
   document.getElementById('act-list').innerHTML = d.recentReferrals.length === 0
     ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
@@ -238,7 +338,7 @@ function render(d) {
         return '<div class="activity-item">' +
           '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
           '<div class="a-main"><div class="a-stu">' +
-            '<a class="stu-link" href="?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
+            '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
           '<div class="a-det">'+esc(r.infractionType)+' · '+esc(r.teacherName)+'</div></div>' +
           '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
             (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
@@ -252,6 +352,146 @@ function render(d) {
                '<div class="tch-count">'+t.count+'</div></div>';
       }).join('');
 }
+
+// Shared at-risk table renderer — used by both the admin dashboard
+// (#ar-body) and the teacher dashboard (#t-ar-body), same markup either way.
+function renderAtRiskTable(targetId, atRisk, sp, pointTiers) {
+  document.getElementById(targetId).innerHTML = atRisk.length === 0
+    ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
+    : atRisk.map(function(s) {
+        var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
+        var color = s.pointColor || getPointColor(pct, pointTiers);
+        return '<tr><td><a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
+               '<td>'+esc(s.grade)+'</td>' +
+               '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
+               '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
+               '<span style="font-size:0.7rem;color:#94a3b8;">'+pct+'%</span></div></td></tr>';
+      }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// TEACHER DASHBOARD
+// ══════════════════════════════════════════════════════════
+var _myRefsData   = null; // cached full sorted referral list from the server
+var _myRefsToday  = '';
+var _myRefsWeekAgo = '';
+
+function renderTeacher(d) {
+  var s = d.stats;
+  setText('tst-total', s.myTotal);
+  setText('tst-today', s.myToday);
+  setText('tst-week',  s.myWeek);
+
+  _myRefsData    = d.myReferrals || [];
+  _myRefsToday   = d.today;
+  _myRefsWeekAgo = d.day7ago;
+
+  renderAtRiskTable('t-ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
+
+  // Default window is "Today" per the button already marked active in
+  // the HTML — render that slice immediately.
+  renderMyReferrals('today');
+}
+
+// Switches the My Referrals time window (Today → This Week → All Time).
+// All three windows are pre-sorted/cached client-side from a single
+// server call — no extra round-trip when switching.
+function setMyRefsWindow(windowKey) {
+  document.querySelectorAll('#my-refs-window .window-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.window === windowKey);
+  });
+  renderMyReferrals(windowKey);
+}
+
+function renderMyReferrals(windowKey) {
+  if (!_myRefsData) return;
+
+  var filtered = _myRefsData;
+  if (windowKey === 'today') {
+    filtered = _myRefsData.filter(function(r) { return r.incidentDate === _myRefsToday; });
+  } else if (windowKey === 'week') {
+    filtered = _myRefsData.filter(function(r) { return r.incidentDate >= _myRefsWeekAgo; });
+  }
+  // 'all' uses the full list as-is.
+
+  var list = document.getElementById('my-refs-list');
+  var windowLabel = windowKey === 'today' ? 'today' : windowKey === 'week' ? 'this week' : 'on file';
+
+  list.innerHTML = filtered.length === 0
+    ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals submitted '+windowLabel+'.</div>'
+    : filtered.map(function(r) {
+        var sev    = (r.severity||'').toString();
+        var pts    = parseInt(r.pointValue,10)||0;
+        var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+        var ptsCls = pts < 0 ? 'pts-neg' : 'pts-pos';
+
+        // Store the full referral object keyed by ID so the View
+        // Details modal can look it up without embedding (possibly
+        // quote-containing) text directly inside an onclick attribute.
+        _myRefDetailLookup[r.id] = r;
+
+        return '<div class="activity-item">' +
+          '<div class="a-dot d-'+sev.toLowerCase()+'"></div>' +
+          '<div class="a-main"><div class="a-stu">' +
+            '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
+          '<div class="a-det">'+esc(r.infractionType)+'</div></div>' +
+          '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
+            (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
+          '<div class="a-pts '+ptsCls+'">'+ptsStr+' pts</div>' +
+          '<button class="view-my-ref-btn" onclick="openMyRefDetailModal(\''+esc(r.id)+'\')">View</button>' +
+          '</div></div>';
+      }).join('');
+}
+
+// ── My Referrals — View Details modal (teacher dashboard) ──────
+// Mirrors the same View Details pattern used in Index.html's nine-weeks
+// history and Student.html's referral table.
+var _myRefDetailLookup = {};
+
+function openMyRefDetailModal(refId) {
+  var r = _myRefDetailLookup[refId];
+  if (!r) return;
+
+  document.getElementById('my-ref-detail-sub').textContent =
+    formatDateMDY(r.incidentDate) +
+    (r.incidentTime ? ' at ' + formatTime12h(r.incidentTime) : '') +
+    ' · ' + r.infractionType;
+
+  var pts    = parseInt(r.pointValue, 10) || 0;
+  var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
+
+  var fields = [
+    ['Student',    '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a>' + (r.grade ? ' (Grade '+esc(r.grade)+')' : '')],
+    ['Location',   r.location || ''],
+    ['Infraction', r.infractionType || ''],
+    ['Points',     '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span>' +
+                   (r.pointsAfterReferral !== '' && r.pointsAfterReferral !== undefined
+                     ? ' &nbsp;(Balance: '+esc(r.pointsAfterReferral)+' pts)' : '')]
+  ];
+
+  var html = fields.map(function(f) {
+    return '<div class="ref-detail-row"><div class="ref-detail-label">'+esc(f[0])+'</div>' +
+           '<div class="ref-detail-val">'+f[1]+'</div></div>';
+  }).join('');
+
+  if (r.description) {
+    html += '<hr class="ref-detail-hr"><div class="ref-detail-row">' +
+            '<div class="ref-detail-label">Description</div>' +
+            '<div class="ref-detail-val">'+esc(r.description)+'</div></div>';
+  }
+
+  document.getElementById('my-ref-detail-body').innerHTML = html;
+  document.getElementById('my-ref-detail-overlay').classList.add('open');
+}
+
+function closeMyRefDetailModal() {
+  document.getElementById('my-ref-detail-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeMyRefDetailModal();
+});
 
 function renderHbars(id, items, colorClass) {
   var el = document.getElementById(id);
