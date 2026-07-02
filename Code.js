@@ -1255,10 +1255,10 @@ function getDashboardData() {
   var tchMap = {};
 
   var totalReferrals = 0;
-  var openReferrals  = 0;
   var todayReferrals = 0;
   var weekReferrals  = 0;
   var negativeCount  = 0; // Major + Minor combined — teachers see one "Negative" bucket
+  var positiveCount  = 0;
 
   // Teacher-scoped counters — only this teacher's own referrals.
   // Matched by email since that's the server-verified identity stored
@@ -1277,10 +1277,10 @@ function getDashboardData() {
     var rowTeacherEmail = row[ci['TeacherEmail']] ? row[ci['TeacherEmail']].toString().trim().toLowerCase() : '';
 
     totalReferrals++;
-    if (stat !== 'Resolved') openReferrals++;
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
     if (sev === 'Major' || sev === 'Minor') negativeCount++;
+    if (sev === 'Positive') positiveCount++;
 
     var d = ts instanceof Date ? ts : (ts ? new Date(ts) : null);
     if (d && !isNaN(d.getTime())) {
@@ -1451,10 +1451,10 @@ function getDashboardData() {
     pointTiers:          cfg.pointTiers,
     stats: {
       totalReferrals:  totalReferrals,
-      openReferrals:   openReferrals,
       todayReferrals:  todayReferrals,
       weekReferrals:   weekReferrals,
       negativeCount:   negativeCount,
+      positiveCount:   positiveCount,
       totalStudents:   stuData.length - 1,
       atRiskCount:     atRiskCount
     },

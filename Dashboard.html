@@ -13,6 +13,22 @@
     .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 3px; }
     .page-sub   { font-size: 0.84rem; color: #64748b; margin-bottom: 22px; }
 
+    /* Header row — title/sub on the left, refresh controls on the right */
+    .page-hdr-row { display: flex; align-items: flex-start; justify-content: space-between;
+                    flex-wrap: wrap; gap: 10px; }
+    .refresh-wrap { display: flex; align-items: center; gap: 9px; flex-shrink: 0;
+                    margin-top: 2px; }
+    .last-updated { font-size: 0.76rem; color: #94a3b8; white-space: nowrap; }
+    .refresh-btn { display: flex; align-items: center; gap: 6px; background: white;
+                   border: 1px solid #d1d5db; color: #374151; border-radius: 6px;
+                   padding: 6px 12px; font-size: 0.8rem; font-weight: 600;
+                   cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .refresh-btn:hover:not(:disabled) { background: #f8fafc; border-color: #94a3b8; }
+    .refresh-btn:disabled { cursor: default; opacity: 0.65; }
+    .refresh-btn svg { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.5s ease; }
+    .refresh-btn.spinning svg { animation: refresh-spin 0.7s linear infinite; }
+    @keyframes refresh-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
     /* Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
     .stat-card  { background: white; border-radius: 9px; padding: 16px 18px;
@@ -154,8 +170,24 @@
 <script>var BASE_URL = "<?!= baseUrl ?>";</script>
 
 <div class="page-body">
-  <div class="page-title" id="pg-title">Dashboard</div>
-  <div class="page-sub"   id="pg-sub">Loading...</div>
+  <div class="page-hdr-row">
+    <div>
+      <div class="page-title" id="pg-title">Dashboard</div>
+      <div class="page-sub"   id="pg-sub">Loading...</div>
+    </div>
+    <div class="refresh-wrap">
+      <span class="last-updated" id="last-updated"></span>
+      <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/>
+          <polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </div>
 
   <div id="nw-badge-row"></div>
 
@@ -166,11 +198,11 @@
 
   <div class="stats-grid">
     <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">Total Referrals</div></div>
-    <div class="stat-card amber"> <div class="stat-value" id="st-open">—</div>   <div class="stat-label">Open</div></div>
-    <div class="stat-card teal">  <div class="stat-value" id="st-today">—</div>  <div class="stat-label">Today</div></div>
-    <div class="stat-card indigo"><div class="stat-value" id="st-week">—</div>   <div class="stat-label">This Week</div></div>
+    <div class="stat-card amber"> <div class="stat-value" id="st-today">—</div>  <div class="stat-label">Today</div></div>
+    <div class="stat-card teal">  <div class="stat-value" id="st-week">—</div>   <div class="stat-label">This Week</div></div>
+    <div class="stat-card indigo"><div class="stat-value" id="st-stus">—</div>   <div class="stat-label">Total Students</div></div>
     <div class="stat-card red">   <div class="stat-value" id="st-negative">—</div>  <div class="stat-label">Negative Referrals</div></div>
-    <div class="stat-card green"> <div class="stat-value" id="st-stus">—</div>   <div class="stat-label">Total Students</div></div>
+    <div class="stat-card green"> <div class="stat-value" id="st-positive">—</div>  <div class="stat-label">Positive Referrals</div></div>
     <div class="stat-card red">   <div class="stat-value" id="st-risk">—</div>   <div class="stat-label">At-Risk Students</div></div>
     <div class="stat-card purple"><div class="stat-value" id="st-pts">—</div>    <div class="stat-label">Starting Points</div></div>
   </div>
@@ -272,15 +304,77 @@
 </div>
 
 <script>
-window.addEventListener('load', function() {
+// ── Data loading / refresh ──────────────────────────────────────
+// Refresh strategy: no background polling. Data is (re)loaded on initial
+// page load, whenever the tab regains focus/visibility (throttled so quick
+// tab-switching doesn't spam the server), and on-demand via the Refresh
+// button. isRefresh=true skips the full "Loading..." state and instead
+// shows a spinner on the button, since the page already has content.
+var _lastLoadedAt = null;   // Date of the last successful load
+var _loadInFlight = false;  // guards against overlapping calls
+var MIN_REFRESH_GAP_MS = 30 * 1000; // don't re-fetch on focus more than once per 30s
+
+window.addEventListener('load', function() { loadDashboard(false); });
+
+function loadDashboard(isRefresh) {
+  if (_loadInFlight) return;
+  _loadInFlight = true;
+
+  var btn = document.getElementById('refresh-btn');
+  if (isRefresh) {
+    btn.disabled = true;
+    btn.classList.add('spinning');
+  } else {
+    document.getElementById('pg-sub').textContent = 'Loading...';
+  }
+
   google.script.run
-    .withSuccessHandler(render)
+    .withSuccessHandler(function(d) {
+      _loadInFlight = false;
+      _lastLoadedAt = new Date();
+      btn.disabled = false;
+      btn.classList.remove('spinning');
+      render(d);
+      updateLastUpdatedLabel();
+    })
     .withFailureHandler(function(err) {
-      document.getElementById('pg-sub').innerHTML =
-        '<span style="color:#dc2626;">Error: '+esc(err.message||err)+'</span>';
+      _loadInFlight = false;
+      btn.disabled = false;
+      btn.classList.remove('spinning');
+      if (!isRefresh) {
+        document.getElementById('pg-sub').innerHTML =
+          '<span style="color:#dc2626;">Error: '+esc(err.message||err)+'</span>';
+      } else {
+        var lu = document.getElementById('last-updated');
+        lu.textContent = 'Refresh failed — showing data from ' + formatLastUpdated(_lastLoadedAt);
+        lu.style.color = '#dc2626';
+      }
     })
     .getDashboardData();
+}
+
+function manualRefresh() { loadDashboard(true); }
+
+// Re-fetch when the tab becomes visible again (e.g. switching back from
+// another tab/app), but throttled so rapid switching doesn't hammer the
+// server — only refetch if it's been at least MIN_REFRESH_GAP_MS since
+// the last successful load.
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState !== 'visible') return;
+  if (_lastLoadedAt && (Date.now() - _lastLoadedAt.getTime()) < MIN_REFRESH_GAP_MS) return;
+  loadDashboard(true);
 });
+
+function updateLastUpdatedLabel() {
+  var lu = document.getElementById('last-updated');
+  lu.style.color = '';
+  lu.textContent = 'Last updated: ' + formatLastUpdated(_lastLoadedAt);
+}
+
+function formatLastUpdated(d) {
+  if (!d) return '';
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
 
 function render(d) {
   if (typeof updateNavUser === 'function') updateNavUser(d.user);
@@ -310,9 +404,10 @@ function render(d) {
 
 function renderAdmin(d) {
   var s = d.stats;
-  setText('st-total', s.totalReferrals); setText('st-open', s.openReferrals);
+  setText('st-total', s.totalReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
-  setText('st-negative', s.negativeCount); setText('st-stus', s.totalStudents);
+  setText('st-negative', s.negativeCount); setText('st-positive', s.positiveCount);
+  setText('st-stus', s.totalStudents);
   setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.semesterPoints + ' pts');
 
   var maxM = Math.max.apply(null, d.monthlyTrend.map(function(m){ return m.count; })) || 1;
