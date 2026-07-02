@@ -1255,10 +1255,10 @@ function getDashboardData() {
   var tchMap = {};
 
   var totalReferrals = 0;
-  var openReferrals  = 0;
   var todayReferrals = 0;
   var weekReferrals  = 0;
-  var negativeCount  = 0; // Major + Minor combined — teachers see one "Negative" bucket
+  var negativeCount  = 0; // PointValue < 0 (point-losing referrals, regardless of severity)
+  var positiveCount  = 0;
 
   // Teacher-scoped counters — only this teacher's own referrals.
   // Matched by email since that's the server-verified identity stored
@@ -1276,11 +1276,18 @@ function getDashboardData() {
     var ts   = row[ci['Timestamp']];
     var rowTeacherEmail = row[ci['TeacherEmail']] ? row[ci['TeacherEmail']].toString().trim().toLowerCase() : '';
 
+    var ptVal = parseFloat(row[ci['PointValue']]) || 0;
+
     totalReferrals++;
-    if (stat !== 'Resolved') openReferrals++;
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
-    if (sev === 'Major' || sev === 'Minor') negativeCount++;
+    // Positive/negative are derived from PointValue's sign, not Severity —
+    // Severity is an optional classification (admins can leave it blank),
+    // but every infraction always has a PointValue, so this stays accurate
+    // even for referrals with no severity assigned. ptVal === 0 counts as
+    // neither (a logged incident with no point impact).
+    if (ptVal < 0) negativeCount++;
+    if (ptVal > 0) positiveCount++;
 
     var d = ts instanceof Date ? ts : (ts ? new Date(ts) : null);
     if (d && !isNaN(d.getTime())) {
@@ -1306,25 +1313,23 @@ function getDashboardData() {
       grade:          row[ci['Grade']]       ? row[ci['Grade']].toString()       : '',
       infractionType: inf ? inf.toString() : '',
       severity:       sev,
-      pointValue:     parseFloat(row[ci['PointValue']]) || 0,
+      pointValue:     ptVal,
       incidentDate:   inc,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       teacherName:    row[ci['TeacherName']] ? row[ci['TeacherName']].toString() : '',
-      status:         stat
+      status:         stat,
+      // Used by the View Details modal on both the teacher's "My
+      // Referrals" list and the admin "Recent Activity" feed.
+      location:              row[ci['Location']] ? row[ci['Location']].toString() : '',
+      description:           row[ci['Description']] ? row[ci['Description']].toString() : '',
+      pointsAfterReferral:   row[ci['PointsAfterReferral']] !== undefined
+        ? row[ci['PointsAfterReferral']].toString() : ''
     };
     allRefs.push(refObj);
 
     // Only relevant for teacher callers, but cheap to compute alongside
     // the main loop rather than re-scanning the sheet a second time.
     if (user.role === 'teacher' && rowTeacherEmail === user.email.toLowerCase()) {
-      // Extra fields only needed for the teacher's own View Details
-      // modal — kept off the shared allRefs objects (used by the admin
-      // Recent Activity feed) so that array doesn't carry unused weight.
-      refObj.location    = row[ci['Location']] ? row[ci['Location']].toString() : '';
-      refObj.description = row[ci['Description']] ? row[ci['Description']].toString() : '';
-      refObj.pointsAfterReferral = row[ci['PointsAfterReferral']] !== undefined
-        ? row[ci['PointsAfterReferral']].toString() : '';
-
       myTotal++;
       if (inc === today)  myToday++;
       if (inc >= day7ago) myWeek++;
@@ -1451,10 +1456,10 @@ function getDashboardData() {
     pointTiers:          cfg.pointTiers,
     stats: {
       totalReferrals:  totalReferrals,
-      openReferrals:   openReferrals,
       todayReferrals:  todayReferrals,
       weekReferrals:   weekReferrals,
       negativeCount:   negativeCount,
+      positiveCount:   positiveCount,
       totalStudents:   stuData.length - 1,
       atRiskCount:     atRiskCount
     },
@@ -1607,8 +1612,11 @@ function getStudentProfile(studentId) {
   referrals.forEach(function(r) {
     sumTotal++;
     if (r.Status !== 'Resolved') sumOpen++;
-    if (r.Severity === 'Major' || r.Severity === 'Minor') sumNegative++;
-    if (r.Severity === 'Positive') sumPos++;
+    // Same reasoning as getDashboardData(): PointValue's sign is the
+    // reliable signal, since Severity can be left blank by admins.
+    var ptVal = parseFloat(r.PointValue) || 0;
+    if (ptVal < 0) sumNegative++;
+    if (ptVal > 0) sumPos++;
   });
 
   return {
