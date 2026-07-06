@@ -43,6 +43,7 @@ var CONFIG_COL_EMAIL_SEND_TIME  = 'DailyEmailSendTime';
 var CONFIG_COL_NINE_WEEKS       = 'NineWeeksStartDates';
 var CONFIG_COL_POINT_THRESHOLDS = 'PointTierThresholds';
 var CONFIG_COL_POINT_COLORS     = 'PointTierColors';
+var CONFIG_COL_POSITIVE_CAP     = 'PositiveCapPerNineWeeks';
 // NOTE: CONFIG_COL_ADMIN_EMAILS intentionally removed.
 // Admin role is now determined by Role = 'admin' in the Staff sheet.
 
@@ -145,7 +146,8 @@ function doGet(e) {
     form:      'Index',
     report:    'Report',
     student:   'Student',
-    settings:  'Settings'
+    settings:  'Settings',
+    positive:  'Positive'
   };
   var file       = map[page] || 'Dashboard';
   var base       = ScriptApp.getService().getUrl();
@@ -189,7 +191,42 @@ function doGet(e) {
     }
   }
 
-  var pages = ['dashboard', 'form', 'student', 'report', 'settings'];
+  // ── Role gate for the positive-notes page (admin only) ─────
+  if (page === 'positive') {
+    var posGateUser = getCurrentUser();
+    if (posGateUser.role !== 'admin') {
+      return HtmlService.createHtmlOutput(
+        '<!DOCTYPE html><html><head>' +
+        '<meta charset="UTF-8">' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+        '<base target="_top">' +
+        '<style>' +
+        'body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;}' +
+        '.hdr{background:#1e3a5f;color:white;padding:0 20px;height:54px;' +
+             'display:flex;align-items:center;font-weight:700;font-size:1.05rem;}' +
+        '.wrap{max-width:500px;margin:60px auto;padding:0 16px;}' +
+        '.card{background:white;border-radius:10px;padding:36px 32px;' +
+              'box-shadow:0 1px 4px rgba(0,0,0,0.1);text-align:center;}' +
+        '.icon{font-size:2.5rem;margin-bottom:14px;}' +
+        'h2{color:#dc2626;font-size:1.1rem;margin-bottom:10px;}' +
+        'p{color:#64748b;font-size:0.88rem;line-height:1.6;margin-bottom:20px;}' +
+        'a{display:inline-block;padding:9px 22px;background:#1e3a5f;color:white;' +
+          'border-radius:7px;text-decoration:none;font-size:0.88rem;font-weight:600;}' +
+        '</style></head><body>' +
+        '<div class="hdr">Behavior Tracker</div>' +
+        '<div class="wrap"><div class="card">' +
+        '<div class="icon">🔒</div>' +
+        '<h2>Access Denied</h2>' +
+        '<p>Awarding positive points is only available to administrators.<br>' +
+        'If you believe this is an error, please contact your school administrator.</p>' +
+        '<a href="' + base + '?page=dashboard">Go to Dashboard</a>' +
+        '</div></div></body></html>'
+      ).setTitle('Access Denied')
+       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+  }
+
+  var pages = ['dashboard', 'form', 'student', 'report', 'settings', 'positive'];
   var navHtml = HtmlService.createHtmlOutputFromFile('Nav').getContent();
   navHtml = navHtml.replace(/\{\{BASE\}\}/g, base);
   for (var i = 0; i < pages.length; i++) {
@@ -379,6 +416,10 @@ function getConfig() {
     nineWeeks:        nineWeeks,
     currentNineWeeks: curNW,
     pointTiers:       pointTiers,
+    // Admin-only positive notes (Write Off, Saturday School, etc.) are
+    // capped per student per nine-weeks period. Configurable because the
+    // school may change this number later — defaults to 15 if unset/invalid.
+    positiveCapPerNineWeeks: parseInt(val(CONFIG_COL_POSITIVE_CAP, '15'), 10) || 15,
     _raw:             colMap
     // NOTE: adminEmails intentionally absent — use getCurrentUser() for role checks.
   };
@@ -643,7 +684,8 @@ function getSettingsBootstrap() {
       // so if the sheet had malformed data, the editor opens already
       // showing the safe 3-tier default rather than broken values.
       PointTierThresholds:       cfg.pointTiers.map(function(t) { return t.threshold; }),
-      PointTierColors:           cfg.pointTiers.map(function(t) { return t.color; })
+      PointTierColors:           cfg.pointTiers.map(function(t) { return t.color; }),
+      PositiveCapPerNineWeeks:   raw[CONFIG_COL_POSITIVE_CAP] || []
       // AdminEmails intentionally absent — managed via Staff manager
     }
   };
@@ -653,6 +695,15 @@ function saveConfigSection(payload) {
   var user = getCurrentUser();
   if (!user || user.role !== 'admin') {
     return { success: false, error: 'Admin access required.' };
+  }
+
+  // ── Positive cap validation ─────────────────────────────────────
+  if (payload.hasOwnProperty(CONFIG_COL_POSITIVE_CAP)) {
+    var capRaw = (payload[CONFIG_COL_POSITIVE_CAP] || [])[0];
+    var capVal = parseInt(capRaw, 10);
+    if (capRaw === undefined || capRaw === '' || isNaN(capVal) || capVal < 0) {
+      return { success: false, error: 'Positive Points Cap must be a whole number of 0 or more.' };
+    }
   }
 
   // ── Tier-specific validation ──────────────────────────────────
@@ -779,9 +830,24 @@ function getFormBootstrap() {
     currentNineWeeks: cfg.currentNineWeeks,
     nineWeeks:        cfg.nineWeeks,
     pointTiers:       cfg.pointTiers,
-    infractions:      infs.map(function(inf) {
-      return { name: inf.name, pointValue: inf.pointValue, severity: inf.severity };
-    }),
+    // Split by PointValue's sign, not Severity — Severity can be left
+    // blank by admins, so it isn't a reliable way to separate positive
+    // referral types from everything else (same reasoning as the
+    // dashboard/profile stat fixes). Positive types (Write Off, Saturday
+    // School, etc.) now live only in the admin-only "Award Positive
+    // Points" tab, not the main incident dropdown, for either role.
+    infractions: infs
+      .filter(function(inf) { return inf.pointValue <= 0; })
+      .map(function(inf) {
+        return { name: inf.name, pointValue: inf.pointValue, severity: inf.severity };
+      }),
+    positiveInfractions: user.role === 'admin'
+      ? infs.filter(function(inf) { return inf.pointValue > 0; })
+             .map(function(inf) {
+               return { name: inf.name, pointValue: inf.pointValue, severity: inf.severity };
+             })
+      : [],
+    positiveCapPerNineWeeks: cfg.positiveCapPerNineWeeks,
     students: students
   };
 }
@@ -991,6 +1057,237 @@ function submitReferrals(referrals) {
   return results;
 }
 
+// =============================================================
+// SUBMIT POSITIVE NOTES  (admin only)
+// =============================================================
+// Simplified sibling of submitReferrals() for the admin-only "Award
+// Positive Points" tab. Deliberately separate rather than folded into
+// submitReferrals() because the rules differ enough to make a shared
+// function harder to read than two focused ones:
+//   - Requires admin role, not teacher/admin.
+//   - No Location/IncidentTime fields from the client — time is stamped
+//     automatically, location is left blank (not applicable).
+//   - Server re-validates that the chosen infraction is actually a
+//     positive type (PointValue > 0, not Severity — see getFormBootstrap
+//     for why) rather than trusting whatever the client sent, since this
+//     endpoint is a privileged one.
+//   - Enforces the per-student, per-nine-weeks point cap — but as a soft
+//     warning the admin can override, not a hard block. First call
+//     (overrideConfirmed=false) does NOT write anything if any selected
+//     student would exceed the cap; it returns the details so the client
+//     can confirm with the admin, then resubmit with overrideConfirmed
+//     =true. Any row actually saved while over cap gets a note stamped
+//     into AdminNotes so there's a visible record of the override later.
+function submitPositiveReferrals(referrals, overrideConfirmed) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    throw new Error('Admin access required to submit positive notes.');
+  }
+  if (!Array.isArray(referrals) || referrals.length === 0) {
+    throw new Error('No referrals provided.');
+  }
+
+  var ss       = SpreadsheetApp.getActiveSpreadsheet();
+  var refSheet = ss.getSheetByName(SHEET_REFERRALS);
+  var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
+  var cfg      = getConfig();
+  var cap      = cfg.positiveCapPerNineWeeks;
+  var nw       = cfg.currentNineWeeks;
+
+  ensureHeaders(refSheet, REFERRAL_HEADERS);
+
+  var stuData     = stuSheet.getDataRange().getValues();
+  var validStuIds = {};
+  for (var vi = 1; vi < stuData.length; vi++) {
+    validStuIds[stuData[vi][STU_COL_ID].toString()] = true;
+  }
+
+  // Sum of positive PointValue already logged for a student within the
+  // current nine-weeks period, read fresh from the sheet each call.
+  var refData = refSheet.getDataRange().getValues();
+  var rHdrs   = (refData && refData.length > 0) ? refData[0] : [];
+  var rci     = {};
+  for (var h = 0; h < rHdrs.length; h++) {
+    if (rHdrs[h]) rci[rHdrs[h].toString().trim()] = h;
+  }
+  function existingPositiveTotal(studentId) {
+    var total = 0;
+    for (var r = 1; r < refData.length; r++) {
+      var row = refData[r];
+      if ((row[rci['StudentID']] || '').toString() !== studentId.toString()) continue;
+      var pv = parseFloat(row[rci['PointValue']]) || 0;
+      if (pv <= 0) continue;
+      if (nw) {
+        var incDate = formatDateStr(row[rci['IncidentDate']]);
+        if (incDate < nw.start || incDate > nw.end) continue;
+      }
+      total += pv;
+    }
+    return total;
+  }
+
+  var REQUIRED_FIELDS = ['studentId', 'infractionType', 'incidentDate'];
+
+  // ── Pass 1: validate everything and check the cap BEFORE writing
+  // anything, so a cap warning never results in a partial save. ──────
+  var prepared      = [];
+  var overCapDetails = [];
+
+  for (var i = 0; i < referrals.length; i++) {
+    var r = referrals[i];
+
+    for (var fi = 0; fi < REQUIRED_FIELDS.length; fi++) {
+      var field = REQUIRED_FIELDS[fi];
+      if (!r[field] || r[field].toString().trim() === '') {
+        throw new Error('Missing required field: ' + field);
+      }
+    }
+
+    var sidStr = r.studentId.toString().trim();
+    if (!validStuIds[sidStr]) {
+      throw new Error('Student ID not found in roster: ' + sidStr);
+    }
+
+    var pointValue = getPointValue(r.infractionType);
+    if (pointValue <= 0) {
+      throw new Error('"' + r.infractionType + '" is not a positive note type.');
+    }
+
+    var existing  = existingPositiveTotal(sidStr);
+    var wouldBe   = existing + pointValue;
+    var overCap   = wouldBe > cap;
+
+    if (overCap) {
+      overCapDetails.push({
+        studentId:   sidStr,
+        studentName: r.studentName || sidStr,
+        existing:    existing,
+        adding:      pointValue,
+        wouldBe:     wouldBe,
+        cap:         cap
+      });
+    }
+
+    prepared.push({ r: r, sidStr: sidStr, pointValue: pointValue, overCap: overCap });
+  }
+
+  if (overCapDetails.length > 0 && !overrideConfirmed) {
+    return {
+      saved: 0,
+      errors: [],
+      needsConfirmation: true,
+      overCapDetails: overCapDetails
+    };
+  }
+
+  // ── Pass 2: write rows ──────────────────────────────────────────
+  var lastId     = getLastId(refSheet);
+  var timestamp  = new Date();
+  var nowTimeStr = pad2(timestamp.getHours()) + ':' + pad2(timestamp.getMinutes());
+  var results    = { saved: 0, errors: [], needsConfirmation: false, overCapDetails: [] };
+  var emailQueue = [];
+
+  for (var p = 0; p < prepared.length; p++) {
+    try {
+      var item       = prepared[p];
+      var r          = item.r;
+      var sidStr     = item.sidStr;
+      var pointValue = item.pointValue;
+
+      var safeDescription = sanitizeText(r.description);
+
+      var id       = ++lastId;
+      var stuIdx   = findStudentRow(stuData, sidStr);
+      var pointsBefore = cfg.semesterPoints;
+
+      if (stuIdx >= 0) {
+        var ex = stuData[stuIdx][STU_COL_POINTS];
+        if (ex !== '' && ex !== null) {
+          var parsed = parseInt(ex, 10);
+          if (!isNaN(parsed)) pointsBefore = parsed;
+        }
+      }
+
+      // Positive notes only ever add — no floor/ceiling applied,
+      // matching how positive infractions already behaved on the main
+      // form before this feature existed.
+      var pointsAfter = pointsBefore + pointValue;
+
+      var adminNotes = '';
+      var matchDetail = null;
+      for (var od = 0; od < overCapDetails.length; od++) {
+        if (overCapDetails[od].studentId === sidStr) { matchDetail = overCapDetails[od]; break; }
+      }
+      adminNotes = item.overCap && matchDetail
+        ? 'Exceeds ' + matchDetail.cap + '-pt/9-weeks positive cap (admin override): ' +
+          matchDetail.existing + ' already awarded + ' + matchDetail.adding +
+          ' = ' + matchDetail.wouldBe + '.'
+        : '';
+
+      var newRowNum = refSheet.appendRow([
+        id, timestamp,
+        sidStr,
+        sanitizeText(r.studentName),
+        sanitizeText(r.grade),
+        r.incidentDate, nowTimeStr,
+        'N/A', // Location — not applicable to positive notes
+        sanitizeText(r.infractionType),
+        'Positive',
+        pointValue, pointsBefore, pointsAfter,
+        safeDescription,
+        'N/A', // IncludeDescriptionInEmail — moot; positive notes never go in the parent digest
+        sanitizeText(r.teacherName || user.name),
+        user.email,
+        'N/A', // ParentNotified — positive notes are excluded from sendDailyParentEmails entirely
+        'No', 'Open', adminNotes
+      ]).getLastRow();
+
+      var timeCol = REFERRAL_HEADERS.indexOf('IncidentTime') + 1;
+      var timeCell = refSheet.getRange(newRowNum, timeCol);
+      timeCell.setNumberFormat('@STRING@');
+      timeCell.setValue(nowTimeStr);
+
+      if (stuIdx >= 0) {
+        stuSheet.getRange(stuIdx + 1, STU_COL_POINTS + 1).setValue(pointsAfter);
+        stuSheet.getRange(stuIdx + 1, STU_COL_POINTS_DATE + 1).setValue(timestamp);
+        stuData[stuIdx][STU_COL_POINTS]      = pointsAfter;
+        stuData[stuIdx][STU_COL_POINTS_DATE] = timestamp;
+      }
+
+      results.saved++;
+      emailQueue.push({
+        referral: {
+          studentId: sidStr, studentName: r.studentName, grade: r.grade,
+          incidentDate: r.incidentDate, incidentTime: nowTimeStr, location: 'N/A',
+          infractionType: r.infractionType, severity: 'Positive',
+          description: r.description, includeDescriptionInEmail: false,
+          teacherName: r.teacherName || user.name, teacherEmail: user.email,
+          className: r.className || ''
+        },
+        id: id, pointValue: pointValue,
+        pointsBefore: pointsBefore, pointsAfter: pointsAfter
+      });
+
+    } catch (err) {
+      results.errors.push('Row ' + (p + 1) + ': ' + err.message);
+    }
+  }
+
+  SpreadsheetApp.flush();
+
+  for (var j = 0; j < emailQueue.length; j++) {
+    var job = emailQueue[j];
+    try {
+      sendTeacherConfirmation(job.referral, job.id, job.pointValue,
+                              job.pointsBefore, job.pointsAfter);
+    } catch (emailErr) {
+      Logger.log('Teacher email failed for #' + job.id + ': ' + emailErr.message);
+    }
+  }
+
+  return results;
+}
+
 function findStudentRow(stuData, studentId) {
   for (var i = 1; i < stuData.length; i++) {
     if (stuData[i][STU_COL_ID].toString() === studentId.toString()) return i;
@@ -1102,7 +1399,15 @@ function sendDailyParentEmails() {
     var notified = row[pnIdx] ? row[pnIdx].toString() : '';
 
     if (incDate !== today) continue;
-    if (notified === 'Yes') continue;
+    if (notified === 'Yes' || notified === 'N/A') continue;
+
+    // Positive notes (Write Off, Saturday School, etc.) are never sent to
+    // parents — the daily digest is a behavior-referral notification only.
+    // PointValue's sign is the reliable signal here, not Severity, since
+    // Severity can be left blank by admins (same reasoning as elsewhere
+    // in this file — see getFormBootstrap/getDashboardData).
+    var ptsCheck = parseInt(row[ptIdx], 10) || 0;
+    if (ptsCheck > 0) continue;
 
     var studentId = row[sidIdx] ? row[sidIdx].toString() : '';
     if (!studentId) continue;
