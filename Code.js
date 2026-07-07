@@ -834,8 +834,8 @@ function getFormBootstrap() {
     // blank by admins, so it isn't a reliable way to separate positive
     // referral types from everything else (same reasoning as the
     // dashboard/profile stat fixes). Positive types (Write Off, Saturday
-    // School, etc.) now live only in the admin-only "Award Positive
-    // Points" tab, not the main incident dropdown, for either role.
+    // School, etc.) now live only on the admin-only Positive Note page,
+    // not the main incident dropdown, for either role.
     infractions: infs
       .filter(function(inf) { return inf.pointValue <= 0; })
       .map(function(inf) {
@@ -1060,8 +1060,8 @@ function submitReferrals(referrals) {
 // =============================================================
 // SUBMIT POSITIVE NOTES  (admin only)
 // =============================================================
-// Simplified sibling of submitReferrals() for the admin-only "Award
-// Positive Points" tab. Deliberately separate rather than folded into
+// Simplified sibling of submitReferrals() for the admin-only Positive
+// Note page. Deliberately separate rather than folded into
 // submitReferrals() because the rules differ enough to make a shared
 // function harder to read than two focused ones:
 //   - Requires admin role, not teacher/admin.
