@@ -63,6 +63,14 @@
       <span>New Referral</span>
     </a>
 
+    <a class="nav-link {{ACT_positive}}" href="{{BASE}}?page=positive" id="nav-positive"
+       style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      <span>Positive Note</span>
+    </a>
+
     <a class="nav-link {{ACT_student}}" href="{{BASE}}?page=student" id="nav-student">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
@@ -155,14 +163,18 @@ function _setNavUser(user) {
   var nameEl    = document.getElementById('nav-user-name');
   var badgeEl   = document.getElementById('nav-role-badge');
   var settingEl = document.getElementById('nav-settings');
+  var positiveEl = document.getElementById('nav-positive');
   if (nameEl)  nameEl.textContent  = user.name || user.email || '';
   if (badgeEl) {
     badgeEl.textContent = user.role || 'user';
     badgeEl.className   = 'role-badge ' + (user.role || '');
   }
-  // Show the Settings link only for admins.
+  // Show the Settings and Positive Note links only for admins.
   if (settingEl) {
     settingEl.style.display = user.role === 'admin' ? '' : 'none';
+  }
+  if (positiveEl) {
+    positiveEl.style.display = user.role === 'admin' ? '' : 'none';
   }
 }
 </script>

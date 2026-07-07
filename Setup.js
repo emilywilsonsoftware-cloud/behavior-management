@@ -101,7 +101,7 @@ function _setupConfig(ss) {
     'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
     'Locations', 'NineWeeksStartDates',
-    'PointTierThresholds', 'PointTierColors'
+    'PointTierThresholds', 'PointTierColors', 'PositiveCapPerNineWeeks'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -111,7 +111,7 @@ function _setupConfig(ss) {
     'If you have questions, please contact the school office.\n\n' +
     'This is an automated message — please do not reply.',
     'Classroom', '',
-    '70', 'green'
+    '70', 'green', '15'
   ];
   sheet.getRange(2, 1, 1, row2.length).setValues([row2]);
 
@@ -145,6 +145,13 @@ function _setupConfig(ss) {
     'Allowed values: green, blue, purple, amber, orange, red.\n' +
     'Edit via Settings > General in the web app, not directly here.'
   );
+  sheet.getRange(1, 10).setNote(
+    'Maximum total positive points (Write Off, Saturday School, etc.) ' +
+    'a single student can be awarded per nine-weeks period, on the ' +
+    'admin-only Positive Note page. Admins can still submit ' +
+    'over this cap — it warns rather than blocks — but every override ' +
+    'is noted on the referral for the record.'
+  );
 }
 
 // ── Infractions sheet ─────────────────────────────────────────
@@ -167,10 +174,13 @@ function _setupInfractions(ss) {
     ['Harassment',                   -15, 'Major',    ''],
     ['Technology Violation',         -5,  'Minor',    ''],
     ['Tardy',                        -2,  'Minor',    ''],
-    ['Outstanding Behavior',          5,  'Positive', ''],
-    ['Helping Others',                3,  'Positive', ''],
-    ['Academic Achievement',          5,  'Positive', ''],
-    ['Perfect Attendance',            3,  'Positive', '']
+    // Positive types — entered only via the admin-only "Award Positive
+    // Points" tab (see getFormBootstrap in Code.gs), not the main
+    // incident form. Add more rows here any time; no code changes
+    // needed — the tab reads this list dynamically, same as the main
+    // form already does for demerit types.
+    ['Write Off',                     5,  'Positive', ''],
+    ['Saturday School',              10,  'Positive', '']
   ];
   sheet.getRange(2, 1, data.length, headers.length).setValues(data);
   sheet.autoResizeColumns(1, headers.length);

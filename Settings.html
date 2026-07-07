@@ -335,6 +335,12 @@
             <label>Semester Start Points</label>
             <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
           </div>
+          <div class="form-row">
+            <label>Positive Points Cap (per 9 Weeks)
+              <span class="hint">(the Positive Points page)</span>
+            </label>
+            <input type="number" id="cfg-positiveCap" min="0" max="9999" placeholder="15">
+          </div>
         </div>
         <div class="save-row">
           <span class="save-msg" id="msg-school"></span>
@@ -698,6 +704,7 @@ function showTab(name) {
 function populateGeneral(cfg) {
   setVal('cfg-schoolName',     (cfg.SchoolName          || [])[0] || '');
   setVal('cfg-semesterPoints', (cfg.SemesterStartPoints || [])[0] || '100');
+  setVal('cfg-positiveCap',    (cfg.PositiveCapPerNineWeeks || [])[0] || '15');
 
   var emailOn = ((cfg.EmailNotificationsEnabled || [])[0] || 'Yes').toString().toLowerCase();
   document.getElementById('cfg-emailEnabled').checked = (emailOn !== 'no');
@@ -752,6 +759,7 @@ function saveSection(section) {
   if (section === 'school') {
     payload.SchoolName          = [document.getElementById('cfg-schoolName').value.trim()];
     payload.SemesterStartPoints = [document.getElementById('cfg-semesterPoints').value.trim()];
+    payload.PositiveCapPerNineWeeks = [document.getElementById('cfg-positiveCap').value.trim()];
   } else if (section === 'email') {
     payload.EmailNotificationsEnabled =
       [document.getElementById('cfg-emailEnabled').checked ? 'Yes' : 'No'];
