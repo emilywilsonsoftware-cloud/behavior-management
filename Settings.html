@@ -17,6 +17,40 @@
     .page-hdr p  { font-size: 0.84rem; color: #5a6a7e; margin-top: 3px; }
 
     /* ── Tab navigation ── */
+    /* ── Settings search ── */
+    .settings-search-wrap { position: relative; margin-bottom: 18px; }
+    .settings-search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+                            width: 17px; height: 17px; color: #8a96a8; pointer-events: none; }
+    #settings-search { width: 100%; padding: 10px 38px; border: 1px solid #c8d0e0;
+                       border-radius: 8px; font-size: 0.92rem; color: #1a1a2e;
+                       background: white; font-family: inherit;
+                       transition: border-color 0.12s, box-shadow 0.12s; }
+    #settings-search:focus { outline: none; border-color: #1e3a5f;
+                             box-shadow: 0 0 0 3px rgba(30,58,95,0.1); }
+    #settings-search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+                             background: none; border: none; font-size: 1.2rem; color: #8a96a8;
+                             cursor: pointer; padding: 4px 8px; line-height: 1; }
+    #settings-search-clear:hover { color: #4b5563; }
+    #settings-search-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+                               background: white; border: 1px solid #c8d0e0; border-radius: 8px;
+                               box-shadow: 0 8px 24px rgba(30,58,95,0.15); z-index: 50;
+                               max-height: 320px; overflow-y: auto; display: none; }
+    #settings-search-results.open { display: block; }
+    .ssr-item { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+               padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f1f3f7; }
+    .ssr-item:last-child { border-bottom: none; }
+    .ssr-item:hover, .ssr-item.hi { background: #f4f6fb; }
+    .ssr-label { font-size: 0.86rem; font-weight: 600; color: #1a1a2e; }
+    .ssr-tab { font-size: 0.72rem; color: #8a96a8; text-transform: uppercase;
+              letter-spacing: 0.04em; white-space: nowrap; }
+    .ssr-empty { padding: 14px; text-align: center; font-size: 0.83rem; color: #8a96a8; }
+
+    @keyframes settingsJumpHighlight {
+      0%   { box-shadow: 0 0 0 3px rgba(30,58,95,0.35); }
+      100% { box-shadow: 0 0 0 3px rgba(30,58,95,0); }
+    }
+    .settings-jump-highlight { animation: settingsJumpHighlight 1.6s ease-out; }
+
     .settings-tabs { display: flex; gap: 2px; margin-bottom: 20px;
                      border-bottom: 2px solid #dde3ef; flex-wrap: wrap; }
     .stab { padding: 9px 16px; font-size: 0.85rem; font-weight: 600;
@@ -25,6 +59,9 @@
             margin-bottom: -2px; transition: color 0.12s; font-family: inherit; }
     .stab:hover { color: #1e3a5f; }
     .stab.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
+    .stab.stab-danger { color: #b91c1c; }
+    .stab.stab-danger:hover { color: #991b1b; }
+    .stab.stab-danger.active { color: #991b1b; border-bottom-color: #dc2626; }
 
     /* ── Tab panels ── */
     .tab-panel { display: none; }
@@ -71,6 +108,13 @@
     }
     textarea { resize: vertical; min-height: 70px; }
 
+    /* ── AM/PM time picker (guarantees 12-hour display regardless of
+         browser/OS locale, unlike native <input type="time">) ── */
+    .time-picker-row { display: flex; align-items: center; gap: 6px; }
+    .time-picker-row select { width: auto; min-width: 68px; }
+    .time-picker-row select#cfg-emailAmpm { min-width: 74px; }
+    .time-sep { font-weight: 700; color: #64748b; }
+
     /* ── Grid layouts ── */
     .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
@@ -104,10 +148,6 @@
     .tbl-editor input, .tbl-editor select {
       padding: 6px 8px; font-size: 0.86rem; }
     .tbl-editor .td-del { width: 36px; text-align: center; }
-    .tbl-editor .del-btn { background: none; border: none; cursor: pointer;
-                           color: #8a96a8; font-size: 1.1rem; padding: 2px 6px;
-                           border-radius: 4px; font-family: inherit; }
-    .tbl-editor .del-btn:hover { color: #dc2626; background: #fee2e2; }
 
     .tbl-wrap { border: 1px solid #c8d0e0; border-radius: 6px;
                 overflow: hidden; margin-bottom: 0; }
@@ -121,28 +161,24 @@
     .tbl-add-row:disabled:hover { background: #f4f6f9; }
     .tbl-add-row svg { width: 13px; height: 13px; flex-shrink: 0; }
 
-    /* ── Point tier — live preview ── */
-    .tier-preview-block { margin-bottom: 18px; }
-    .tier-preview-heading { font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
-                            letter-spacing: 0.06em; color: #1e3a5f; margin-bottom: 8px;
-                            display: flex; align-items: center; gap: 6px; }
-    .tier-preview-heading svg { width: 14px; height: 14px; flex-shrink: 0; }
-    .tier-preview { display: flex; height: 40px; border-radius: 8px; overflow: hidden;
-                    border: 1px solid #c8d0e0; box-shadow: 0 1px 3px rgba(30,58,95,0.08); }
-    .tier-preview-seg { display: flex; align-items: center; justify-content: center;
-                        font-size: 0.74rem; font-weight: 700; color: white;
-                        text-shadow: 0 1px 1px rgba(0,0,0,0.25); min-width: 32px;
-                        transition: flex-basis 0.25s ease, background-color 0.2s ease; }
-    .tier-preview-ticks { display: flex; justify-content: space-between; margin-top: 6px;
-                          padding: 0 1px; }
-    .tier-preview-ticks span { font-size: 0.7rem; color: #8a96a8; font-weight: 600; }
+    /* ── Point tier — global validation message ── */
+    /* Shown for structural errors that aren't tied to one specific row
+       (e.g. "at least 2 tiers required," "top tier must reach the
+       semester total") — per-row issues surface next to the row itself
+       instead, via .tier-warning below. */
+    .tier-global-msg { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+                       margin-bottom: 12px; background: #fef9c3; border: 1px solid #fde68a;
+                       border-radius: 7px; color: #854d0e; font-size: 0.82rem; font-weight: 600; }
+    .tier-global-msg svg { width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ── Point tier — column headers ── */
-    .tier-col-headers { display: flex; align-items: center; gap: 10px; padding: 0 14px;
+    .tier-col-headers { display: flex; align-items: center; gap: 10px; padding: 0 14px 0 19px;
                         margin-bottom: 6px; }
     .tier-col-headers span { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
                              letter-spacing: 0.05em; color: #8a96a8; }
-    .tier-col-range  { width: 200px; flex-shrink: 0; }
+    .tier-col-range  { width: 200px; flex-shrink: 0; display: grid;
+                       grid-template-columns: 60px 14px 60px 1fr; column-gap: 6px; align-items: center; }
+    .tier-minmax-lbl { text-align: center; }
     .tier-col-color  { width: 190px; flex-shrink: 0; }
     .tier-col-actions{ width: 32px; flex-shrink: 0; text-align: center; }
 
@@ -161,7 +197,8 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .tier-range-block { width: 200px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+    .tier-range-block { width: 200px; flex-shrink: 0; display: grid;
+                        grid-template-columns: 60px 14px 60px 1fr; column-gap: 6px; align-items: center; }
     .tier-threshold-input { width: 60px; box-sizing: border-box; padding: 6px 2px; text-align: center;
                             font-weight: 700; background: white; border: 1px solid #c8d0e0;
                             border-radius: 6px; font-size: 0.88rem; color: #1a1a2e;
@@ -171,7 +208,7 @@
     .tier-threshold-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .tier-threshold-input:focus { outline: none; border-color: #1e3a5f;
                                   box-shadow: 0 0 0 3px rgba(30,58,95,0.12); }
-    .tier-range-arrow { font-size: 0.82rem; color: #8a96a8; flex-shrink: 0; }
+    .tier-range-arrow { font-size: 0.82rem; color: #8a96a8; text-align: center; }
     .tier-range-pts-lbl { font-size: 0.76rem; color: #8a96a8; }
 
     .tier-color-block { width: 190px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
@@ -189,6 +226,48 @@
                     transition: background 0.12s, color 0.12s; }
     .tier-del-btn:hover { background: #fee2e2; color: #dc2626; }
     .tier-del-btn svg { width: 16px; height: 16px; }
+
+    /* ── Shared trash-can remove button (Staff, Infractions, Roster) ── */
+    .icon-remove-btn { width: 30px; height: 30px; flex-shrink: 0; border-radius: 6px;
+                       background: none; border: none; cursor: pointer; color: #b8c0d0;
+                       display: flex; align-items: center; justify-content: center;
+                       transition: background 0.12s, color 0.12s; font-family: inherit; }
+    .icon-remove-btn:hover { background: #fee2e2; color: #dc2626; }
+    .icon-remove-btn svg { width: 16px; height: 16px; }
+
+    /* ── Toast notification ── */
+    #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+                  z-index: 300; display: flex; flex-direction: column; gap: 8px;
+                  pointer-events: none; width: 100%; max-width: 420px; padding: 0 16px; }
+    .toast { background: #166534; color: white; border-radius: 9px;
+             padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
+             box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
+             align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
+             transition: opacity 0.22s ease, transform 0.22s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.toast-err { background: #b91c1c; }
+    .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
+
+    /* ── Confirm popup (replaces native confirm() for destructive actions) ── */
+    .confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+                       z-index: 310; display: none; align-items: center; justify-content: center;
+                       padding: 16px; }
+    .confirm-overlay.open { display: flex; }
+    .confirm-card { background: white; border-radius: 12px; max-width: 380px; width: 100%;
+                    padding: 22px 24px; box-shadow: 0 14px 40px rgba(0,0,0,0.25); text-align: center; }
+    .confirm-icon { width: 44px; height: 44px; border-radius: 50%; background: #fee2e2;
+                    color: #dc2626; display: flex; align-items: center; justify-content: center;
+                    margin: 0 auto 14px; }
+    .confirm-icon svg { width: 22px; height: 22px; }
+    .confirm-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+    .confirm-msg { font-size: 0.86rem; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+    .confirm-btn-row { display: flex; gap: 10px; }
+    .confirm-btn { flex: 1; padding: 9px 14px; border-radius: 7px; font-size: 0.86rem;
+                  font-weight: 700; cursor: pointer; font-family: inherit; border: none; }
+    .confirm-btn.cancel { background: #f1f5f9; color: #475569; }
+    .confirm-btn.cancel:hover { background: #e2e8f0; }
+    .confirm-btn.danger { background: #dc2626; color: white; }
+    .confirm-btn.danger:hover { background: #b91c1c; }
 
     .tier-warning { font-size: 0.74rem; color: #92400e; background: #fef3c7;
                     border-radius: 5px; padding: 3px 8px; margin-left: 4px;
@@ -250,6 +329,52 @@
                   transition: background 0.12s; }
     .btn-danger:hover { background: #fee2e2; }
 
+    /* ── Year-End tab ── */
+    .card-danger { border-color: #fecaca; }
+    #yearend-loading { display: flex; align-items: center; gap: 10px; font-size: 0.85rem;
+                       color: #5a6a7e; }
+    .yearend-spinner { width: 18px; height: 18px; border: 2.5px solid #dde3ef;
+                       border-top-color: #dc2626; border-radius: 50%;
+                       animation: yearend-spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes yearend-spin { to { transform: rotate(360deg); } }
+    .yearend-result-box { border-radius: 8px; padding: 14px 16px; font-size: 0.85rem;
+                          line-height: 1.6; }
+    .yearend-result-box.ok  { background: #dcfce7; border: 1px solid #86efac; color: #166534; }
+    .yearend-result-box.err { background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; }
+    .yearend-result-box a { color: inherit; font-weight: 700; text-decoration: underline; }
+    .yearend-result-box ul { margin: 8px 0 0 18px; }
+
+    .archive-upload-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .archive-upload-row input[type="file"] { font-size: 0.82rem; }
+
+    .archive-list-loading { display: flex; align-items: center; gap: 8px; font-size: 0.83rem;
+                            color: #8a96a8; padding: 6px 0 14px; }
+    .archive-year-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .archive-year-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+                        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .archive-year-label { font-weight: 700; color: #1a1a2e; font-size: 0.88rem; }
+    .archive-year-meta { font-size: 0.76rem; color: #8a96a8; margin-left: auto; margin-right: 4px; }
+    .archive-year-load-btn { background: #1e3a5f; color: white; border: none; border-radius: 6px;
+                             padding: 6px 16px; font-size: 0.8rem; font-weight: 700;
+                             cursor: pointer; font-family: inherit; transition: background 0.12s; }
+    .archive-year-load-btn:hover { background: #2a4d7a; }
+    .archive-year-load-btn:disabled { background: #b8c0d0; cursor: default; }
+    .archive-none-found { font-size: 0.83rem; color: #8a96a8; padding: 4px 0 14px; }
+
+    .archive-upload-fallback { border-top: 1px solid #eef1f6; padding-top: 14px; margin-top: 4px; }
+    .archive-upload-fallback-label { font-size: 0.76rem; font-weight: 700; text-transform: uppercase;
+                                     letter-spacing: 0.05em; color: #8a96a8; margin-bottom: 4px; }
+    .archive-viewer-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .archive-viewer-toolbar input[type="text"] { max-width: 260px; }
+    .archive-count { font-size: 0.78rem; color: #8a96a8; white-space: nowrap; }
+    .btn-outline-sm { background: white; color: #5a6a7e; border: 1px solid #c8d0e0;
+                      border-radius: 6px; padding: 6px 14px; font-size: 0.8rem;
+                      font-weight: 600; cursor: pointer; font-family: inherit;
+                      transition: background 0.12s; margin-left: auto; }
+    .btn-outline-sm:hover { background: #f4f6f9; }
+    .archive-tbl-wrap { max-height: 480px; overflow-y: auto; }
+    #archive-table th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
+
     /* ── Status messages ── */
     .save-msg { font-size: 0.84rem; font-weight: 600; min-height: 20px; }
     .save-msg.ok  { color: #166534; }
@@ -274,11 +399,6 @@
     /* ── Loading ── */
     #init-msg { text-align: center; color: #5a6a7e; padding: 48px; }
 
-    /* ── Severity badges ── */
-    .sev-major    { color: #991b1b; font-weight: 700; }
-    .sev-minor    { color: #854d0e; font-weight: 700; }
-    .sev-positive { color: #166534; font-weight: 700; }
-
     /* ── Role badge ── */
     .role-admin   { color: #1d4ed8; font-weight: 700; }
     .role-teacher { color: #166534; font-weight: 700; }
@@ -292,6 +412,27 @@
 <body>
 <?!= navHtml ?>
 <script>var BASE_URL = "<?!= baseUrl ?>";</script>
+
+<div id="toast-wrap" aria-live="polite"></div>
+
+<div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this) _confirmCancel()">
+  <div class="confirm-card">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/>
+        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+      </svg>
+    </div>
+    <div class="confirm-title" id="confirm-title"></div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btn-row">
+      <button class="confirm-btn cancel" onclick="_confirmCancel()">Cancel</button>
+      <button class="confirm-btn danger" id="confirm-danger-btn" onclick="_confirmAccept()">Delete</button>
+    </div>
+  </div>
+</div>
 
 <main>
   <div id="init-msg">Loading settings...</div>
@@ -310,21 +451,32 @@
       <p>Manage school configuration, staff, students, and infractions.</p>
     </div>
 
+    <!-- ── Settings search ── -->
+    <div class="settings-search-wrap">
+      <svg class="settings-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="settings-search" placeholder="Search settings..."
+             autocomplete="off" oninput="onSettingsSearch(this.value)"
+             onfocus="onSettingsSearch(this.value)">
+      <button id="settings-search-clear" onclick="clearSettingsSearch()" style="display:none;">×</button>
+      <div id="settings-search-results"></div>
+    </div>
+
     <!-- ── Tab bar ── -->
     <div class="settings-tabs">
       <button class="stab active" onclick="showTab('general')">General</button>
-      <button class="stab" onclick="showTab('infractions')">Infractions</button>
+      <button class="stab" onclick="showTab('behaviorpoints')">Behavior &amp; Points</button>
       <button class="stab" onclick="showTab('staff')">Staff</button>
       <button class="stab" onclick="showTab('students')">Students</button>
+      <button class="stab stab-danger" onclick="showTab('yearend')">Reset &amp; Archive</button>
     </div>
 
     <!-- ══════════════════════════════════════════════════════════
-         TAB: GENERAL
+         TAB: SCHOOL
     ══════════════════════════════════════════════════════════ -->
     <div id="tab-general" class="tab-panel active">
-
-      <!-- School -->
-      <div class="card">
+      <div class="card" id="card-school">
         <div class="section-title">School</div>
         <div class="form-grid-2">
           <div class="form-row">
@@ -336,9 +488,7 @@
             <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
           </div>
           <div class="form-row">
-            <label>Positive Points Cap (per 9 Weeks)
-              <span class="hint">(the Positive Points page)</span>
-            </label>
+            <label>Positive Points Cap (per 9 Weeks)</label>
             <input type="number" id="cfg-positiveCap" min="0" max="9999" placeholder="15">
           </div>
         </div>
@@ -348,25 +498,40 @@
         </div>
       </div>
 
-      <!-- Email -->
-      <div class="card">
+      <div class="card" id="card-email">
         <div class="section-title">Email Notifications</div>
-        <p class="section-desc">Controls parent and teacher email behaviour.</p>
+        <p class="section-desc">Controls parent and teacher email behaviour independently.</p>
         <div class="toggle-row">
           <div>
-            <div class="toggle-label">Email Notifications Enabled</div>
-            <div class="toggle-sub">Turn off to suppress all parent and teacher emails.</div>
+            <div class="toggle-label">Parent Email Notifications</div>
+            <div class="toggle-sub">Turn off to suppress the daily end-of-day parent email digest.</div>
           </div>
           <label class="toggle">
             <input type="checkbox" id="cfg-emailEnabled">
             <span class="toggle-slider"></span>
           </label>
         </div>
-        <div class="form-row" style="margin-top:14px;">
-          <label>Daily Parent Email Send Time
-            <span class="hint">(24-hr, e.g. 16:00)</span>
+        <div class="toggle-row" style="margin-top:10px;">
+          <div>
+            <div class="toggle-label">Teacher Email Notifications</div>
+            <div class="toggle-sub">Turn off to suppress the immediate confirmation email sent to whoever submits a referral.</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="cfg-teacherEmailEnabled">
+            <span class="toggle-slider"></span>
           </label>
-          <input type="time" id="cfg-dailyEmailTime" style="max-width:160px;">
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+          <label>Daily Parent Email Send Time</label>
+          <div class="time-picker-row">
+            <select id="cfg-emailHour"></select>
+            <span class="time-sep">:</span>
+            <select id="cfg-emailMinute"></select>
+            <select id="cfg-emailAmpm">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
         </div>
         <div class="form-row">
           <label>Email Footer Text</label>
@@ -379,7 +544,7 @@
       </div>
 
       <!-- Locations -->
-      <div class="card">
+      <div class="card" id="card-locations">
         <div class="section-title">Locations</div>
         <p class="section-desc">Locations shown in the incident dropdown on the referral form.</p>
         <div class="list-editor" id="list-locations"></div>
@@ -395,11 +560,11 @@
       </div>
 
       <!-- Nine Weeks -->
-      <div class="card">
+      <div class="card" id="card-nineweeks">
         <div class="section-title">Nine Weeks Start Dates</div>
-        <p class="section-desc">Enter dates in YYYY-MM-DD format. The current nine-weeks period is determined by comparing today's date against this list.</p>
+        <p class="section-desc">Pick the first day of each nine-weeks period using the calendar. The current period is determined by comparing today's date against this list.</p>
         <div class="list-editor" id="list-nineWeeks"></div>
-        <button class="add-btn" onclick="addListItem('nineWeeks', '')">
+        <button class="add-btn" onclick="addListItem('nineWeeks', '', 'date')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>Add date
@@ -409,9 +574,13 @@
           <button class="btn-save" onclick="saveSection('nineWeeks')">Save</button>
         </div>
       </div>
+    </div><!-- /tab-general -->
 
-      <!-- Point Balance Colors -->
-      <div class="card" style="position:relative;">
+    <!-- ══════════════════════════════════════════════════════════
+         TAB: BEHAVIOR & POINTS
+    ══════════════════════════════════════════════════════════ -->
+    <div id="tab-behaviorpoints" class="tab-panel">
+      <div class="card" id="card-pointcolors" style="position:relative;">
         <div class="section-title">Point Balance Colors</div>
         <p class="section-desc">
           Controls the colors shown for student point balances across the Dashboard, Reports,
@@ -419,20 +588,14 @@
           green and 75–89 could be yellow. Requires 2–6 tiers and ranges cannot overlap or leave gaps.
         </p>
 
-        <div class="tier-preview-block">
-          <div class="tier-preview-heading">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
-              <path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
-            </svg>
-            Live Preview
-          </div>
-          <div class="tier-preview" id="tier-preview"></div>
-          <div class="tier-preview-ticks" id="tier-preview-ticks"></div>
-        </div>
+        <div class="tier-global-msg" id="tier-global-msg" style="display:none;"></div>
 
         <div class="tier-col-headers">
-          <span class="tier-col-range">Point Range</span>
+          <span class="tier-col-range">
+            <span class="tier-minmax-lbl">Min</span>
+            <span class="tier-range-arrow" style="visibility:hidden;">–</span>
+            <span class="tier-minmax-lbl">Max</span>
+          </span>
           <span class="tier-col-color">Color</span>
           <span class="tier-col-actions"></span>
         </div>
@@ -451,25 +614,10 @@
         </div>
       </div>
 
-      <!-- Danger Zone -->
-      <div class="card danger-card">
-        <div class="section-title">Danger Zone</div>
-        <p class="section-desc">Resets all student point balances to the current Semester Start Points value. Referral history is not deleted.</p>
-        <div class="save-row">
-          <span class="save-msg" id="msg-reset"></span>
-          <button class="btn-danger" onclick="confirmReset()">Reset Semester Points</button>
-        </div>
-      </div>
-
-    </div><!-- /tab-general -->
-
-    <!-- ══════════════════════════════════════════════════════════
-         TAB: INFRACTIONS
-    ══════════════════════════════════════════════════════════ -->
-    <div id="tab-infractions" class="tab-panel">
-      <div class="card">
-        <div class="section-title">Infractions</div>
-        <p class="section-desc">Add, edit, or remove infraction types. Positive point values add points; negative values deduct points. Severity can be Major, Minor, Positive, or left as None if no severity should be assigned. Major and Minor are shown to teachers simply as "Negative."</p>
+      <!-- Infraction Types (negative) -->
+      <div class="card" id="card-behaviorinfractions">
+        <div class="section-title">Infraction Types</div>
+        <p class="section-desc">Add, edit, or remove infraction types. Point values should be negative (they deduct points).</p>
 
         <div class="tbl-wrap">
           <table class="tbl-editor">
@@ -477,7 +625,6 @@
               <tr>
                 <th>Infraction Name</th>
                 <th style="width:100px;">Points</th>
-                <th style="width:120px;">Severity</th>
                 <th style="width:180px;">Notes</th>
                 <th style="width:36px;"></th>
               </tr>
@@ -496,13 +643,43 @@
           <button class="btn-save" onclick="saveInfractions()">Save All</button>
         </div>
       </div>
-    </div><!-- /tab-infractions -->
+
+      <!-- Positive Note Types -->
+      <div class="card" id="card-positivetypes">
+        <div class="section-title">Positive Note Types</div>
+        <p class="section-desc">Types available on the admin-only Positive Note page (e.g. Write Off, Saturday School). Point values should be positive (they add points). No severity needed here — everything in this list is inherently positive.</p>
+
+        <div class="tbl-wrap">
+          <table class="tbl-editor">
+            <thead>
+              <tr>
+                <th>Type Name</th>
+                <th style="width:100px;">Points</th>
+                <th style="width:220px;">Notes</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="pos-inf-tbody"></tbody>
+          </table>
+          <button class="tbl-add-row" onclick="addPositiveInfractionRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>Add positive type
+          </button>
+        </div>
+
+        <div class="save-row" style="margin-top:14px;">
+          <span class="save-msg" id="msg-pos-infractions"></span>
+          <button class="btn-save" onclick="saveInfractions()">Save All</button>
+        </div>
+      </div>
+    </div><!-- /tab-behaviorpoints -->
 
     <!-- ══════════════════════════════════════════════════════════
          TAB: STAFF
     ══════════════════════════════════════════════════════════ -->
     <div id="tab-staff" class="tab-panel">
-      <div class="card">
+      <div class="card" id="card-staff">
         <div class="section-title">Staff</div>
         <p class="section-desc">Manage staff members and their roles. At least one admin is required. Role change takes effect on the staff member's next page load.</p>
 
@@ -539,7 +716,7 @@
     <div id="tab-students" class="tab-panel">
 
       <!-- Add single student -->
-      <div class="card">
+      <div class="card" id="card-addstudent">
         <div class="section-title">Add Student</div>
         <p class="section-desc">Add a single student — for mid-year enrollments. Points default to the current Semester Start Points value.</p>
         <div class="form-grid-3">
@@ -575,7 +752,7 @@
       </div>
 
       <!-- Bulk CSV import -->
-      <div class="card">
+      <div class="card" id="card-bulkimport">
         <div class="section-title">Bulk Import (CSV)</div>
         <p class="section-desc">
           Import students from a CSV file. Required columns in order:
@@ -603,11 +780,13 @@
       </div>
 
       <!-- Student roster -->
-      <div class="card">
+      <div class="card" id="card-roster">
         <div class="section-title">Student Roster</div>
         <p class="section-desc">
-          View and edit existing students. Students with referral records cannot be deleted —
-          their history must be preserved.
+          View existing students, or add/import new ones above. Students with referral records
+          cannot be deleted — their history must be preserved. Name, grade, and contact info are
+          edited together on each student's profile page (accessible from the Dashboard, Reports,
+          or the Students search).
         </p>
 
         <div style="margin-bottom:10px;display:flex;gap:8px;">
@@ -639,13 +818,101 @@
             </tbody>
           </table>
         </div>
-        <div class="save-row" style="margin-top:14px;">
+        <div class="save-row" style="margin-top:14px;justify-content:flex-start;">
           <span class="save-msg" id="msg-roster"></span>
-          <button class="btn-save" onclick="saveRoster()">Save Changes</button>
         </div>
       </div>
 
     </div><!-- /tab-students -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAB: YEAR-END
+    ══════════════════════════════════════════════════════════ -->
+    <div id="tab-yearend" class="tab-panel">
+      <!-- Reset Semester Points (mid-year reset — lighter than Start New Year) -->
+      <div class="card danger-card" id="card-resetpoints">
+        <div class="section-title">Reset Semester Points</div>
+        <p class="section-desc">Resets all student point balances to the current Semester Start Points value. Referral history is not deleted. Use this for a mid-year or new-semester reset — for a full year-end reset with archiving, use "Start New Year" below.</p>
+        <div class="save-row">
+          <span class="save-msg" id="msg-reset"></span>
+          <button class="btn-danger" onclick="confirmReset()">Reset Semester Points</button>
+        </div>
+      </div>
+
+      <!-- Start New Year -->
+      <div class="card card-danger" id="card-startnewyear">
+        <div class="section-title" style="color:#b91c1c;border-bottom-color:#fecaca;">Start New Year</div>
+        <p class="section-desc">
+          Archives all Referrals, Students, and Parent Contacts to CSV files (saved to Google
+          Drive and downloaded to this computer), then permanently clears those three sheets so
+          the school can start fresh. This does <strong>not</strong> touch Config, Infractions,
+          or Staff — those aren't annual data. After resetting, re-import next year's roster from
+          the Students tab above, and set new Nine Weeks dates on the General tab.
+        </p>
+
+        <div id="yearend-idle">
+          <button class="btn-danger" id="yearend-btn" onclick="confirmStartNewYear()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+              <path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16"/>
+              <path d="M3 21v-5h5"/>
+            </svg>
+            Start New Year
+          </button>
+        </div>
+
+        <div id="yearend-loading" style="display:none;">
+          <div class="yearend-spinner"></div>
+          <span>Archiving and resetting — this can take a moment for a large school...</span>
+        </div>
+
+        <div id="yearend-result" style="display:none;"></div>
+      </div>
+
+      <!-- View a previous year's referrals -->
+      <div class="card" id="card-viewarchive">
+        <div class="section-title">View a Previous Year's Referrals</div>
+        <p class="section-desc">
+          Browse a past "Start New Year" archive. This is read-only and never writes back into
+          the live Referrals sheet — it's just a way to look something up.
+        </p>
+
+        <div id="archive-list-wrap">
+          <div class="archive-list-loading" id="archive-list-loading">
+            <span class="yearend-spinner" style="width:14px;height:14px;border-width:2px;"></span>
+            Checking Drive for previous years...
+          </div>
+        </div>
+
+        <div class="archive-upload-fallback">
+          <div class="archive-upload-fallback-label">Or upload a CSV file directly</div>
+          <p class="section-desc" style="margin-bottom:10px;">
+            Useful if a file was saved somewhere other than the default archive folder — accepts
+            any <code>Referrals_YYYY-YYYY.csv</code> exported by a past reset.
+          </p>
+          <div class="archive-upload-row">
+            <input type="file" id="archive-file-input" accept=".csv" onchange="onArchiveFileChosen(this)">
+            <span class="save-msg" id="msg-archive-upload"></span>
+          </div>
+        </div>
+
+        <div id="archive-viewer" style="display:none;">
+          <div class="archive-viewer-toolbar">
+            <input type="text" id="archive-search" placeholder="Search any column..."
+                   oninput="renderArchiveTable()">
+            <span class="archive-count" id="archive-count"></span>
+            <button class="btn-outline-sm" onclick="clearArchiveViewer()">Clear</button>
+          </div>
+          <div class="tbl-wrap archive-tbl-wrap">
+            <table class="tbl-editor" id="archive-table">
+              <thead><tr id="archive-thead-row"></tr></thead>
+              <tbody id="archive-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div><!-- /tab-yearend -->
 
   </div><!-- /settings-body -->
 </main>
@@ -657,7 +924,16 @@ var _csvRows       = null; // parsed CSV rows waiting to import
 var _infsLoaded    = false;
 var _staffLoaded   = false;
 var _studentsLoaded = false;
+var _archiveListLoaded = false;
 var _colorPalette  = {};   // {key: hex} — the constrained palette from the server
+
+// Shared trash-can icon markup (same glyph used by the Point Balance
+// Colors tier editor) — used by every remove button in Settings so the
+// destructive action always reads the same way, regardless of table.
+var TRASH_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/>' +
+  '<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>' +
+  '<path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>';
 
 // ── Bootstrap ─────────────────────────────────────────────────
 window.addEventListener('load', function() {
@@ -692,13 +968,113 @@ function showTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
 
   // Lazy-load tab data on first visit
-  if (name === 'infractions' && !_infsLoaded)  loadInfractions();
+  if (name === 'behaviorpoints' && !_infsLoaded)  loadInfractions();
   if (name === 'staff'       && !_staffLoaded)  loadStaff();
   if (name === 'students'    && !_studentsLoaded) loadStudents();
+  if (name === 'yearend'     && !_archiveListLoaded) loadArchivedYearsList();
 }
 
+// ── Settings search ──────────────────────────────────────────────
+// A flat index of every named setting/section, each pointing at the
+// card's id so a match can switch tabs and scroll straight to it.
+// Multiple entries can point at the same card (e.g. all three School
+// fields) since the goal is matching what someone would actually type,
+// not a 1:1 mapping to cards.
+var SETTINGS_SEARCH_INDEX = [
+  { label: 'School Name',                       tab: 'general',        target: 'card-school' },
+  { label: 'Semester Start Points',              tab: 'general',        target: 'card-school' },
+  { label: 'Positive Points Cap',                tab: 'general',        target: 'card-school' },
+  { label: 'Email Notifications',                tab: 'general',        target: 'card-email' },
+  { label: 'Parent Email Notifications',         tab: 'general',        target: 'card-email' },
+  { label: 'Teacher Email Notifications',        tab: 'general',        target: 'card-email' },
+  { label: 'Daily Parent Email Send Time',       tab: 'general',        target: 'card-email' },
+  { label: 'Email Footer Text',                  tab: 'general',        target: 'card-email' },
+  { label: 'Locations',                          tab: 'general',        target: 'card-locations' },
+  { label: 'Nine Weeks Start Dates',             tab: 'general',        target: 'card-nineweeks' },
+  { label: 'Point Balance Colors',               tab: 'behaviorpoints', target: 'card-pointcolors' },
+  { label: 'Infraction Types',                   tab: 'behaviorpoints', target: 'card-behaviorinfractions' },
+  { label: 'Positive Note Types',                tab: 'behaviorpoints', target: 'card-positivetypes' },
+  { label: 'Staff',                              tab: 'staff',          target: 'card-staff' },
+  { label: 'Add Student',                        tab: 'students',       target: 'card-addstudent' },
+  { label: 'Bulk Import (CSV)',                  tab: 'students',       target: 'card-bulkimport' },
+  { label: 'Student Roster',                     tab: 'students',       target: 'card-roster' },
+  { label: 'Reset Semester Points',              tab: 'yearend',        target: 'card-resetpoints' },
+  { label: 'Start New Year',                     tab: 'yearend',        target: 'card-startnewyear' },
+  { label: 'View a Previous Year\u2019s Referrals', tab: 'yearend',     target: 'card-viewarchive' }
+];
+
+var TAB_LABELS = {
+  general: 'General', behaviorpoints: 'Behavior & Points', staff: 'Staff',
+  students: 'Students', yearend: 'Reset & Archive'
+};
+
+var _searchMatches = [];
+
+function onSettingsSearch(query) {
+  var q = query.trim().toLowerCase();
+  var resultsEl = document.getElementById('settings-search-results');
+  var clearBtn  = document.getElementById('settings-search-clear');
+  clearBtn.style.display = query ? 'block' : 'none';
+
+  if (!q) {
+    resultsEl.classList.remove('open');
+    resultsEl.innerHTML = '';
+    _searchMatches = [];
+    return;
+  }
+
+  _searchMatches = SETTINGS_SEARCH_INDEX.filter(function(item) {
+    return item.label.toLowerCase().indexOf(q) >= 0;
+  });
+
+  resultsEl.innerHTML = _searchMatches.length === 0
+    ? '<div class="ssr-empty">No matching settings.</div>'
+    : _searchMatches.map(function(item, i) {
+        return '<div class="ssr-item" onclick="jumpToSetting(' + i + ')">' +
+          '<span class="ssr-label">' + esc(item.label) + '</span>' +
+          '<span class="ssr-tab">' + esc(TAB_LABELS[item.tab] || item.tab) + '</span>' +
+        '</div>';
+      }).join('');
+  resultsEl.classList.add('open');
+}
+
+function jumpToSetting(idx) {
+  var item = _searchMatches[idx];
+  if (!item) return;
+  showTab(item.tab);
+  clearSettingsSearch();
+
+  // Small delay so the tab switch (and any first-visit lazy-load) has
+  // settled before scrolling — the target card exists either way, this
+  // just avoids scrolling mid-reflow.
+  setTimeout(function() {
+    var el = document.getElementById(item.target);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('settings-jump-highlight');
+    void el.offsetWidth; // restart the animation if the same card is jumped to twice in a row
+    el.classList.add('settings-jump-highlight');
+    setTimeout(function() { el.classList.remove('settings-jump-highlight'); }, 1700);
+  }, 60);
+}
+
+function clearSettingsSearch() {
+  document.getElementById('settings-search').value = '';
+  document.getElementById('settings-search-clear').style.display = 'none';
+  document.getElementById('settings-search-results').classList.remove('open');
+  document.getElementById('settings-search-results').innerHTML = '';
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.settings-search-wrap')) {
+    document.getElementById('settings-search-results').classList.remove('open');
+  }
+});
+
 // ══════════════════════════════════════════════════════════
-// GENERAL TAB
+// SCHOOL / EMAIL / REFERENCE DATA / POINT COLORS TABS
+// (Still one shared bootstrap call and one populate/save flow below —
+// only the HTML markup split across four tabs, not this logic.)
 // ══════════════════════════════════════════════════════════
 
 function populateGeneral(cfg) {
@@ -708,32 +1084,91 @@ function populateGeneral(cfg) {
 
   var emailOn = ((cfg.EmailNotificationsEnabled || [])[0] || 'Yes').toString().toLowerCase();
   document.getElementById('cfg-emailEnabled').checked = (emailOn !== 'no');
-  setVal('cfg-dailyEmailTime', (cfg.DailyEmailSendTime || [])[0] || '15:30');
+
+  var teacherEmailOn = ((cfg.TeacherEmailNotificationsEnabled || [])[0] || 'Yes').toString().toLowerCase();
+  document.getElementById('cfg-teacherEmailEnabled').checked = (teacherEmailOn !== 'no');
+
+  populateTimePicker((cfg.DailyEmailSendTime || [])[0] || '15:30');
   setVal('cfg-emailFooter',    (cfg.EmailFooterText    || [])[0] || '');
 
   buildList('locations',    cfg.Locations           || []);
-  buildList('nineWeeks',    cfg.NineWeeksStartDates || []);
+  buildList('nineWeeks',    cfg.NineWeeksStartDates || [], 'date');
 
   buildTierEditor(cfg.PointTierThresholds || [], cfg.PointTierColors || []);
 }
 
-// Simple list editor helpers
-function buildList(key, items) {
-  var container = document.getElementById('list-' + key);
-  container.innerHTML = '';
-  if (items.length === 0) { addListItem(key, ''); return; }
-  items.forEach(function(v) { addListItem(key, v); });
+// ── AM/PM time picker ────────────────────────────────────────────
+// Native <input type="time"> renders in whatever format the browser's
+// OS locale dictates — 24-hour in plenty of environments — so it can't
+// reliably guarantee AM/PM. Three plain <select> elements sidestep that
+// entirely while still storing/round-tripping as 24-hour "HH:MM", which
+// is what setupDailyTrigger() parses.
+function buildTimePickerOptions() {
+  var hourSel = document.getElementById('cfg-emailHour');
+  var minSel  = document.getElementById('cfg-emailMinute');
+  if (hourSel.options.length === 0) {
+    for (var h = 1; h <= 12; h++) {
+      hourSel.innerHTML += '<option value="'+h+'">'+h+'</option>';
+    }
+  }
+  if (minSel.options.length === 0) {
+    for (var m = 0; m < 60; m++) {
+      var mm = m < 10 ? '0'+m : ''+m;
+      minSel.innerHTML += '<option value="'+mm+'">'+mm+'</option>';
+    }
+  }
 }
 
-function addListItem(key, value) {
+function populateTimePicker(timeStr) {
+  buildTimePickerOptions();
+
+  var parts = (timeStr || '15:30').split(':');
+  var h24   = parseInt(parts[0], 10);
+  var mm    = parts[1] || '00';
+  if (isNaN(h24)) h24 = 15;
+
+  var ampm = h24 >= 12 ? 'PM' : 'AM';
+  var h12  = h24 % 12;
+  if (h12 === 0) h12 = 12;
+
+  setVal('cfg-emailHour',   String(h12));
+  setVal('cfg-emailMinute', mm.length === 1 ? '0'+mm : mm);
+  setVal('cfg-emailAmpm',   ampm);
+}
+
+// Converts the picker's 12-hour selection back to a 24-hour "HH:MM"
+// string for storage.
+function getTimePickerValue() {
+  var h12  = parseInt(document.getElementById('cfg-emailHour').value, 10) || 12;
+  var mm   = document.getElementById('cfg-emailMinute').value || '00';
+  var ampm = document.getElementById('cfg-emailAmpm').value;
+
+  var h24 = h12 % 12;
+  if (ampm === 'PM') h24 += 12;
+
+  var hh = h24 < 10 ? '0'+h24 : ''+h24;
+  return hh + ':' + mm;
+}
+
+// Simple list editor helpers
+function buildList(key, items, inputType) {
+  var container = document.getElementById('list-' + key);
+  container.innerHTML = '';
+  if (items.length === 0) { addListItem(key, '', inputType); return; }
+  items.forEach(function(v) { addListItem(key, v, inputType); });
+}
+
+function addListItem(key, value, inputType) {
   var container = document.getElementById('list-' + key);
   var div = document.createElement('div');
   div.className = 'list-item';
+  var type = inputType || 'text';
+  var placeholder = type === 'date' ? '' : 'Enter value...';
   div.innerHTML =
-    '<input type="text" value="' + esc(value) + '" placeholder="Enter value...">' +
+    '<input type="' + type + '" value="' + esc(value) + '" placeholder="' + placeholder + '">' +
     '<button class="rm-btn" onclick="removeListItem(this)">×</button>';
   container.appendChild(div);
-  if (!value) div.querySelector('input').focus();
+  if (!value && type !== 'date') div.querySelector('input').focus();
 }
 
 function removeListItem(btn) {
@@ -763,7 +1198,9 @@ function saveSection(section) {
   } else if (section === 'email') {
     payload.EmailNotificationsEnabled =
       [document.getElementById('cfg-emailEnabled').checked ? 'Yes' : 'No'];
-    payload.DailyEmailSendTime = [document.getElementById('cfg-dailyEmailTime').value.trim()];
+    payload.TeacherEmailNotificationsEnabled =
+      [document.getElementById('cfg-teacherEmailEnabled').checked ? 'Yes' : 'No'];
+    payload.DailyEmailSendTime = [getTimePickerValue()];
     payload.EmailFooterText    = [document.getElementById('cfg-emailFooter').value.trim()];
   } else if (section === 'locations')    { payload.Locations           = getListValues('locations'); }
   else if (section === 'nineWeeks')      { payload.NineWeeksStartDates = getListValues('nineWeeks'); }
@@ -874,9 +1311,7 @@ function appendTierRow(min, max, color) {
     '</div>' +
     '<span data-role="row-warning"></span>' +
     '<button class="tier-del-btn" onclick="removeTierRow(this)" title="Remove tier">' +
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/>' +
-      '<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>' +
-      '<path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>' +
+      TRASH_SVG +
     '</button>';
 
   list.appendChild(row);
@@ -996,40 +1431,17 @@ function refreshTierUI() {
   }
 
   var data = getTierValues();
+  var globalMsg = document.getElementById('tier-global-msg');
   if (data.error) {
-    document.getElementById('tier-preview').innerHTML =
-      '<div style="display:flex;align-items:center;padding:0 10px;font-size:0.78rem;color:#8a96a8;">' +
-      esc(data.error) + '</div>';
-    document.getElementById('tier-preview-ticks').innerHTML = '';
+    globalMsg.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+      '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>' +
+      '<line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+      '<span>' + esc(data.error) + '</span>';
+    globalMsg.style.display = 'flex';
     return;
   }
-
-  // Build preview segments proportional to each tier's width in points,
-  // sized against the current semester total — labels show point
-  // ranges directly, never percentages.
-  var preview = document.getElementById('tier-preview');
-  var segs = [];
-  for (var i2 = 0; i2 < data.ranges.length; i2++) {
-    var r = data.ranges[i2];
-    var width = Math.max(r.max - r.min + 1, 1);
-    var hex = _colorPalette[r.color] || '#94a3b8';
-    segs.push(
-      '<div class="tier-preview-seg" style="flex:'+width+';background:'+hex+';" ' +
-      'title="'+r.min+'–'+r.max+' pts">' + r.min + '–' + r.max + '</div>'
-    );
-  }
-  preview.innerHTML = segs.join('');
-
-  // Tick marks beneath the preview show actual point values (0, the
-  // semester total, and evenly spaced values between) rather than
-  // fixed percentages.
-  var ticks = document.getElementById('tier-preview-ticks');
-  var tickCount = 5;
-  var tickHtml = '';
-  for (var t = 0; t <= tickCount; t++) {
-    tickHtml += '<span>' + Math.round(sp * t / tickCount) + '</span>';
-  }
-  ticks.innerHTML = tickHtml;
+  globalMsg.style.display = 'none';
 }
 
 // Detects per-row issues without requiring a full valid set: inverted
@@ -1048,7 +1460,7 @@ function computeTierWarnings(rows, sp) {
   for (var i = 0; i < ranges.length; i++) {
     var min = ranges[i].min, max = ranges[i].max;
     if (min === null || max === null) { warnings[i] = 'Enter both a minimum and maximum.'; continue; }
-    if (min < 0 || max > sp) { warnings[i] = 'Must be within 0–' + sp + ' points.'; continue; }
+    if (max > sp) { warnings[i] = 'Maximum cannot exceed ' + sp + ' points.'; continue; }
     if (min > max) { warnings[i] = 'Minimum cannot be greater than maximum.'; continue; }
 
     if (i > 0) {
@@ -1091,8 +1503,8 @@ function getTierValues() {
     if (isNaN(min) || isNaN(max)) {
       return { error: 'Row ' + (i + 1) + ': enter both a minimum and maximum.' };
     }
-    if (min < 0 || max > sp) {
-      return { error: 'Row ' + (i + 1) + ': must be within 0–' + sp + ' points.' };
+    if (max > sp) {
+      return { error: 'Row ' + (i + 1) + ': maximum cannot exceed ' + sp + ' points.' };
     }
     if (min > max) {
       return { error: 'Row ' + (i + 1) + ': minimum cannot be greater than maximum.' };
@@ -1119,8 +1531,8 @@ function getTierValues() {
   if (ranges[0].max !== sp) {
     return { error: 'The top tier\'s maximum must equal the Semester Start Points value (' + sp + ').' };
   }
-  if (ranges[ranges.length - 1].min !== 0) {
-    return { error: 'The bottom tier\'s minimum must be 0.' };
+  if (ranges[ranges.length - 1].min > 0) {
+    return { error: 'The bottom tier\'s minimum must be 0 or lower, so every possible balance is covered.' };
   }
 
   // Convert point ranges to the percentage thresholds the server stores.
@@ -1133,15 +1545,297 @@ function getTierValues() {
 }
 
 function confirmReset() {
-  if (!confirm('Reset ALL student point balances?\n\nThis cannot be undone. Referral history will not be deleted.')) return;
-  setMsg('reset', 'Resetting...', 'ld');
+  showConfirm({
+    title: 'Reset all student points?',
+    message: 'Every student\u2019s point balance resets to the Semester Start Points value. Referral history is not deleted.',
+    confirmLabel: 'Reset Points',
+    onConfirm: function() {
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (r.success) showToast('✓ Reset ' + r.count + ' students.');
+          else showToast(r.error || 'Reset failed.', true);
+        })
+        .withFailureHandler(function(err) { showToast(err.message || err, true); })
+        .resetSemesterPoints();
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// YEAR-END TAB
+// ══════════════════════════════════════════════════════════
+
+function confirmStartNewYear() {
+  showConfirm({
+    title: 'Start a new year?',
+    message: 'This archives all Referrals, Students, and Parent Contacts to CSV (saved to ' +
+             'Drive and downloaded to this computer), then permanently clears those three ' +
+             'sheets. Config, Infractions, and Staff are not affected. This cannot be undone ' +
+             'once it completes.',
+    confirmLabel: 'Start New Year',
+    onConfirm: startNewYearFlow
+  });
+}
+
+function startNewYearFlow() {
+  document.getElementById('yearend-idle').style.display    = 'none';
+  document.getElementById('yearend-result').style.display  = 'none';
+  document.getElementById('yearend-loading').style.display = 'flex';
+
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) setMsg('reset', '✓ Reset ' + r.count + ' students.', 'ok');
-      else setMsg('reset', 'Error: ' + (r.error || 'Unknown'), 'err');
+      document.getElementById('yearend-loading').style.display = 'none';
+      document.getElementById('yearend-idle').style.display    = 'block';
+      var resultEl = document.getElementById('yearend-result');
+      resultEl.style.display = 'block';
+
+      if (!r.success) {
+        resultEl.innerHTML =
+          '<div class="yearend-result-box err">Reset failed — nothing was changed: ' +
+          esc(r.error || 'Unknown error') + '</div>';
+        showToast(r.error || 'Reset failed.', true);
+        return;
+      }
+
+      resultEl.innerHTML =
+        '<div class="yearend-result-box ok">' +
+          '<strong>✓ ' + esc(r.yearLabel) + ' archived and reset.</strong>' +
+          '<ul>' +
+            '<li>' + r.counts.referrals + ' referral' + (r.counts.referrals === 1 ? '' : 's') + '</li>' +
+            '<li>' + r.counts.students  + ' student'  + (r.counts.students  === 1 ? '' : 's') + '</li>' +
+            '<li>' + r.counts.contacts  + ' parent contact' + (r.counts.contacts === 1 ? '' : 's') + '</li>' +
+          '</ul>' +
+          '<div style="margin-top:8px;"><a href="' + esc(r.folderUrl) + '" target="_blank" rel="noopener">' +
+            'Open the archive folder in Drive →</a></div>' +
+        '</div>';
+
+      triggerZipDownload(r.zipBase64, r.zipFilename);
+      showToast('✓ New year started — archive downloaded.');
     })
-    .withFailureHandler(function(err) { setMsg('reset', 'Error: ' + (err.message||err), 'err'); })
-    .resetSemesterPoints();
+    .withFailureHandler(function(err) {
+      document.getElementById('yearend-loading').style.display = 'none';
+      document.getElementById('yearend-idle').style.display    = 'block';
+      var resultEl = document.getElementById('yearend-result');
+      resultEl.style.display = 'block';
+      resultEl.innerHTML =
+        '<div class="yearend-result-box err">Reset failed: ' + esc(err.message || err) + '</div>';
+      showToast(err.message || err, true);
+    })
+    .startNewYear();
+}
+
+// Converts the base64 zip returned by the server into a real file
+// download — Apps Script can't trigger browser downloads directly, so
+// the standard pattern is to build a Blob client-side from base64 and
+// click a throwaway <a download> element.
+function triggerZipDownload(base64, filename) {
+  var byteChars = atob(base64);
+  var byteNumbers = new Array(byteChars.length);
+  for (var i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+  var byteArray = new Uint8Array(byteNumbers);
+  var blob = new Blob([byteArray], { type: 'application/zip' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
+}
+
+// ── Detected archives list ────────────────────────────────────
+// Lists year folders already saved by "Start New Year" so viewing one
+// is a single click instead of a manual download-then-reupload round
+// trip. The manual upload further below still works as a fallback for
+// files saved somewhere else.
+function loadArchivedYearsList() {
+  var wrap = document.getElementById('archive-list-wrap');
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _archiveListLoaded = true;
+      if (!r.success) {
+        wrap.innerHTML = '<div class="archive-none-found">Couldn\'t check Drive for previous years: ' + esc(r.error || 'Unknown error') + '</div>';
+        return;
+      }
+      if (r.years.length === 0) {
+        wrap.innerHTML = '<div class="archive-none-found">No archived years found yet — they\'ll appear here after your first "Start New Year."</div>';
+        return;
+      }
+      wrap.innerHTML = '<div class="archive-year-list">' + r.years.map(function(y) {
+        return '<div class="archive-year-row">' +
+          '<span class="archive-year-label">' + esc(y.yearLabel) + '</span>' +
+          '<span class="archive-year-meta">exported ' + esc(y.exportedDate) + '</span>' +
+          '<button class="archive-year-load-btn" onclick="loadArchivedYear(\''+esc(y.fileId)+'\', \''+esc(y.yearLabel)+'\', this)">Load</button>' +
+        '</div>';
+      }).join('') + '</div>';
+    })
+    .withFailureHandler(function(err) {
+      _archiveListLoaded = true;
+      wrap.innerHTML = '<div class="archive-none-found">Couldn\'t check Drive for previous years: ' + esc(err.message || err) + '</div>';
+    })
+    .listArchivedYears();
+}
+
+function loadArchivedYear(fileId, yearLabel, btn) {
+  var msgEl = document.getElementById('msg-archive-upload');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.textContent = 'Load';
+      if (!r.success) {
+        showToast(r.error || 'Could not load that archive.', true);
+        return;
+      }
+      try {
+        var rows = parseCsv(r.csv);
+        if (rows.length < 1 || rows[0].length === 0) throw new Error('Archived file appears to be empty.');
+        _archiveHeaders = rows[0];
+        _archiveRows = rows.slice(1).filter(function(row) {
+          return row.length > 1 || (row[0] || '').trim() !== '';
+        });
+        document.getElementById('archive-viewer').style.display = 'block';
+        document.getElementById('archive-search').value = '';
+        renderArchiveTable();
+        showToast('✓ Loaded ' + yearLabel + ' (' + _archiveRows.length + ' rows).');
+        document.getElementById('archive-viewer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      btn.textContent = 'Load';
+      showToast(err.message || err, true);
+    })
+    .loadArchivedYearCsv(fileId);
+}
+
+// ── Archived-year CSV viewer ────────────────────────────────────
+// Entirely client-side and read-only by design: parses the uploaded
+// file in the browser and never sends it to the server or writes it
+// into any live sheet, so there's no way this can corrupt or merge
+// into current-year data.
+var _archiveHeaders = [];
+var _archiveRows    = [];
+
+function onArchiveFileChosen(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+
+  var msgEl = document.getElementById('msg-archive-upload');
+  msgEl.textContent = 'Reading file...';
+  msgEl.className = 'save-msg';
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var rows = parseCsv(e.target.result);
+      if (rows.length < 1 || rows[0].length === 0) throw new Error('File appears to be empty.');
+
+      _archiveHeaders = rows[0];
+      _archiveRows = rows.slice(1).filter(function(r) {
+        return r.length > 1 || (r[0] || '').trim() !== '';
+      });
+
+      msgEl.textContent = '✓ Loaded ' + _archiveRows.length + ' rows from ' + file.name + '.';
+      msgEl.className = 'save-msg ok';
+      document.getElementById('archive-viewer').style.display = 'block';
+      document.getElementById('archive-search').value = '';
+      renderArchiveTable();
+    } catch (err) {
+      msgEl.textContent = 'Error: ' + err.message;
+      msgEl.className = 'save-msg err';
+    }
+  };
+  reader.onerror = function() {
+    msgEl.textContent = 'Error reading that file.';
+    msgEl.className = 'save-msg err';
+  };
+  reader.readAsText(file);
+}
+
+// Minimal RFC 4180 CSV parser — handles quoted fields, embedded commas,
+// embedded newlines within quotes, and doubled-quote escaping. Written
+// by hand rather than pulling in a library, since this is the only
+// place in Settings.html that needs CSV parsing.
+function parseCsv(text) {
+  var rows = [];
+  var row = [];
+  var field = '';
+  var inQuotes = false;
+  var i = 0;
+  var len = text.length;
+
+  while (i < len) {
+    var c = text[i];
+
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ''; i++; continue; }
+    if (c === '\r') { i++; continue; }
+    if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+    field += c; i++;
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+
+  return rows;
+}
+
+function renderArchiveTable() {
+  var theadRow = document.getElementById('archive-thead-row');
+  var tbody    = document.getElementById('archive-tbody');
+  var q        = document.getElementById('archive-search').value.trim().toLowerCase();
+
+  theadRow.innerHTML = _archiveHeaders.map(function(h) { return '<th>' + esc(h) + '</th>'; }).join('');
+
+  var filtered = !q ? _archiveRows : _archiveRows.filter(function(r) {
+    return r.some(function(cell) { return (cell || '').toLowerCase().indexOf(q) >= 0; });
+  });
+
+  document.getElementById('archive-count').textContent =
+    filtered.length + (q ? ' of ' + _archiveRows.length : '') + ' rows';
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + _archiveHeaders.length +
+      '" style="text-align:center;color:#8a96a8;padding:16px;">No matching rows.</td></tr>';
+    return;
+  }
+
+  // Display is capped for performance on very large archives — search
+  // still runs against every row, only rendering is limited.
+  var MAX_RENDER = 500;
+  var shown = filtered.slice(0, MAX_RENDER);
+
+  tbody.innerHTML = shown.map(function(r) {
+    return '<tr>' + _archiveHeaders.map(function(_, i) {
+      return '<td style="white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;" ' +
+             'title="' + esc(r[i] || '') + '">' + esc(r[i] || '') + '</td>';
+    }).join('') + '</tr>';
+  }).join('') + (filtered.length > MAX_RENDER
+    ? '<tr><td colspan="' + _archiveHeaders.length + '" style="text-align:center;color:#8a96a8;padding:10px;">' +
+      'Showing first ' + MAX_RENDER + ' of ' + filtered.length + ' matching rows — narrow your search to see more.</td></tr>'
+    : '');
+}
+
+function clearArchiveViewer() {
+  _archiveHeaders = [];
+  _archiveRows = [];
+  document.getElementById('archive-file-input').value = '';
+  document.getElementById('archive-viewer').style.display = 'none';
+  document.getElementById('msg-archive-upload').textContent = '';
+  document.getElementById('msg-archive-upload').className = 'save-msg';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1162,54 +1856,90 @@ function loadInfractions() {
 }
 
 function renderInfractionsTable(rows) {
-  var tbody = document.getElementById('inf-tbody');
-  tbody.innerHTML = '';
-  rows.forEach(function(r) { appendInfractionRow(r); });
+  var negTbody = document.getElementById('inf-tbody');
+  var posTbody = document.getElementById('pos-inf-tbody');
+  negTbody.innerHTML = '';
+  posTbody.innerHTML = '';
+  rows.forEach(function(r) {
+    if ((parseInt(r.pointValue, 10) || 0) > 0) appendPositiveInfractionRow(r);
+    else appendInfractionRow(r);
+  });
 }
 
 function addInfractionRow() {
-  appendInfractionRow({ name: '', pointValue: -5, severity: 'Minor', notes: '' });
-  // scroll to bottom of table
+  appendInfractionRow({ name: '', pointValue: -5, notes: '' });
   var tbody = document.getElementById('inf-tbody');
   tbody.lastElementChild.querySelector('input').focus();
 }
 
 function appendInfractionRow(r) {
   var tr = document.createElement('tr');
-  var sevVal = r.severity || '';
   tr.innerHTML =
     '<td><input type="text" value="'+esc(r.name)+'" placeholder="Infraction name"></td>' +
     '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
-    '<td><select>' +
-      '<option value=""'        +(sevVal===''        ?' selected':'')+'>None</option>' +
-      '<option value="Minor"'   +(sevVal==='Minor'   ?' selected':'')+'>Minor</option>' +
-      '<option value="Major"'   +(sevVal==='Major'   ?' selected':'')+'>Major</option>' +
-      '<option value="Positive"'+(sevVal==='Positive'?' selected':'')+'>Positive</option>' +
-    '</select></td>' +
     '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
-    '<td class="td-del"><button class="del-btn" onclick="this.closest(\'tr\').remove()" title="Remove">×</button></td>';
+    '<td class="td-del"><button class="icon-remove-btn" onclick="this.closest(\'tr\').remove()" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('inf-tbody').appendChild(tr);
+}
+
+function addPositiveInfractionRow() {
+  appendPositiveInfractionRow({ name: '', pointValue: 5, notes: '' });
+  var tbody = document.getElementById('pos-inf-tbody');
+  tbody.lastElementChild.querySelector('input').focus();
+}
+
+function appendPositiveInfractionRow(r) {
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input type="text" value="'+esc(r.name)+'" placeholder="Type name"></td>' +
+    '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
+    '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
+    '<td class="td-del"><button class="icon-remove-btn" onclick="this.closest(\'tr\').remove()" title="Remove">' + TRASH_SVG + '</button></td>';
+  document.getElementById('pos-inf-tbody').appendChild(tr);
 }
 
 function saveInfractions() {
   var rows = [];
   document.querySelectorAll('#inf-tbody tr').forEach(function(tr) {
-    var cells = tr.querySelectorAll('input, select');
+    var cells = tr.querySelectorAll('input');
     rows.push({
       name:       cells[0].value.trim(),
       pointValue: parseInt(cells[1].value, 10) || 0,
-      severity:   cells[2].value,
-      notes:      cells[3].value.trim()
+      severity:   '',
+      notes:      cells[2].value.trim()
     });
   });
+  // Severity is no longer used anywhere in the app (Major/Minor was
+  // already redundant with the point value's sign, and the Severity
+  // column itself is left in the sheet only for historical rows) — so
+  // every row, negative or positive, is written with an empty severity.
+  document.querySelectorAll('#pos-inf-tbody tr').forEach(function(tr) {
+    var cells = tr.querySelectorAll('input');
+    rows.push({
+      name:       cells[0].value.trim(),
+      pointValue: parseInt(cells[1].value, 10) || 0,
+      severity:   '',
+      notes:      cells[2].value.trim()
+    });
+  });
+
   setMsg('infractions', 'Saving...', 'ld');
+  setMsg('pos-infractions', 'Saving...', 'ld');
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { setMsg('infractions', '✓ Saved ' + r.count + ' infractions.', 'ok');
-                       setTimeout(function(){ setMsg('infractions','',''); }, 3000); }
-      else setMsg('infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
+      if (r.success) {
+        setMsg('infractions', '✓ Saved ' + r.count + ' total.', 'ok');
+        setMsg('pos-infractions', '✓ Saved ' + r.count + ' total.', 'ok');
+        setTimeout(function(){ setMsg('infractions','',''); setMsg('pos-infractions','',''); }, 3000);
+      } else {
+        setMsg('infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
+        setMsg('pos-infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
+      }
     })
-    .withFailureHandler(function(err) { setMsg('infractions', 'Error: ' + (err.message||err), 'err'); })
+    .withFailureHandler(function(err) {
+      setMsg('infractions', 'Error: ' + (err.message||err), 'err');
+      setMsg('pos-infractions', 'Error: ' + (err.message||err), 'err');
+    })
     .saveInfractions(rows);
 }
 
@@ -1252,8 +1982,30 @@ function appendStaffRow(r) {
       '<option value="teacher"'+(r.role==='teacher'?' selected':'')+'>Teacher</option>' +
       '<option value="admin"'  +(r.role==='admin'  ?' selected':'')+'>Admin</option>' +
     '</select></td>' +
-    '<td class="td-del"><button class="del-btn" onclick="this.closest(\'tr\').remove()" title="Remove">×</button></td>';
+    '<td class="td-del"><button class="icon-remove-btn" onclick="confirmRemoveStaffRow(this)" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('staff-tbody').appendChild(tr);
+}
+
+// Row removal here is client-side only (pending until "Save All" is
+// clicked, same as the Infractions tables) — nothing is deleted from
+// the sheet yet at this point. The confirm popup's wording reflects
+// that, rather than the "cannot be undone" language used for the
+// Student Roster's immediate, irreversible delete.
+function confirmRemoveStaffRow(btn) {
+  var tr    = btn.closest('tr');
+  var first = tr.querySelector('input[type="text"]').value.trim();
+  var last  = tr.querySelectorAll('input[type="text"]')[1].value.trim();
+  var name  = (first + ' ' + last).trim() || 'this staff member';
+
+  showConfirm({
+    title: 'Remove ' + name + '?',
+    message: 'They\u2019ll be removed from this list. Click "Save All" afterward to apply the change \u2014 nothing is saved until then.',
+    confirmLabel: 'Remove',
+    onConfirm: function() {
+      tr.remove();
+      showToast('Removed — click "Save All" to apply.');
+    }
+  });
 }
 
 function saveStaff() {
@@ -1333,13 +2085,13 @@ function renderRoster(rows) {
   }
   tbody.innerHTML = rows.map(function(s) {
     return '<tr data-id="'+esc(s.studentId)+'">' +
-      '<td><input type="text" value="'+esc(s.studentId)+'" readonly style="background:#f4f6f9;color:#8a96a8;width:80px;"></td>' +
-      '<td><input type="text" value="'+esc(s.firstName)+'" placeholder="First"></td>' +
-      '<td><input type="text" value="'+esc(s.lastName)+'"  placeholder="Last"></td>' +
-      '<td><input type="text" value="'+esc(s.middleName||'')+'" placeholder="Middle"></td>' +
-      '<td><input type="text" value="'+esc(s.grade)+'" style="width:60px;"></td>' +
+      '<td style="color:#8a96a8;font-size:0.82rem;padding:6px 10px;">'+esc(s.studentId)+'</td>' +
+      '<td style="padding:6px 10px;">'+esc(s.firstName)+'</td>' +
+      '<td style="padding:6px 10px;">'+esc(s.lastName)+'</td>' +
+      '<td style="padding:6px 10px;">'+esc(s.middleName||'')+'</td>' +
+      '<td style="padding:6px 10px;">'+esc(s.grade)+'</td>' +
       '<td style="color:#8a96a8;font-size:0.8rem;padding:6px 10px;">'+s.currentPoints+'</td>' +
-      '<td class="td-del"><button class="del-btn" onclick="deleteStudent(\''+esc(s.studentId)+'\')" title="Delete">×</button></td>' +
+      '<td class="td-del"><button class="icon-remove-btn" onclick="deleteStudent(\''+esc(s.studentId)+'\')" title="Remove">' + TRASH_SVG + '</button></td>' +
     '</tr>';
   }).join('');
 }
@@ -1375,55 +2127,27 @@ function addSingleStudent() {
 }
 
 function deleteStudent(studentId) {
-  if (!confirm('Delete student ' + studentId + '?\n\nThis cannot be undone. Students with referral records cannot be deleted.')) return;
-  google.script.run
-    .withSuccessHandler(function(r) {
-      if (r.success) {
-        setMsg('roster', '✓ Student deleted.', 'ok');
-        _studentsLoaded = false;
-        loadStudents();
-      } else setMsg('roster', 'Error: ' + (r.error || 'Unknown'), 'err');
-    })
-    .withFailureHandler(function(err) { setMsg('roster', 'Error: ' + (err.message||err), 'err'); })
-    .deleteStudent(studentId);
-}
-
-function saveRoster() {
-  // Collect all editable rows from the roster table
-  var updates = [];
-  document.querySelectorAll('#roster-tbody tr[data-id]').forEach(function(tr) {
-    var cells = tr.querySelectorAll('input');
-    updates.push({
-      studentId:  cells[0].value.trim(),
-      firstName:  cells[1].value.trim(),
-      lastName:   cells[2].value.trim(),
-      middleName: cells[3].value.trim(),
-      grade:      cells[4].value.trim()
-    });
-  });
-  if (updates.length === 0) { setMsg('roster', 'No changes to save.', 'ld'); return; }
-
-  setMsg('roster', 'Saving ' + updates.length + ' students...', 'ld');
-  var saved = 0, errors = [];
-
-  function saveNext(idx) {
-    if (idx >= updates.length) {
-      if (errors.length) setMsg('roster', 'Saved ' + saved + ' with ' + errors.length + ' errors.', 'err');
-      else { setMsg('roster', '✓ Saved ' + saved + ' students.', 'ok');
-             setTimeout(function(){ setMsg('roster','',''); }, 3000); }
-      _studentsLoaded = false;
-      loadStudents();
-      return;
+  showConfirm({
+    title: 'Delete this student?',
+    message: 'This cannot be undone. Students with referral records cannot be deleted.',
+    confirmLabel: 'Delete',
+    onConfirm: function() {
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (r.success) {
+            showToast('✓ Student deleted.');
+            _studentsLoaded = false;
+            loadStudents();
+          } else {
+            showToast(r.error || 'Unable to delete student.', true);
+          }
+        })
+        .withFailureHandler(function(err) {
+          showToast(err.message || err, true);
+        })
+        .deleteStudent(studentId);
     }
-    google.script.run
-      .withSuccessHandler(function(r) {
-        if (r.success) saved++; else errors.push(updates[idx].studentId);
-        saveNext(idx + 1);
-      })
-      .withFailureHandler(function() { errors.push(updates[idx].studentId); saveNext(idx + 1); })
-      .saveStudent(updates[idx]);
-  }
-  saveNext(0);
+  });
 }
 
 // ── CSV Import ─────────────────────────────────────────────────
@@ -1499,6 +2223,56 @@ function setVal(id, val) {
   var el = document.getElementById(id);
   if (el) el.value = val;
 }
+
+// ── Toast notification ──────────────────────────────────────────
+function showToast(message, isError, durationMs) {
+  var wrap = document.getElementById('toast-wrap');
+  var toast = document.createElement('div');
+  toast.className = 'toast' + (isError ? ' toast-err' : '');
+  toast.innerHTML = (isError
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' +
+      '</svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<path d="M20 6L9 17l-5-5"/>' +
+      '</svg>') +
+    '<span>' + esc(message) + '</span>';
+  wrap.appendChild(toast);
+
+  requestAnimationFrame(function() { toast.classList.add('show'); });
+
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { toast.remove(); }, 220);
+  }, durationMs || 3200);
+}
+
+// ── Confirm popup (replaces native confirm() for destructive actions) ──
+var _confirmOnAccept = null;
+
+function showConfirm(opts) {
+  document.getElementById('confirm-title').textContent = opts.title || 'Are you sure?';
+  document.getElementById('confirm-msg').textContent   = opts.message || '';
+  document.getElementById('confirm-danger-btn').textContent = opts.confirmLabel || 'Delete';
+  _confirmOnAccept = opts.onConfirm || null;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function _confirmCancel() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+}
+
+function _confirmAccept() {
+  var fn = _confirmOnAccept;
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+  if (fn) fn();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') _confirmCancel();
+});
 
 function setMsg(section, text, type) {
   var el = document.getElementById('msg-' + section);

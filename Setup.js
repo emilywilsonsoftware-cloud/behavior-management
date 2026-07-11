@@ -99,6 +99,7 @@ function _setupConfig(ss) {
   // that getConfig() will reject and silently replace with this default.
   var headers = [
     'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
+    'TeacherEmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
     'Locations', 'NineWeeksStartDates',
     'PointTierThresholds', 'PointTierColors', 'PositiveCapPerNineWeeks'
@@ -107,7 +108,7 @@ function _setupConfig(ss) {
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
 
   var row2 = [
-    'Our School', '100', 'Yes', '15:30',
+    'Our School', '100', 'Yes', 'Yes', '15:30',
     'If you have questions, please contact the school office.\n\n' +
     'This is an automated message — please do not reply.',
     'Classroom', '',
@@ -164,23 +165,28 @@ function _setupInfractions(ss) {
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
 
   var data = [
-    ['Dress Code Violation',         -3,  'Minor',    ''],
-    ['Failure to Follow Directions', -5,  'Minor',    ''],
-    ['Disruptive Behavior',          -5,  'Minor',    ''],
-    ['Disrespect',                   -7,  'Minor',    ''],
-    ['Bullying',                     -15, 'Major',    ''],
-    ['Fighting',                     -20, 'Major',    ''],
-    ['Vandalism',                    -15, 'Major',    ''],
-    ['Harassment',                   -15, 'Major',    ''],
-    ['Technology Violation',         -5,  'Minor',    ''],
-    ['Tardy',                        -2,  'Minor',    ''],
+    // Severity intentionally left blank — no longer used anywhere in the
+    // app (Major/Minor was redundant with the point value's sign, which
+    // is what actually separates negative from positive). The column
+    // stays in the sheet only so any manually-added historical data
+    // isn't affected.
+    ['Dress Code Violation',         -3,  '', ''],
+    ['Failure to Follow Directions', -5,  '', ''],
+    ['Disruptive Behavior',          -5,  '', ''],
+    ['Disrespect',                   -7,  '', ''],
+    ['Bullying',                     -15, '', ''],
+    ['Fighting',                     -20, '', ''],
+    ['Vandalism',                    -15, '', ''],
+    ['Harassment',                   -15, '', ''],
+    ['Technology Violation',         -5,  '', ''],
+    ['Tardy',                        -2,  '', ''],
     // Positive types — entered only via the admin-only "Award Positive
     // Points" tab (see getFormBootstrap in Code.gs), not the main
     // incident form. Add more rows here any time; no code changes
     // needed — the tab reads this list dynamically, same as the main
     // form already does for demerit types.
-    ['Write Off',                     5,  'Positive', ''],
-    ['Saturday School',              10,  'Positive', '']
+    ['Write Off',                     5,  '', ''],
+    ['Saturday School',              10,  '', '']
   ];
   sheet.getRange(2, 1, data.length, headers.length).setValues(data);
   sheet.autoResizeColumns(1, headers.length);
