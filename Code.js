@@ -204,6 +204,47 @@ function doGet(e) {
     }
   }
 
+  // ── Role gate for the student profile page ─────────────────────
+  // Teachers legitimately need this (checking a student's history
+  // before writing up an incident), so this matches the referral
+  // form's gate — admin or teacher, not "viewer" or unrecognized users.
+  // getStudentProfile()/getAllStudents() already reject those roles at
+  // the data layer; this closes the matching gap at the page-shell
+  // layer, same as form/positive/settings.
+  if (page === 'student') {
+    var stuGateUser = getCurrentUser();
+    if (stuGateUser.role !== 'admin' && stuGateUser.role !== 'teacher') {
+      return HtmlService.createHtmlOutput(
+        '<!DOCTYPE html><html><head>' +
+        '<meta charset="UTF-8">' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+        '<base target="_top">' +
+        '<style>' +
+        'body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;}' +
+        '.hdr{background:#1e3a5f;color:white;padding:0 20px;height:54px;' +
+             'display:flex;align-items:center;font-weight:700;font-size:1.05rem;}' +
+        '.wrap{max-width:500px;margin:60px auto;padding:0 16px;}' +
+        '.card{background:white;border-radius:10px;padding:36px 32px;' +
+              'box-shadow:0 1px 4px rgba(0,0,0,0.1);text-align:center;}' +
+        '.icon{font-size:2.5rem;margin-bottom:14px;}' +
+        'h2{color:#dc2626;font-size:1.1rem;margin-bottom:10px;}' +
+        'p{color:#64748b;font-size:0.88rem;line-height:1.6;margin-bottom:20px;}' +
+        'a{display:inline-block;padding:9px 22px;background:#1e3a5f;color:white;' +
+          'border-radius:7px;text-decoration:none;font-size:0.88rem;font-weight:600;}' +
+        '</style></head><body>' +
+        '<div class="hdr">Behavior Tracker</div>' +
+        '<div class="wrap"><div class="card">' +
+        '<div class="icon">🔒</div>' +
+        '<h2>Access Denied</h2>' +
+        '<p>Student profiles are only available to registered teachers and administrators.<br>' +
+        'If you believe this is an error, please contact your school administrator.</p>' +
+        '<a href="' + base + '?page=dashboard">Go to Dashboard</a>' +
+        '</div></div></body></html>'
+      ).setTitle('Access Denied')
+       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+  }
+
   // ── Role gate for the positive-notes page (admin only) ─────
   if (page === 'positive') {
     var posGateUser = getCurrentUser();
