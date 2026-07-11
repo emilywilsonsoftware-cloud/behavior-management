@@ -98,7 +98,7 @@
     .a-date { font-size: 0.73rem; color: #94a3b8; }
     .a-time { font-size: 0.73rem; color: #c2c8d2; }
     .a-pts  { font-size: 0.76rem; font-weight: 700; }
-    .pts-neg { color: #dc2626; } .pts-pos { color: #166534; }
+    .pts-neg { color: #ef4444; } .pts-pos { color: #10b981; }
 
     /* Teacher grid */
     .tch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
@@ -191,7 +191,7 @@
   <div id="admin-dashboard" style="display:none;">
 
   <div class="stats-grid">
-    <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">Total Referrals</div></div>
+    <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">This Nine Weeks</div></div>
     <div class="stat-card amber"> <div class="stat-value" id="st-today">—</div>  <div class="stat-label">Today</div></div>
     <div class="stat-card teal">  <div class="stat-value" id="st-week">—</div>   <div class="stat-label">This Week</div></div>
     <div class="stat-card indigo"><div class="stat-value" id="st-stus">—</div>   <div class="stat-label">Total Students</div></div>
@@ -401,7 +401,7 @@ var _isAdminView = false;
 
 function renderAdmin(d) {
   var s = d.stats;
-  setText('st-total', s.totalReferrals);
+  setText('st-total', s.nineWeeksReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
   setText('st-negative', s.negativeCount); setText('st-positive', s.positiveCount);
   setText('st-stus', s.totalStudents);

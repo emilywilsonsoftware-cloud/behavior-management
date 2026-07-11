@@ -15,7 +15,7 @@
     .sum-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
     .sum-card { background: white; border-radius: 9px; padding: 14px 18px;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #e2e8f0; }
-    .sum-card.blue  { border-color: #3b82f6; } .sum-card.amber { border-color: #f59e0b; }
+    .sum-card.blue  { border-color: #3b82f6; } .sum-card.red { border-color: #ef4444; }
     .sum-card.green { border-color: #10b981; } .sum-card.purple{ border-color: #8b5cf6; }
     .sum-v { font-size: 1.8rem; font-weight: 800; line-height: 1; }
     .sum-l { font-size: 0.74rem; color: #64748b; margin-top: 3px; }
@@ -59,12 +59,8 @@
     thead th:hover { background: #1a3158; }
     tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.08s; }
     tbody tr:hover { background: #f0f7ff; }
-    tbody tr.resolved { opacity: 0.65; }
     td { padding: 9px 11px; vertical-align: middle; }
 
-    .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:700; }
-    .badge-open     { background:#fef3c7; color:#92400e; }
-    .badge-resolved { background:#d1fae5; color:#065f46; }
     .pts-neg { color:#dc2626; font-weight:700; }
     .pts-pos { color:#166534; font-weight:700; }
 
@@ -80,6 +76,7 @@
                     box-shadow:-4px 0 20px rgba(0,0,0,0.15); z-index:101; overflow-y:auto;
                     padding:22px; transform:translateX(100%); transition:transform 0.22s ease; }
     .detail-panel.open { transform:translateX(0); }
+    #deletion-log-panel { width: 640px; }
     .d-close { float:right; background:none; border:none; font-size:1.3rem; cursor:pointer; color:#6b7280; }
     .d-title { font-size:1rem; font-weight:700; color:#1e3a5f; margin-bottom:14px; }
     .d-row   { display:flex; gap:8px; margin-bottom:9px; }
@@ -89,6 +86,48 @@
     textarea.d-notes { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:7px;
                        font-size:0.84rem; min-height:72px; resize:vertical; }
 
+    .btn-delete-referral { display: flex; align-items: center; justify-content: center; gap: 8px;
+                           width: 100%; background: white; color: #dc2626; border: 1px solid #fca5a5;
+                           border-radius: 7px; padding: 9px 14px; font-size: 0.86rem; font-weight: 700;
+                           cursor: pointer; font-family: inherit; transition: background 0.12s; }
+    .btn-delete-referral:hover { background: #fee2e2; }
+    .btn-delete-referral svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ── Toast notification ── */
+    #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+                  z-index: 300; display: flex; flex-direction: column; gap: 8px;
+                  pointer-events: none; width: 100%; max-width: 420px; padding: 0 16px; }
+    .toast { background: #166534; color: white; border-radius: 9px;
+             padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
+             box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
+             align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
+             transition: opacity 0.22s ease, transform 0.22s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.toast-err { background: #b91c1c; }
+    .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
+
+    /* ── Confirm popup (replaces native confirm() for destructive actions) ── */
+    .confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+                       z-index: 310; display: none; align-items: center; justify-content: center;
+                       padding: 16px; }
+    .confirm-overlay.open { display: flex; }
+    .confirm-card { background: white; border-radius: 12px; max-width: 380px; width: 100%;
+                    padding: 22px 24px; box-shadow: 0 14px 40px rgba(0,0,0,0.25); text-align: center; }
+    .confirm-icon { width: 44px; height: 44px; border-radius: 50%; background: #fee2e2;
+                    color: #dc2626; display: flex; align-items: center; justify-content: center;
+                    margin: 0 auto 14px; }
+    .confirm-icon svg { width: 22px; height: 22px; }
+    .confirm-title { font-size: 1rem; font-weight: 700; color: #1e3a5f; margin-bottom: 6px; }
+    .confirm-msg { font-size: 0.86rem; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+    .confirm-btn-row { display: flex; gap: 10px; }
+    .confirm-btn { flex: 1; padding: 9px 14px; border-radius: 7px; font-size: 0.86rem;
+                  font-weight: 700; cursor: pointer; font-family: inherit; border: none; }
+    .confirm-btn.cancel { background: #f1f5f9; color: #475569; }
+    .confirm-btn.cancel:hover { background: #e2e8f0; }
+    .confirm-btn.danger { background: #dc2626; color: white; }
+    .confirm-btn.danger:hover:not(:disabled) { background: #b91c1c; }
+    .confirm-btn.danger:disabled { background: #f3a8a8; cursor: not-allowed; }
+
     .empty-msg { text-align:center; padding:36px; color:#94a3b8; font-size:0.9rem; }
     #loading-bar { position:fixed; top:0; left:0; right:0; height:3px; background:#1a56db;
                    display:none; z-index:200; }
@@ -96,7 +135,7 @@
     @media (max-width:768px) {
       .sum-row { grid-template-columns: 1fr 1fr; }
       .filter-grid { grid-template-columns: 1fr; }
-      .detail-panel { width:100%; }
+      .detail-panel, #deletion-log-panel { width:100%; }
     }
   </style>
 </head>
@@ -105,14 +144,43 @@
 <?!= navHtml ?>
 <script>var BASE_URL = "<?!= baseUrl ?>";</script>
 
+<div id="toast-wrap" aria-live="polite"></div>
+
+<div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this) _confirmCancel()">
+  <div class="confirm-card">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/>
+        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+      </svg>
+    </div>
+    <div class="confirm-title" id="confirm-title"></div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div id="confirm-reason-wrap" style="display:none;text-align:left;margin-bottom:16px;">
+      <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px;"
+             id="confirm-reason-label">Reason</label>
+      <textarea id="confirm-reason-input" rows="2"
+                style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:7px;
+                       font-size:0.84rem;font-family:inherit;resize:vertical;"
+                oninput="_confirmReasonInput()"></textarea>
+    </div>
+    <div class="confirm-btn-row">
+      <button class="confirm-btn cancel" onclick="_confirmCancel()">Cancel</button>
+      <button class="confirm-btn danger" id="confirm-danger-btn" onclick="_confirmAccept()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <div id="loading-bar"></div>
 
 <div class="page-body">
 
   <div class="sum-row">
-    <div class="sum-card blue">  <div class="sum-v" id="s-total">—</div><div class="sum-l">Total Shown</div></div>
-    <div class="sum-card amber"> <div class="sum-v" id="s-open">—</div> <div class="sum-l">Open</div></div>
-    <div class="sum-card green"> <div class="sum-v" id="s-res">—</div>  <div class="sum-l">Resolved</div></div>
+    <div class="sum-card blue">  <div class="sum-v" id="s-total">—</div><div class="sum-l">Affected Students</div></div>
+    <div class="sum-card red">   <div class="sum-v" id="s-neg">—</div>  <div class="sum-l">Negative Referrals</div></div>
+    <div class="sum-card green"> <div class="sum-v" id="s-pos">—</div>  <div class="sum-l">Positive Notes</div></div>
     <div class="sum-card purple"><div class="sum-v" id="s-pts">—</div>  <div class="sum-l">Avg Points Deducted</div></div>
   </div>
 
@@ -124,11 +192,6 @@
            <select id="f-tch"><option value="">All Teachers</option></select></div>
       <div><label class="fl">Infraction</label>
            <select id="f-inf"><option value="">All Infractions</option></select></div>
-      <div><label class="fl">Status</label>
-           <select id="f-sta">
-             <option value="All">All</option><option value="Open">Open</option>
-             <option value="Resolved">Resolved</option>
-           </select></div>
     </div>
     <div class="filter-dates">
       <div><label class="fl">Date From</label><input type="date" id="f-from"></div>
@@ -138,6 +201,8 @@
       <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
       <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
       <div style="flex:1;"></div>
+      <button class="btn btn-outline" id="btn-view-deletion-log" style="display:none;"
+              onclick="openDeletionLogPanel()">View Deletion Log</button>
       <button class="btn btn-green" onclick="exportCsv()">Export CSV</button>
     </div>
   </div>
@@ -159,11 +224,10 @@
           <th onclick="sortBy('CurrentPoints')">Balance</th>
           <th onclick="sortBy('TeacherName')">Teacher</th>
           <th onclick="sortBy('IncidentDate')">Time</th>
-          <th onclick="sortBy('Status')">Status</th>
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody id="tbl-body"><tr><td colspan="11" class="empty-msg">Loading...</td></tr></tbody>
+      <tbody id="tbl-body"><tr><td colspan="10" class="empty-msg">Loading...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -175,10 +239,111 @@
   <div id="d-content"></div>
 </div>
 
+<div class="overlay" id="log-overlay" onclick="closeDeletionLogPanel()"></div>
+<div class="detail-panel" id="deletion-log-panel">
+  <button class="d-close" onclick="closeDeletionLogPanel()">×</button>
+  <div class="d-title">Deletion Log</div>
+  <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:14px;">
+    Every referral that's been deleted — who deleted it, when, and why.
+  </div>
+  <div id="deletion-log-content"></div>
+</div>
+
 <script>
 var allRows = [], filteredRows = [], sortCol = 'IncidentDate', sortAsc = false, semPts = 100;
 var pointTiers = []; // admin-configured point-balance color tiers
 var detailIdx = null;
+var isAdmin = false;
+
+var TRASH_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/>' +
+  '<path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>' +
+  '<path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>';
+
+// ── Toast notification ──────────────────────────────────────────
+function showToast(message, isError, durationMs) {
+  var wrap = document.getElementById('toast-wrap');
+  var toast = document.createElement('div');
+  toast.className = 'toast' + (isError ? ' toast-err' : '');
+  toast.innerHTML = (isError
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' +
+      '</svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<path d="M20 6L9 17l-5-5"/>' +
+      '</svg>') +
+    '<span>' + esc(message) + '</span>';
+  wrap.appendChild(toast);
+
+  requestAnimationFrame(function() { toast.classList.add('show'); });
+
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { toast.remove(); }, 220);
+  }, durationMs || 3200);
+}
+
+// ── Confirm popup (replaces native confirm() for destructive actions) ──
+// Supports an optional required reason field (used for deleting a
+// referral) — when opts.requireReason is set, the Delete button stays
+// disabled until something is typed, and onConfirm receives the typed
+// text as its argument.
+var _confirmOnAccept  = null;
+var _confirmReqReason = false;
+
+function showConfirm(opts) {
+  document.getElementById('confirm-title').textContent = opts.title || 'Are you sure?';
+  document.getElementById('confirm-msg').textContent   = opts.message || '';
+  document.getElementById('confirm-danger-btn').textContent = opts.confirmLabel || 'Delete';
+  _confirmOnAccept  = opts.onConfirm || null;
+  _confirmReqReason = !!opts.requireReason;
+
+  var reasonWrap  = document.getElementById('confirm-reason-wrap');
+  var reasonInput = document.getElementById('confirm-reason-input');
+  var reasonLabel = document.getElementById('confirm-reason-label');
+  var dangerBtn   = document.getElementById('confirm-danger-btn');
+
+  if (_confirmReqReason) {
+    reasonLabel.textContent = opts.reasonLabel || 'Reason';
+    reasonInput.value = '';
+    reasonInput.placeholder = opts.reasonPlaceholder || '';
+    reasonWrap.style.display = 'block';
+    dangerBtn.disabled = true;
+  } else {
+    reasonWrap.style.display = 'none';
+    dangerBtn.disabled = false;
+  }
+
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+// Enables/disables the Delete button as the reason field is typed into.
+function _confirmReasonInput() {
+  if (!_confirmReqReason) return;
+  var val = document.getElementById('confirm-reason-input').value.trim();
+  document.getElementById('confirm-danger-btn').disabled = !val;
+}
+
+function _confirmCancel() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+}
+
+function _confirmAccept() {
+  var fn = _confirmOnAccept;
+  var reasonVal = _confirmReqReason
+    ? document.getElementById('confirm-reason-input').value.trim()
+    : undefined;
+  if (_confirmReqReason && !reasonVal) return; // guarded by disabled button too
+
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+  if (fn) fn(reasonVal);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') _confirmCancel();
+});
 
 window.addEventListener('load', function() {
   showLoading(true);
@@ -187,7 +352,7 @@ window.addEventListener('load', function() {
     .withFailureHandler(function(err) {
       showLoading(false);
       document.getElementById('tbl-body').innerHTML =
-        '<tr><td colspan="11" class="empty-msg" style="color:#dc2626;">Error: '+esc(err.message||err)+'</td></tr>';
+        '<tr><td colspan="10" class="empty-msg" style="color:#dc2626;">Error: '+esc(err.message||err)+'</td></tr>';
     })
     .getReportData({});
 });
@@ -195,6 +360,8 @@ window.addEventListener('load', function() {
 function onDataLoaded(data) {
   showLoading(false);
   if (typeof updateNavUser === 'function') updateNavUser(data.user);
+  isAdmin = !!(data.user && data.user.role === 'admin');
+  if (isAdmin) document.getElementById('btn-view-deletion-log').style.display = '';
   allRows = data.rows || [];
   semPts  = data.semesterPoints || 100;
   pointTiers = data.pointTiers || [];
@@ -217,7 +384,6 @@ function applyFilters() {
   var stuName = document.getElementById('f-stu').value.trim().toLowerCase();
   var tch     = document.getElementById('f-tch').value.toLowerCase();
   var inf     = document.getElementById('f-inf').value;
-  var sta     = document.getElementById('f-sta').value;
   var from    = document.getElementById('f-from').value;
   var to      = document.getElementById('f-to').value;
 
@@ -225,7 +391,6 @@ function applyFilters() {
     if (stuName && (row['StudentName']||'').toLowerCase().indexOf(stuName) < 0) return false;
     if (tch     && (row['TeacherName']||'').toLowerCase().indexOf(tch) < 0)     return false;
     if (inf     && row['InfractionType'] !== inf)                                return false;
-    if (sta && sta !== 'All' && row['Status']   !== sta)                         return false;
     if (from && row['IncidentDate'] < from)                                      return false;
     if (to   && row['IncidentDate'] > to)                                        return false;
     return true;
@@ -238,7 +403,6 @@ function applyFilters() {
 function clearFilters() {
   ['f-stu','f-from','f-to'].forEach(function(id){ document.getElementById(id).value=''; });
   ['f-tch','f-inf'].forEach(function(id){ document.getElementById(id).selectedIndex=0; });
-  document.getElementById('f-sta').value = 'All';
   filteredRows = allRows.slice();
   renderTable();
   updateSummary();
@@ -264,7 +428,7 @@ function renderTable() {
 
   if (filteredRows.length === 0) {
     document.getElementById('tbl-body').innerHTML =
-      '<tr><td colspan="11" class="empty-msg">No referrals match the filters.</td></tr>';
+      '<tr><td colspan="10" class="empty-msg">No referrals match the filters.</td></tr>';
     return;
   }
 
@@ -276,9 +440,8 @@ function renderTable() {
     var bPct     = semPts > 0 ? Math.round(balance/semPts*100) : 0;
     var bColor   = row['CurrentPointsColor'] || getPointColor(bPct, pointTiers);
     var bBg      = hexToLightTint(bColor);
-    var status   = (row['Status']||'Open').toString();
     var studentId = (row['StudentID']||'').toString();
-    return '<tr'+(status==='Resolved'?' class="resolved"':'')+'>' +
+    return '<tr>' +
       '<td style="color:#94a3b8;">'+esc(row['ID']||'')+'</td>' +
       '<td style="white-space:nowrap;">'+esc(formatDateMDY(row['IncidentDate']||''))+'</td>' +
       '<td><a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(studentId)+'">'+esc(row['StudentName']||'')+'</a></td>' +
@@ -288,7 +451,6 @@ function renderTable() {
       '<td><span class="bal-pill" style="background:'+bBg+';color:'+bColor+';">'+balance+'</span></td>' +
       '<td>'+esc(row['TeacherName']||'')+'</td>' +
       '<td style="color:#64748b;white-space:nowrap;">'+esc(formatTime12h(row['IncidentTime']))+'</td>' +
-      '<td><span class="badge badge-'+status.toLowerCase()+'">'+esc(status)+'</span></td>' +
       '<td><button class="btn btn-outline btn-sm" onclick="openDetail('+idx+')">View</button></td>' +
       '</tr>';
   }).join('');
@@ -296,11 +458,13 @@ function renderTable() {
 
 function updateSummary() {
   var total = filteredRows.length;
-  var open  = filteredRows.filter(function(r){ return r['Status'] !== 'Resolved'; }).length;
+  var neg = filteredRows.filter(function(r){ return (parseFloat(r['PointValue'])||0) < 0; }).length;
+  var pos = filteredRows.filter(function(r){ return (parseFloat(r['PointValue'])||0) > 0; }).length;
   var totalDed = filteredRows.reduce(function(s,r){ var p=parseFloat(r['PointValue'])||0; return s+(p<0?Math.abs(p):0); }, 0);
-  setText('s-total', total);
-  setText('s-open',  open);
-  setText('s-res',   total - open);
+  var uniqueStudents = new Set(filteredRows.map(function(r){ return r['StudentID']; })).size;
+  setText('s-total', uniqueStudents);
+  setText('s-neg',   neg);
+  setText('s-pos',   pos);
   setText('s-pts',   total > 0 ? (totalDed/total).toFixed(1) : '0');
 }
 
@@ -343,15 +507,19 @@ function openDetail(idx) {
   }
 
   html += '<hr class="d-hr">' +
-    '<div style="margin-bottom:6px;font-weight:600;font-size:0.82rem;">Status</div>' +
-    '<select id="d-status" style="width:100%;margin-bottom:10px;padding:7px;border:1px solid #d1d5db;border-radius:6px;">' +
-    '<option value="Open"'+(row['Status']==='Open'?' selected':'')+'>Open</option>' +
-    '<option value="Resolved"'+(row['Status']==='Resolved'?' selected':'')+'>Resolved</option>' +
-    '</select>' +
     '<div style="margin-bottom:6px;font-weight:600;font-size:0.82rem;">Admin Notes</div>' +
     '<textarea class="d-notes" id="d-notes">'+esc(row['AdminNotes']||'')+'</textarea>' +
     '<button class="btn btn-primary" style="margin-top:10px;width:100%;" onclick="saveDetail()">Save Changes</button>' +
     '<div id="d-save-msg" style="margin-top:7px;font-size:0.8rem;min-height:18px;"></div>';
+
+  if (isAdmin) {
+    html += '<hr class="d-hr">' +
+      '<button class="btn-delete-referral" onclick="confirmDeleteReferral()">' + TRASH_SVG +
+      '<span>Delete Referral</span></button>' +
+      '<div style="margin-top:6px;font-size:0.74rem;color:#94a3b8;">' +
+      'Permanently removes this referral, corrects the student\'s point balance, and records a ' +
+      'reason in the deletion log.</div>';
+  }
 
   document.getElementById('d-content').innerHTML = html;
   document.getElementById('overlay').classList.add('open');
@@ -364,10 +532,63 @@ function closeDetail() {
   detailIdx = null;
 }
 
+// ── Deletion Log panel (admin only) ──────────────────────────────
+var _deletionLogLoaded = false;
+
+function openDeletionLogPanel() {
+  document.getElementById('log-overlay').classList.add('open');
+  document.getElementById('deletion-log-panel').classList.add('open');
+  if (!_deletionLogLoaded) loadDeletionLog();
+}
+
+function closeDeletionLogPanel() {
+  document.getElementById('log-overlay').classList.remove('open');
+  document.getElementById('deletion-log-panel').classList.remove('open');
+}
+
+function loadDeletionLog() {
+  var wrap = document.getElementById('deletion-log-content');
+  wrap.innerHTML = '<div class="empty-msg">Loading...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _deletionLogLoaded = true;
+      if (!r.success) {
+        wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the deletion log: ' + esc(r.error || 'Unknown error') + '</div>';
+        return;
+      }
+      if (r.rows.length === 0) {
+        wrap.innerHTML = '<div class="empty-msg">No referrals have been deleted yet.</div>';
+        return;
+      }
+      wrap.innerHTML = r.rows.map(function(row) {
+        var pts    = row.pointValue || 0;
+        var ptsStr = pts > 0 ? '+'+pts : pts.toString();
+        var ptsCls = pts < 0 ? 'color:#dc2626' : 'color:#166534';
+        return '<div class="d-row" style="flex-direction:column;align-items:stretch;' +
+               'border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px;">' +
+          '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#94a3b8;margin-bottom:4px;">' +
+            '<span>'+esc(row.timestamp)+'</span><span>'+esc(row.deletedByName)+'</span>' +
+          '</div>' +
+          '<div style="font-size:0.86rem;font-weight:600;">'+esc(row.studentName)+
+            ' <span style="font-weight:400;color:#94a3b8;">('+esc(row.studentId)+')</span></div>' +
+          '<div style="font-size:0.82rem;">'+esc(row.infractionType)+
+            ' <span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span>' +
+            ' <span style="color:#94a3b8;">· incident '+esc(row.incidentDate)+'</span></div>' +
+          '<div style="font-size:0.82rem;margin-top:4px;"><strong>Reason:</strong> '+esc(row.reason)+'</div>' +
+        '</div>';
+      }).join('');
+    })
+    .withFailureHandler(function(err) {
+      _deletionLogLoaded = true;
+      wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the deletion log: ' + esc(err.message || err) + '</div>';
+    })
+    .getDeletionLog();
+}
+
 function saveDetail() {
   if (detailIdx === null) return;
   var row    = filteredRows[detailIdx];
-  var status = document.getElementById('d-status').value;
   var notes  = document.getElementById('d-notes').value;
   var msg    = document.getElementById('d-save-msg');
   msg.textContent = 'Saving...'; msg.style.color = '#1a56db';
@@ -375,7 +596,6 @@ function saveDetail() {
   google.script.run
     .withSuccessHandler(function(result) {
       if (result.success) {
-        row['Status']     = status;
         row['AdminNotes'] = notes;
         msg.textContent = '✓ Saved'; msg.style.color = '#166534';
         renderTable(); updateSummary();
@@ -386,7 +606,47 @@ function saveDetail() {
     .withFailureHandler(function(err) {
       msg.textContent = 'Error: '+(err.message||err); msg.style.color = '#dc2626';
     })
-    .updateReferralRow(row['ID'], status, notes);
+    .updateReferralRow(row['ID'], notes);
+}
+
+function confirmDeleteReferral() {
+  if (detailIdx === null) return;
+  var row = filteredRows[detailIdx];
+
+  showConfirm({
+    title: 'Delete this referral?',
+    message: 'Referral #' + row['ID'] + ' for ' + row['StudentName'] + ' (' + row['InfractionType'] +
+              ') will be permanently removed, and their point balance will be recalculated to ' +
+              'correctly reflect the change. This cannot be undone.',
+    confirmLabel: 'Delete Referral',
+    requireReason: true,
+    reasonLabel: 'Reason for deletion (required)',
+    reasonPlaceholder: 'e.g., wrong student entered, IEP protection...',
+    onConfirm: function(reason) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.success) {
+            showToast(result.error || 'Could not delete referral.', true);
+            return;
+          }
+          // Remove from both the full and filtered row sets, then close
+          // the panel and refresh everything on screen.
+          allRows      = allRows.filter(function(r)      { return r['ID'] !== row['ID']; });
+          filteredRows = filteredRows.filter(function(r) { return r['ID'] !== row['ID']; });
+          closeDetail();
+          renderTable();
+          updateSummary();
+
+          showToast(result.recalculated
+            ? '✓ Referral deleted. ' + result.studentName + '\u2019s balance is now ' + result.newBalance + ' pts.'
+            : '✓ Referral deleted.');
+        })
+        .withFailureHandler(function(err) {
+          showToast(err.message || err, true);
+        })
+        .deleteReferral(row['ID'], reason);
+    }
+  });
 }
 
 function exportCsv() {
@@ -394,7 +654,7 @@ function exportCsv() {
   var cols = ['ID','IncidentDate','IncidentTime','StudentName','Grade','InfractionType',
               'PointValue','PointsBeforeReferral','PointsAfterReferral','CurrentPoints',
               'Location','Description','IncludeDescriptionInEmail','TeacherName',
-              'ParentNotified','TeacherNotified','Status','AdminNotes'];
+              'ParentNotified','TeacherNotified','AdminNotes'];
   var csv = cols.join(',') + '\n' + filteredRows.map(function(row) {
     return cols.map(function(c) {
       var v = row[c] !== undefined ? row[c].toString() : '';

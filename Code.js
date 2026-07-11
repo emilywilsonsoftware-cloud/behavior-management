@@ -25,12 +25,13 @@
 // ============================================================
 
 // ── SHEET NAMES ───────────────────────────────────────────────
-var SHEET_REFERRALS   = 'Referrals';
-var SHEET_STUDENTS    = 'Students';
-var SHEET_STAFF       = 'Staff';
-var SHEET_PARENT      = 'ParentContacts';
-var SHEET_CONFIG      = 'Config';
-var SHEET_INFRACTIONS = 'Infractions';
+var SHEET_REFERRALS    = 'Referrals';
+var SHEET_STUDENTS     = 'Students';
+var SHEET_STAFF        = 'Staff';
+var SHEET_PARENT       = 'ParentContacts';
+var SHEET_CONFIG       = 'Config';
+var SHEET_INFRACTIONS  = 'Infractions';
+var SHEET_DELETION_LOG = 'DeletionLog';
 
 // ── CONFIG COLUMN NAMES ───────────────────────────────────────
 var CONFIG_COL_LOCATIONS        = 'Locations';
@@ -123,7 +124,19 @@ var REFERRAL_HEADERS = [
   'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
   'Description', 'IncludeDescriptionInEmail',
   'TeacherName', 'TeacherEmail',
-  'ParentNotified', 'TeacherNotified', 'Status', 'AdminNotes'
+  'ParentNotified', 'TeacherNotified', 'AdminNotes'
+];
+
+// Audit trail for deleteReferral() — a record of WHAT was deleted, WHO
+// deleted it, and WHY, kept separate from the Referrals sheet itself so
+// deleting a referral (e.g. wrong student entered, or a referral that
+// legally shouldn't have been given) doesn't leave the original
+// referral's full content lingering anywhere, just a short summary of
+// the deletion event.
+var DELETION_LOG_HEADERS = [
+  'Timestamp', 'DeletedByName', 'DeletedByEmail',
+  'ReferralID', 'StudentID', 'StudentName',
+  'InfractionType', 'PointValue', 'IncidentDate', 'Reason'
 ];
 
 // ── EXECUTION CACHES (per-execution only — not persistent) ────
@@ -963,7 +976,6 @@ function getStudentFormCard(studentId) {
       infractionType: row[ci['InfractionType']] ? row[ci['InfractionType']].toString() : '',
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
       teacherName:    row[ci['TeacherName']]    ? row[ci['TeacherName']].toString()    : '',
-      status:         row[ci['Status']]         ? row[ci['Status']].toString()         : 'Open',
       description:    row[ci['Description']]    ? row[ci['Description']].toString()    : ''
     });
   }
@@ -1064,7 +1076,7 @@ function submitReferrals(referrals) {
         includeDescInEmail ? 'Yes' : 'No',
         sanitizeText(r.teacherName),
         user.email,
-        'No', 'No', 'Open', ''
+        'No', 'No', ''
       ]).getLastRow();
 
       // Force the IncidentTime cell to plain-text format and re-write the
@@ -1294,7 +1306,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         sanitizeText(r.teacherName || user.name),
         user.email,
         'N/A', // ParentNotified — positive notes are excluded from sendDailyParentEmails entirely
-        'No', 'Open', adminNotes
+        'No', adminNotes
       ]).getLastRow();
 
       var timeCol = REFERRAL_HEADERS.indexOf('IncidentTime') + 1;
@@ -1611,6 +1623,7 @@ function getDashboardData() {
   var tchMap = {};
 
   var totalReferrals = 0;
+  var nineWeeksReferrals = 0;
   var todayReferrals = 0;
   var weekReferrals  = 0;
   var negativeCount  = 0; // PointValue < 0 (point-losing referrals, regardless of severity)
@@ -1627,13 +1640,15 @@ function getDashboardData() {
   for (var r = 1; r < refData.length; r++) {
     var row  = refData[r];
     var inc  = formatDateStr(row[ci['IncidentDate']]);
-    var stat = row[ci['Status']]   ? row[ci['Status']].toString()   : '';
     var ts   = row[ci['Timestamp']];
     var rowTeacherEmail = row[ci['TeacherEmail']] ? row[ci['TeacherEmail']].toString().trim().toLowerCase() : '';
 
     var ptVal = parseFloat(row[ci['PointValue']]) || 0;
 
     totalReferrals++;
+    if (cfg.currentNineWeeks && inc >= cfg.currentNineWeeks.start && inc <= cfg.currentNineWeeks.end) {
+      nineWeeksReferrals++;
+    }
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
     // Positive/negative are derived from PointValue's sign — every
@@ -1670,7 +1685,6 @@ function getDashboardData() {
       incidentDate:   inc,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       teacherName:    row[ci['TeacherName']] ? row[ci['TeacherName']].toString() : '',
-      status:         stat,
       // Used by the View Details modal on both the teacher's "My
       // Referrals" list and the admin "Recent Activity" feed.
       location:              row[ci['Location']] ? row[ci['Location']].toString() : '',
@@ -1809,6 +1823,7 @@ function getDashboardData() {
     pointTiers:          cfg.pointTiers,
     stats: {
       totalReferrals:  totalReferrals,
+      nineWeeksReferrals: nineWeeksReferrals,
       todayReferrals:  todayReferrals,
       weekReferrals:   weekReferrals,
       negativeCount:   negativeCount,
@@ -1859,7 +1874,7 @@ function getStudentProfile(studentId) {
       semesterPoints:      cfg.semesterPoints,
       schoolName:          cfg.schoolName,
       pointTiers:          cfg.pointTiers,
-      summary: { total: 0, open: 0, negative: 0, positive: 0 }
+      summary: { total: 0, negative: 0, positive: 0 }
     };
   }
 
@@ -1918,7 +1933,6 @@ function getStudentProfile(studentId) {
       TeacherName:          str(row[ci['TeacherName']]),
       ParentNotified:       str(row[ci['ParentNotified']]),
       TeacherNotified:      str(row[ci['TeacherNotified']]),
-      Status:               str(row[ci['Status']]) || 'Open',
       AdminNotes:           str(row[ci['AdminNotes']]),
       TimestampFormatted:   (ts instanceof Date)
         ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
@@ -1960,10 +1974,9 @@ function getStudentProfile(studentId) {
     return { label: nw.label, start: nw.start, end: nw.end, count: count };
   });
 
-  var sumTotal = 0, sumOpen = 0, sumNegative = 0, sumPos = 0;
+  var sumTotal = 0, sumNegative = 0, sumPos = 0;
   referrals.forEach(function(r) {
     sumTotal++;
-    if (r.Status !== 'Resolved') sumOpen++;
     // Same reasoning as getDashboardData(): PointValue's sign is what
     // separates negative from positive.
     var ptVal = parseFloat(r.PointValue) || 0;
@@ -1985,7 +1998,6 @@ function getStudentProfile(studentId) {
     user:                user,
     summary: {
       total:    sumTotal,
-      open:     sumOpen,
       negative: sumNegative,
       positive: sumPos
     }
@@ -2090,7 +2102,6 @@ function getReportData(filters) {
       TeacherName:          tch,
       ParentNotified:       row[ci['ParentNotified']]  ? row[ci['ParentNotified']].toString()  : '',
       TeacherNotified:      row[ci['TeacherNotified']] ? row[ci['TeacherNotified']].toString() : '',
-      Status:               row[ci['Status']]      ? row[ci['Status']].toString()      : 'Open',
       AdminNotes:           row[ci['AdminNotes']]  ? row[ci['AdminNotes']].toString()  : '',
       TimestampFormatted:   (ts instanceof Date)
         ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
@@ -2117,7 +2128,10 @@ function getReportData(filters) {
   };
 }
 
-function updateReferralRow(referralId, newStatus, newAdminNotes) {
+// The Status column ("Open"/"Resolved") was removed from the sheet
+// entirely — "Resolved" marking is gone as a workflow, and nothing
+// replaced it. This only saves Admin Notes now.
+function updateReferralRow(referralId, newAdminNotes) {
   var user = getCurrentUser();
   if (user.role !== 'admin') {
     return { success: false, error: 'Admin access required.' };
@@ -2126,16 +2140,200 @@ function updateReferralRow(referralId, newStatus, newAdminNotes) {
   var sheet  = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_REFERRALS);
   var data   = sheet.getDataRange().getValues();
   var idCol  = REFERRAL_HEADERS.indexOf('ID');
-  var stCol  = REFERRAL_HEADERS.indexOf('Status');
   var anCol  = REFERRAL_HEADERS.indexOf('AdminNotes');
   for (var i = 1; i < data.length; i++) {
     if (data[i][idCol] == referralId) {
-      if (stCol >= 0) sheet.getRange(i + 1, stCol + 1).setValue(newStatus);
       if (anCol >= 0) sheet.getRange(i + 1, anCol + 1).setValue(newAdminNotes);
       return { success: true };
     }
   }
   return { success: false, error: 'Referral #' + referralId + ' not found.' };
+}
+
+// Permanently deletes a single referral row (admin only) — for cases
+// like the wrong student being entered, or a referral that legally
+// shouldn't have been given (e.g. an IEP protection). This is a real
+// delete, not a status change, so the affected student's point balance
+// must be corrected too, not just left as-is. A reason is required and
+// recorded in the DeletionLog sheet, along with who deleted it and
+// when — a paper trail for the deletion itself, without keeping the
+// original referral's full content lingering anywhere.
+//
+// Balance correction approach: rather than simply subtracting the
+// deleted row's PointValue back out, this REPLAYS every remaining
+// referral for that student in original submission order (oldest ID
+// first), starting from Semester Start Points and re-applying the same
+// floor-at-zero rule used at submission time (see submitReferrals). A
+// simple subtraction can be wrong if the deleted referral's actual
+// effect was different from its raw point value because the student
+// was already near the floor when it was submitted — replaying the
+// full history is the only way to guarantee the resulting balance is
+// actually correct.
+function deleteReferral(referralId, reason) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+  reason = (reason || '').toString().trim();
+  if (!reason) {
+    return { success: false, error: 'A reason is required to delete a referral.' };
+  }
+
+  try {
+    var ss       = SpreadsheetApp.getActiveSpreadsheet();
+    var refSheet = ss.getSheetByName(SHEET_REFERRALS);
+    var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
+
+    var refData = refSheet.getDataRange().getValues();
+    var idCol   = REFERRAL_HEADERS.indexOf('ID');
+    var sidCol  = REFERRAL_HEADERS.indexOf('StudentID');
+    var snCol   = REFERRAL_HEADERS.indexOf('StudentName');
+    var infCol  = REFERRAL_HEADERS.indexOf('InfractionType');
+    var pvCol   = REFERRAL_HEADERS.indexOf('PointValue');
+    var dtCol   = REFERRAL_HEADERS.indexOf('IncidentDate');
+
+    var targetRowNum = -1;
+    var targetStudentId = null;
+    var deletedRow = null;
+    for (var i = 1; i < refData.length; i++) {
+      if (refData[i][idCol] == referralId) {
+        targetRowNum = i + 1; // 1-indexed sheet row
+        targetStudentId = refData[i][sidCol] ? refData[i][sidCol].toString() : '';
+        deletedRow = refData[i];
+        break;
+      }
+    }
+    if (targetRowNum < 0) {
+      return { success: false, error: 'Referral #' + referralId + ' not found.' };
+    }
+
+    refSheet.deleteRow(targetRowNum);
+
+    // Log the deletion regardless of whether a point recalculation
+    // happens below — the audit trail matters even if, say, the
+    // student record was itself since removed.
+    logDeletion_({
+      deletedByName:  user.name  || user.email,
+      deletedByEmail: user.email,
+      referralId:     referralId,
+      studentId:      targetStudentId,
+      studentName:    deletedRow[snCol]  ? deletedRow[snCol].toString()  : '',
+      infractionType: deletedRow[infCol] ? deletedRow[infCol].toString() : '',
+      pointValue:     parseFloat(deletedRow[pvCol]) || 0,
+      incidentDate:   formatDateStr(deletedRow[dtCol]),
+      reason:         reason
+    });
+
+    if (!targetStudentId) {
+      return { success: true, recalculated: false };
+    }
+
+    // Recompute the student's balance from the remaining referrals.
+    var cfg = getConfig();
+    var remaining = [];
+    var freshRefData = refSheet.getDataRange().getValues(); // re-read post-delete
+    for (var r = 1; r < freshRefData.length; r++) {
+      if ((freshRefData[r][sidCol] || '').toString() === targetStudentId) {
+        remaining.push({
+          id:  parseInt(freshRefData[r][idCol], 10) || 0,
+          pts: parseFloat(freshRefData[r][pvCol]) || 0
+        });
+      }
+    }
+    remaining.sort(function(a, b) { return a.id - b.id; }); // original submission order
+
+    var balance = cfg.semesterPoints;
+    remaining.forEach(function(ref) {
+      balance = Math.max(0, balance + ref.pts);
+    });
+
+    var stuData = stuSheet.getDataRange().getValues();
+    var stuRowIdx = findStudentRow(stuData, targetStudentId);
+    var studentName = '';
+    if (stuRowIdx >= 0) {
+      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1).setValue(balance);
+      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS_DATE + 1).setValue(new Date());
+      studentName = displayName(stuData[stuRowIdx][STU_COL_FIRST], stuData[stuRowIdx][STU_COL_LAST]);
+    }
+
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      recalculated: stuRowIdx >= 0,
+      studentName: studentName,
+      newBalance: balance
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Appends one row to the DeletionLog sheet, creating the sheet (with
+// headers) on first use if it doesn't exist yet. Intentionally does
+// NOT store Location/Description/etc. from the deleted referral — just
+// enough to answer "who deleted what, when, and why" without keeping
+// the full original content around indefinitely.
+function logDeletion_(entry) {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_DELETION_LOG);
+  if (!sheet) sheet = ss.insertSheet(SHEET_DELETION_LOG);
+  ensureHeaders(sheet, DELETION_LOG_HEADERS);
+
+  sheet.appendRow([
+    new Date(),
+    entry.deletedByName,
+    entry.deletedByEmail,
+    entry.referralId,
+    entry.studentId,
+    entry.studentName,
+    entry.infractionType,
+    entry.pointValue,
+    entry.incidentDate,
+    entry.reason
+  ]);
+}
+
+// Read-only viewer data for the DeletionLog sheet (admin only) — used
+// by the Reset & Archive tab in Settings.
+function getDeletionLog() {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_DELETION_LOG);
+  if (!sheet) return { success: true, rows: [] };
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { success: true, rows: [] };
+
+  var hdrs = data[0].map(function(h) { return h.toString().trim(); });
+  var ci = {};
+  hdrs.forEach(function(h, i) { ci[h] = i; });
+
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var ts  = row[ci['Timestamp']];
+    rows.push({
+      timestamp:      (ts instanceof Date)
+        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
+        : (ts || '').toString(),
+      deletedByName:  row[ci['DeletedByName']]  ? row[ci['DeletedByName']].toString()  : '',
+      deletedByEmail: row[ci['DeletedByEmail']] ? row[ci['DeletedByEmail']].toString() : '',
+      referralId:     row[ci['ReferralID']]     !== undefined ? row[ci['ReferralID']].toString() : '',
+      studentId:      row[ci['StudentID']]      ? row[ci['StudentID']].toString()      : '',
+      studentName:    row[ci['StudentName']]    ? row[ci['StudentName']].toString()    : '',
+      infractionType: row[ci['InfractionType']] ? row[ci['InfractionType']].toString() : '',
+      pointValue:     parseFloat(row[ci['PointValue']]) || 0,
+      incidentDate:   row[ci['IncidentDate']] ? row[ci['IncidentDate']].toString() : '',
+      reason:         row[ci['Reason']] ? row[ci['Reason']].toString() : ''
+    });
+  }
+  rows.reverse(); // most recent deletion first
+  return { success: true, rows: rows };
 }
 
 function resetSemesterPoints() {
