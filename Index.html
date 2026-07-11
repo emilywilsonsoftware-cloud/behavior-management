@@ -771,8 +771,7 @@ function onSubmitOk(result) {
     state.lastIncident = null;
   } else {
     clearStatus(); // dismiss the inline "Submitting..." banner
-    showToast('✓ ' + result.saved + ' referral' + (result.saved > 1 ? 's' : '') +
-              ' submitted. Confirmation email on the way.');
+    showToast('✓ ' + result.saved + ' referral' + (result.saved > 1 ? 's' : '') + ' submitted.');
     resetForm();
     // Move the page back to the top so the next student selection (Step 2)
     // is immediately visible without the teacher needing to scroll.
