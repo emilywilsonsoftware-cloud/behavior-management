@@ -71,6 +71,11 @@
                 display: flex; flex-wrap: wrap; gap: 10px; }
     .p-contact a { color: #2563eb; text-decoration: none; }
     .p-contact a:hover { text-decoration: underline; }
+    .manage-student-btn { margin-top: 10px; background: white; color: #1d4ed8;
+                          border: 1px solid #bfdbfe; border-radius: 7px; padding: 6px 14px;
+                          font-size: 0.8rem; font-weight: 600; cursor: pointer;
+                          font-family: inherit; transition: background 0.12s; }
+    .manage-student-btn:hover { background: #eff6ff; }
     .pts-display { text-align: center; padding: 10px 20px; border-radius: 9px;
                    border: 2px solid #e2e8f0; flex-shrink: 0; min-width: 110px; }
     .pts-big   { font-size: 2rem; font-weight: 900; line-height: 1; }
@@ -240,6 +245,28 @@
                        font-weight: 600; cursor: pointer; font-family: inherit; }
     .view-detail-btn:hover { background: #f8fafc; border-color: #94a3b8; }
 
+    /* ── Manage Student modal (Student Info + Contacts, admin only) ── */
+    .manage-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+                      z-index: 200; display: none; align-items: center; justify-content: center;
+                      padding: 16px; }
+    .manage-overlay.open { display: flex; }
+    .manage-modal { background: white; border-radius: 10px; max-width: 640px; width: 100%;
+                    box-shadow: 0 10px 32px rgba(0,0,0,0.2); max-height: 88vh;
+                    display: flex; flex-direction: column; overflow: hidden; }
+    .manage-hdr { display: flex; justify-content: space-between; align-items: center;
+                  padding: 18px 22px 0; }
+    .manage-title { font-size: 0.98rem; font-weight: 700; color: #1e293b; }
+    .manage-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+                    color: #9ca3af; line-height: 1; padding: 0 4px; }
+    .manage-close:hover { color: #4b5563; }
+    .manage-switcher { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid #e5e7eb; }
+    .manage-switch-btn { padding: 8px 16px; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+                         background: none; border: none; border-bottom: 2px solid transparent;
+                         color: #64748b; font-family: inherit; }
+    .manage-switch-btn.active { color: #1d4ed8; border-bottom-color: #1d4ed8; }
+    .manage-switch-btn:hover:not(.active) { color: #1e293b; }
+    .manage-content { overflow-y: auto; flex: 1; padding-bottom: 20px; }
+
     @media (max-width:680px) { .two-col { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -294,6 +321,21 @@ var URL_ID = "<?!= urlId ?>";
       <button class="ref-detail-close" onclick="closeRefDetailModal()">×</button>
     </div>
     <div id="ref-detail-body"></div>
+  </div>
+</div>
+
+<!-- Manage Student modal — Student Info + Contacts (admin only) -->
+<div class="manage-overlay" id="manage-overlay" onclick="if(event.target===this) closeManageStudentModal()">
+  <div class="manage-modal">
+    <div class="manage-hdr">
+      <div class="manage-title">Edit Info</div>
+      <button class="manage-close" onclick="closeManageStudentModal()">×</button>
+    </div>
+    <div class="manage-switcher">
+      <button class="manage-switch-btn active" id="manage-tab-info" onclick="showManageInfo()">Student</button>
+      <button class="manage-switch-btn" id="manage-tab-contacts" onclick="showManageContacts()">Contacts</button>
+    </div>
+    <div class="manage-content" id="manage-content"></div>
   </div>
 </div>
 
@@ -460,6 +502,7 @@ function renderProfile(data) {
               : 'No referral email contacts on file') +
           '</span>' +
         '</div>' +
+        (isAdm ? '<button class="manage-student-btn" onclick="openManageStudentModal()">Edit Info</button>' : '') +
       '</div>' +
       '<div class="pts-display" style="border-color:'+ptColor+';background:'+ptBg+';">' +
         '<div class="pts-big" style="color:'+ptColor+';">'+s.currentPoints+'</div>' +
@@ -498,10 +541,6 @@ function renderProfile(data) {
       tabs += '<div class="nw-tab" id="tab-'+idx+'" onclick="filterByNW('+idx+')">' +
               esc(nw.label) + (isCur ? ' ★' : '') + '</div>';
     });
-  }
-  if (isAdm) {
-    tabs += '<div class="nw-tab" id="tab-info" onclick="showInfoTab()">Student Info</div>';
-    tabs += '<div class="nw-tab" id="tab-contacts" onclick="showContactsTab()">Contacts</div>';
   }
   tabs += '</div>';
 
@@ -560,14 +599,6 @@ function filterByNW(idx) {
       if (t) t.className = 'nw-tab' + (i === idx ? ' active' : '');
     });
   }
-  var contactsTab = document.getElementById('tab-contacts');
-  if (contactsTab) contactsTab.className = 'nw-tab';
-  var infoTab = document.getElementById('tab-info');
-  if (infoTab) infoTab.className = 'nw-tab';
-
-  // Swap the left panel back to the referral table if Contacts was showing
-  var wrapOuter = document.getElementById('left-panel-wrap');
-  if (wrapOuter) wrapOuter.style.overflowX = 'auto';
 
   var wrap = document.getElementById('ref-table-wrap');
   if (!wrap) {
@@ -843,50 +874,44 @@ var _ceRowIndex     = null;   // sheet row of the contact being edited (null = n
 var _ceSiblings     = [];
 var _ceSearchTimer  = null;
 
-// Switches the left panel from the referral table to the Contacts list.
-// Lives in the same tab row as "All Referrals" / "Nine Weeks N".
-function showContactsTab() {
-  document.getElementById('tab-all').className = 'nw-tab';
-  if (currentStudent && currentStudent.nineWeeks) {
-    currentStudent.nineWeeks.forEach(function(_, i) {
-      var t = document.getElementById('tab-' + i);
-      if (t) t.className = 'nw-tab';
-    });
-  }
-  var infoTab = document.getElementById('tab-info');
-  if (infoTab) infoTab.className = 'nw-tab';
-  document.getElementById('tab-contacts').className = 'nw-tab active';
+// ── Manage Student modal (Student Info + Contacts, admin only) ──────
+// Both live in one modal, switched internally, rather than competing
+// for space in the referral-history tab row above (All Referrals /
+// Nine Weeks N) — that row is a pure date-range filter, this is
+// student-record management, and the two don't mix well as one strip
+// of tabs.
+function openManageStudentModal() {
+  document.getElementById('manage-overlay').classList.add('open');
+  showManageInfo();
+}
 
-  // Contacts panel needs overflow visible so the search-results dropdown
-  // (in the add/edit form) isn't clipped by the card's scroll container.
-  document.getElementById('left-panel-wrap').style.overflowX = 'visible';
-  document.getElementById('left-panel-wrap').innerHTML =
+function closeManageStudentModal() {
+  document.getElementById('manage-overlay').classList.remove('open');
+}
+
+function showManageInfo() {
+  document.getElementById('manage-tab-info').className = 'manage-switch-btn active';
+  document.getElementById('manage-tab-contacts').className = 'manage-switch-btn';
+  renderStudentInfoForm();
+}
+
+// Switches the modal from Student Info to the Contacts list.
+function showManageContacts() {
+  document.getElementById('manage-tab-info').className = 'manage-switch-btn';
+  document.getElementById('manage-tab-contacts').className = 'manage-switch-btn active';
+
+  document.getElementById('manage-content').innerHTML =
     '<div id="contacts-panel"><div class="loading-msg"><span class="spin"></span>Loading contacts...</div></div>';
 
   loadContactsList();
 }
 
-// ── Student Info tab (admin only) ────────────────────────────────
+// ── Student Info section (admin only) ────────────────────────────
 // Edits FirstName/LastName/MiddleName/Grade in place, right alongside
 // Contacts, so an admin doesn't have to leave this page to fix either
 // one. Reuses saveStudent() — the same admin-gated server function
 // Settings' bulk roster editor used to call before that capability
 // moved here.
-function showInfoTab() {
-  document.getElementById('tab-all').className = 'nw-tab';
-  if (currentStudent && currentStudent.nineWeeks) {
-    currentStudent.nineWeeks.forEach(function(_, i) {
-      var t = document.getElementById('tab-' + i);
-      if (t) t.className = 'nw-tab';
-    });
-  }
-  var contactsTab = document.getElementById('tab-contacts');
-  if (contactsTab) contactsTab.className = 'nw-tab';
-  document.getElementById('tab-info').className = 'nw-tab active';
-
-  document.getElementById('left-panel-wrap').style.overflowX = 'visible';
-  renderStudentInfoForm();
-}
 
 function renderStudentInfoForm() {
   var s = currentStudent.student;
@@ -920,7 +945,7 @@ function renderStudentInfoForm() {
       '<div class="ce-msg" id="info-msg"></div>' +
     '</div>';
 
-  document.getElementById('left-panel-wrap').innerHTML = html;
+  document.getElementById('manage-content').innerHTML = html;
 }
 
 function saveStudentInfoEdit() {
