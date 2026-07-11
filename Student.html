@@ -116,9 +116,6 @@
     tbody tr:hover td { background: #f8fafc; }
 
     .badge { display:inline-block; padding:2px 7px; border-radius:20px; font-size:0.7rem; font-weight:700; }
-    .badge-major    { background:#fee2e2; color:#991b1b; }
-    .badge-minor    { background:#fef9c3; color:#854d0e; }
-    .badge-positive { background:#dcfce7; color:#166534; }
     .badge-open     { background:#fef3c7; color:#92400e; }
     .badge-resolved { background:#d1fae5; color:#065f46; }
     .pts-neg { color:#dc2626; font-weight:700; } .pts-pos { color:#166534; font-weight:700; }
@@ -509,6 +506,7 @@ function renderProfile(data) {
     });
   }
   if (isAdm) {
+    tabs += '<div class="nw-tab" id="tab-info" onclick="showInfoTab()">Student Info</div>';
     tabs += '<div class="nw-tab" id="tab-contacts" onclick="showContactsTab()">Contacts</div>';
   }
   tabs += '</div>';
@@ -570,6 +568,8 @@ function filterByNW(idx) {
   }
   var contactsTab = document.getElementById('tab-contacts');
   if (contactsTab) contactsTab.className = 'nw-tab';
+  var infoTab = document.getElementById('tab-info');
+  if (infoTab) infoTab.className = 'nw-tab';
 
   // Swap the left panel back to the referral table if Contacts was showing
   var wrapOuter = document.getElementById('left-panel-wrap');
@@ -861,6 +861,8 @@ function showContactsTab() {
       if (t) t.className = 'nw-tab';
     });
   }
+  var infoTab = document.getElementById('tab-info');
+  if (infoTab) infoTab.className = 'nw-tab';
   document.getElementById('tab-contacts').className = 'nw-tab active';
 
   // Contacts panel needs overflow visible so the search-results dropdown
@@ -870,6 +872,114 @@ function showContactsTab() {
     '<div id="contacts-panel"><div class="loading-msg"><span class="spin"></span>Loading contacts...</div></div>';
 
   loadContactsList();
+}
+
+// ── Student Info tab (admin only) ────────────────────────────────
+// Edits FirstName/LastName/MiddleName/Grade in place, right alongside
+// Contacts, so an admin doesn't have to leave this page to fix either
+// one. Reuses saveStudent() — the same admin-gated server function
+// Settings' bulk roster editor used to call before that capability
+// moved here.
+function showInfoTab() {
+  document.getElementById('tab-all').className = 'nw-tab';
+  if (currentStudent && currentStudent.nineWeeks) {
+    currentStudent.nineWeeks.forEach(function(_, i) {
+      var t = document.getElementById('tab-' + i);
+      if (t) t.className = 'nw-tab';
+    });
+  }
+  var contactsTab = document.getElementById('tab-contacts');
+  if (contactsTab) contactsTab.className = 'nw-tab';
+  document.getElementById('tab-info').className = 'nw-tab active';
+
+  document.getElementById('left-panel-wrap').style.overflowX = 'visible';
+  renderStudentInfoForm();
+}
+
+function renderStudentInfoForm() {
+  var s = currentStudent.student;
+  var html =
+    '<div style="padding:16px;">' +
+      '<div class="ce-grid">' +
+        '<div>' +
+          '<label>First Name</label>' +
+          '<input type="text" id="info-firstName" value="'+esc(s.firstName||'')+'">' +
+        '</div>' +
+        '<div>' +
+          '<label>Last Name</label>' +
+          '<input type="text" id="info-lastName" value="'+esc(s.lastName||'')+'">' +
+        '</div>' +
+        '<div>' +
+          '<label>Middle Name <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>' +
+          '<input type="text" id="info-middleName" value="'+esc(s.middleName||'')+'">' +
+        '</div>' +
+        '<div>' +
+          '<label>Grade</label>' +
+          '<input type="text" id="info-grade" value="'+esc(s.grade||'')+'">' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:10px;">' +
+        'Student ID: '+esc(s.studentId)+' (cannot be changed) · Points are managed through ' +
+        'referrals and positive notes, not edited directly here.' +
+      '</div>' +
+      '<div class="ce-btn-row" style="justify-content:flex-start;">' +
+        '<button class="ce-btn primary" onclick="saveStudentInfoEdit()">Save Changes</button>' +
+      '</div>' +
+      '<div class="ce-msg" id="info-msg"></div>' +
+    '</div>';
+
+  document.getElementById('left-panel-wrap').innerHTML = html;
+}
+
+function saveStudentInfoEdit() {
+  var msgEl = document.getElementById('info-msg');
+  var update = {
+    studentId:  currentStudent.student.studentId,
+    firstName:  document.getElementById('info-firstName').value.trim(),
+    lastName:   document.getElementById('info-lastName').value.trim(),
+    middleName: document.getElementById('info-middleName').value.trim(),
+    grade:      document.getElementById('info-grade').value.trim()
+  };
+
+  if (!update.firstName || !update.lastName || !update.grade) {
+    msgEl.textContent = 'First name, last name, and grade are required.';
+    msgEl.className = 'ce-msg err';
+    return;
+  }
+
+  msgEl.textContent = 'Saving...';
+  msgEl.className = 'ce-msg';
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) {
+        msgEl.textContent = 'Error: ' + (r.error || 'Unknown');
+        msgEl.className = 'ce-msg err';
+        return;
+      }
+      // Update the cached student data and the header display in place —
+      // no full profile reload needed.
+      var s = currentStudent.student;
+      s.firstName  = update.firstName;
+      s.lastName   = update.lastName;
+      s.middleName = update.middleName;
+      s.grade      = update.grade;
+      s.studentName = (update.firstName + ' ' + update.lastName).trim().replace(/\s+/g, ' ');
+
+      document.querySelector('.p-name').textContent = s.studentName;
+      document.querySelector('.p-meta').textContent =
+        'Grade ' + s.grade + ' · ID: ' + s.studentId;
+      var avatarEl = document.querySelector('.p-avatar');
+      if (avatarEl) avatarEl.textContent = initials(s.studentName);
+
+      msgEl.textContent = '✓ Saved.';
+      msgEl.className = 'ce-msg ok';
+    })
+    .withFailureHandler(function(err) {
+      msgEl.textContent = 'Error: ' + (err.message || err);
+      msgEl.className = 'ce-msg err';
+    })
+    .saveStudent(update);
 }
 
 function loadContactsList() {

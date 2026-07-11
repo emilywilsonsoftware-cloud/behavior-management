@@ -91,11 +91,6 @@
                    border-bottom: 1px solid #d1fae5; }
     .nw-table td { padding: 6px 8px; border-bottom: 1px solid #f0fdf4; }
     .nw-table tr:last-child td { border-bottom: none; }
-    .badge { display:inline-block; padding:2px 7px; border-radius:20px;
-             font-size:0.7rem; font-weight:700; }
-    .badge-major    { background:#fee2e2; color:#991b1b; }
-    .badge-minor    { background:#fef9c3; color:#854d0e; }
-    .badge-positive { background:#dcfce7; color:#166534; }
 
     /* ── View description button + modal ── */
     .view-desc-btn { background: white; border: 1px solid #bbf7d0; color: #166534;
@@ -350,7 +345,7 @@ var state = {
   teacherName: '', teacherEmail: '',
   allStudents: [],   // full roster loaded once
   selected:    [],   // selected student objects
-  infMap:      {},   // name → { pointValue, severity }
+  infMap:      {},   // name → { pointValue }
   infList:     [],   // flat list of infractions for autofill search
   semPts:      100,
   pointTiers:  [],   // admin-configured point-balance color tiers
@@ -732,16 +727,13 @@ function submitForm(copyMode) {
   if (!loc)  { showErr('Please select a location.'); return; }
   if (!inf)  { showErr('Please select an infraction type from the list.'); return; }
 
-  var infData  = state.infMap[inf];
-  var severity = infData ? (infData.severity || '') : '';
-
   var desc           = document.getElementById('description').value.trim();
   var includeInEmail = document.getElementById('include-desc-email').checked;
 
   var referrals = state.selected.map(function(s) {
     return { studentId: s.studentId, studentName: s.studentName, grade: s.grade,
              incidentDate: date, incidentTime: time, location: loc,
-             infractionType: inf, severity: severity,
+             infractionType: inf,
              description: desc, includeDescriptionInEmail: includeInEmail,
              teacherName: state.teacherName, teacherEmail: state.teacherEmail,
              className: '' };

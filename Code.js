@@ -38,6 +38,7 @@ var CONFIG_COL_LOCATIONS        = 'Locations';
 var CONFIG_COL_SCHOOL_NAME      = 'SchoolName';
 var CONFIG_COL_SEMESTER_POINTS  = 'SemesterStartPoints';
 var CONFIG_COL_EMAIL_ENABLED    = 'EmailNotificationsEnabled';
+var CONFIG_COL_TEACHER_EMAIL_ENABLED = 'TeacherEmailNotificationsEnabled';
 var CONFIG_COL_EMAIL_FOOTER     = 'EmailFooterText';
 var CONFIG_COL_EMAIL_SEND_TIME  = 'DailyEmailSendTime';
 var CONFIG_COL_NINE_WEEKS       = 'NineWeeksStartDates';
@@ -112,7 +113,6 @@ var CONTACT_ROLES = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Mana
 // ── INFRACTIONS SHEET COLUMN NAMES ───────────────────────────
 var INF_COL_NAME     = 'InfractionName';
 var INF_COL_POINTS   = 'PointValue';
-var INF_COL_SEVERITY = 'Severity';
 var INF_COL_NOTES    = 'Notes';
 
 // ── REFERRAL HEADERS ──────────────────────────────────────────
@@ -120,7 +120,7 @@ var INF_COL_NOTES    = 'Notes';
 var REFERRAL_HEADERS = [
   'ID', 'Timestamp', 'StudentID', 'StudentName', 'Grade',
   'IncidentDate', 'IncidentTime', 'Location', 'InfractionType',
-  'Severity', 'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
+  'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
   'Description', 'IncludeDescriptionInEmail',
   'TeacherName', 'TeacherEmail',
   'ParentNotified', 'TeacherNotified', 'Status', 'AdminNotes'
@@ -218,6 +218,46 @@ function doGet(e) {
         '<div class="icon">🔒</div>' +
         '<h2>Access Denied</h2>' +
         '<p>Awarding positive points is only available to administrators.<br>' +
+        'If you believe this is an error, please contact your school administrator.</p>' +
+        '<a href="' + base + '?page=dashboard">Go to Dashboard</a>' +
+        '</div></div></body></html>'
+      ).setTitle('Access Denied')
+       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+  }
+
+  // ── Role gate for the settings page (admin only) ───────────────
+  // Settings.html already refuses to render its content for non-admins
+  // client-side, and every write/read RPC it calls is separately gated
+  // server-side — but doGet() itself wasn't blocking the page shell (and
+  // the one ungated call, getSettingsBootstrap(), returns config text
+  // like school name/email footer). Gate here too, matching form/positive.
+  if (page === 'settings') {
+    var setGateUser = getCurrentUser();
+    if (setGateUser.role !== 'admin') {
+      return HtmlService.createHtmlOutput(
+        '<!DOCTYPE html><html><head>' +
+        '<meta charset="UTF-8">' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+        '<base target="_top">' +
+        '<style>' +
+        'body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;}' +
+        '.hdr{background:#1e3a5f;color:white;padding:0 20px;height:54px;' +
+             'display:flex;align-items:center;font-weight:700;font-size:1.05rem;}' +
+        '.wrap{max-width:500px;margin:60px auto;padding:0 16px;}' +
+        '.card{background:white;border-radius:10px;padding:36px 32px;' +
+              'box-shadow:0 1px 4px rgba(0,0,0,0.1);text-align:center;}' +
+        '.icon{font-size:2.5rem;margin-bottom:14px;}' +
+        'h2{color:#dc2626;font-size:1.1rem;margin-bottom:10px;}' +
+        'p{color:#64748b;font-size:0.88rem;line-height:1.6;margin-bottom:20px;}' +
+        'a{display:inline-block;padding:9px 22px;background:#1e3a5f;color:white;' +
+          'border-radius:7px;text-decoration:none;font-size:0.88rem;font-weight:600;}' +
+        '</style></head><body>' +
+        '<div class="hdr">Behavior Tracker</div>' +
+        '<div class="wrap"><div class="card">' +
+        '<div class="icon">🔒</div>' +
+        '<h2>Access Denied</h2>' +
+        '<p>Settings are only available to administrators.<br>' +
         'If you believe this is an error, please contact your school administrator.</p>' +
         '<a href="' + base + '?page=dashboard">Go to Dashboard</a>' +
         '</div></div></body></html>'
@@ -330,23 +370,6 @@ function displayName(first, last) {
   return (((first || '').trim()) + ' ' + ((last || '').trim())).trim().replace(/\s+/g, ' ');
 }
 
-/**
- * Maps the stored severity value to the word shown on teacher-facing
- * surfaces (emails, etc). Major and Minor both collapse into the single
- * word "Negative" — teachers no longer see the Major/Minor distinction
- * anywhere. Positive stays Positive. An infraction with no severity
- * assigned (empty string) maps to an empty string here too, so it's
- * simply omitted from any "(Severity)" parenthetical in generated text.
- * The underlying stored value in the Referrals/Infractions sheets is
- * NEVER changed by this — it only affects what's displayed/sent.
- */
-function displaySeverity(severity) {
-  var s = (severity || '').toString().trim();
-  if (s === 'Major' || s === 'Minor') return 'Negative';
-  if (s === 'Positive') return 'Positive';
-  return '';
-}
-
 // =============================================================
 // CONFIG & INFRACTIONS READERS  (cached per execution)
 // =============================================================
@@ -369,9 +392,26 @@ function getConfig() {
     colMap[key] = [];
     for (var ri = 1; ri < data.length; ri++) {
       var v = data[ri][ci];
-      if (v !== null && v !== undefined && v.toString().trim() !== '') {
-        colMap[key].push(v.toString().trim());
+      if (v === null || v === undefined || v === '') continue;
+
+      // Google Sheets silently auto-converts strings that LOOK like a time
+      // (e.g. "15:30") or a date (e.g. "2024-08-01") into an actual Date
+      // object when the cell is written. Reading it back via getValues()
+      // then returns that Date, not the original string — and calling
+      // .toString() on a Date produces something like "Thu Dec 30 1899
+      // 15:30:00 GMT..." which is useless for both display and parsing.
+      // Detect and reformat rather than blindly stringifying.
+      if (v instanceof Date) {
+        // Sheets represents a pure time-of-day (no date typed) using the
+        // classic Lotus 1-2-3 epoch date of Dec 30, 1899 — that's the
+        // signal this was a time value, not a calendar date.
+        v = (v.getFullYear() === 1899)
+          ? pad2(v.getHours()) + ':' + pad2(v.getMinutes())
+          : formatDate(v);
       }
+
+      var sv = v.toString().trim();
+      if (sv !== '') colMap[key].push(sv);
     }
   });
 
@@ -409,6 +449,7 @@ function getConfig() {
     schoolName:       val(CONFIG_COL_SCHOOL_NAME,     'Our School'),
     semesterPoints:   parseInt(val(CONFIG_COL_SEMESTER_POINTS, '100'), 10) || 100,
     emailEnabled:     val(CONFIG_COL_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
+    teacherEmailEnabled: val(CONFIG_COL_TEACHER_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
     emailFooter:      col(CONFIG_COL_EMAIL_FOOTER).join('\n') ||
                         'If you have questions, please contact the school office.\n\n' +
                         'This is an automated message — please do not reply.',
@@ -445,13 +486,19 @@ function parsePointTiers(rawThresholds, rawColors) {
     for (var i = 0; i < rawThresholds.length; i++) {
       var t = parseFloat(rawThresholds[i]);
       var c = (rawColors[i] || '').toString().trim().toLowerCase();
-      if (isNaN(t) || t < 0 || t > 100)        return DEFAULT_POINT_TIERS;
+      if (isNaN(t) || t > 100)                   return DEFAULT_POINT_TIERS;
       if (!POINT_COLOR_PALETTE.hasOwnProperty(c)) return DEFAULT_POINT_TIERS;
       tiers.push({ threshold: t, color: c });
     }
 
     tiers.sort(function(a, b) { return b.threshold - a.threshold; });
-    tiers[tiers.length - 1].threshold = 0; // bottom tier always catches the rest
+    // The bottom tier must catch every remaining balance, including
+    // negative ones (a manually-edited sheet, or a school policy that
+    // allows points to go negative) — so its threshold must be 0 or
+    // below. Previously this was force-overwritten to exactly 0, which
+    // silently discarded any negative value an admin configured; now it
+    // only rejects (falls back to defaults) if coverage would have a gap.
+    if (tiers[tiers.length - 1].threshold > 0) return DEFAULT_POINT_TIERS;
 
     return tiers;
   } catch (e) {
@@ -472,7 +519,12 @@ function getPointColor(pct, tiers) {
       return POINT_COLOR_PALETTE[list[i].color] || POINT_COLOR_DEFAULT;
     }
   }
-  return POINT_COLOR_DEFAULT;
+  // pct fell below every tier's threshold (e.g. a negative balance from a
+  // manual sheet edit — the app itself floors points at 0 in
+  // submitReferrals, so this shouldn't happen through normal use). The
+  // lowest tier already represents "worst case," so extend its color
+  // here too rather than falling back to an uninformative gray default.
+  return POINT_COLOR_PALETTE[list[list.length - 1].color] || POINT_COLOR_DEFAULT;
 }
 
 function getInfractions() {
@@ -485,7 +537,6 @@ function getInfractions() {
   var hdrs = data[0].map(function(h) { return h.toString().trim(); });
   var ni   = hdrs.indexOf(INF_COL_NAME);
   var pi   = hdrs.indexOf(INF_COL_POINTS);
-  var si   = hdrs.indexOf(INF_COL_SEVERITY);
 
   if (ni < 0) throw new Error('Infractions sheet missing InfractionName column.');
 
@@ -496,8 +547,7 @@ function getInfractions() {
     var pts = parseInt(data[i][pi], 10);
     _infs.push({
       name:       name,
-      pointValue: isNaN(pts) ? 0 : pts,
-      severity:   si >= 0 ? data[i][si].toString().trim() : ''
+      pointValue: isNaN(pts) ? 0 : pts
     });
   }
   _infs.sort(function(a, b) { return a.name.localeCompare(b.name); });
@@ -676,6 +726,7 @@ function getSettingsBootstrap() {
       SchoolName:                raw[CONFIG_COL_SCHOOL_NAME]       || [],
       SemesterStartPoints:       raw[CONFIG_COL_SEMESTER_POINTS]   || [],
       EmailNotificationsEnabled: raw[CONFIG_COL_EMAIL_ENABLED]     || [],
+      TeacherEmailNotificationsEnabled: raw[CONFIG_COL_TEACHER_EMAIL_ENABLED] || [],
       DailyEmailSendTime:        raw[CONFIG_COL_EMAIL_SEND_TIME]   || [],
       EmailFooterText:           raw[CONFIG_COL_EMAIL_FOOTER]      || [],
       Locations:                 raw[CONFIG_COL_LOCATIONS]         || [],
@@ -725,13 +776,20 @@ function saveConfigSection(payload) {
     }
     for (var ti = 0; ti < thresholds.length; ti++) {
       var tVal = parseFloat(thresholds[ti]);
-      if (isNaN(tVal) || tVal < 0 || tVal > 100) {
-        return { success: false, error: 'Each tier threshold must be a number between 0 and 100.' };
+      if (isNaN(tVal) || tVal > 100) {
+        return { success: false, error: 'Each tier threshold must be a number no greater than 100.' };
       }
       var cVal = (colors[ti] || '').toString().trim().toLowerCase();
       if (!POINT_COLOR_PALETTE.hasOwnProperty(cVal)) {
         return { success: false, error: 'Unknown color "' + colors[ti] + '". Choose from: ' + Object.keys(POINT_COLOR_PALETTE).join(', ') + '.' };
       }
+    }
+    // The lowest threshold must be 0 or below so every possible balance
+    // is covered, including negative ones — same reasoning as
+    // parsePointTiers() in the read path.
+    var sortedThresholds = thresholds.map(function(t) { return parseFloat(t); }).sort(function(a, b) { return a - b; });
+    if (sortedThresholds[0] > 0) {
+      return { success: false, error: 'The lowest tier threshold must be 0 or below, so every possible balance is covered.' };
     }
   }
 
@@ -830,21 +888,21 @@ function getFormBootstrap() {
     currentNineWeeks: cfg.currentNineWeeks,
     nineWeeks:        cfg.nineWeeks,
     pointTiers:       cfg.pointTiers,
-    // Split by PointValue's sign, not Severity — Severity can be left
-    // blank by admins, so it isn't a reliable way to separate positive
-    // referral types from everything else (same reasoning as the
-    // dashboard/profile stat fixes). Positive types (Write Off, Saturday
-    // School, etc.) now live only on the admin-only Positive Note page,
-    // not the main incident dropdown, for either role.
+    // Split by PointValue's sign — Severity is no longer used anywhere
+    // in the app (Major/Minor was redundant with the point value's
+    // sign, which is what actually separates negative from positive).
+    // Positive types (Write Off, Saturday School, etc.) now live only
+    // on the admin-only Positive Note page, not the main incident
+    // dropdown, for either role.
     infractions: infs
       .filter(function(inf) { return inf.pointValue <= 0; })
       .map(function(inf) {
-        return { name: inf.name, pointValue: inf.pointValue, severity: inf.severity };
+        return { name: inf.name, pointValue: inf.pointValue };
       }),
     positiveInfractions: user.role === 'admin'
       ? infs.filter(function(inf) { return inf.pointValue > 0; })
              .map(function(inf) {
-               return { name: inf.name, pointValue: inf.pointValue, severity: inf.severity };
+               return { name: inf.name, pointValue: inf.pointValue };
              })
       : [],
     positiveCapPerNineWeeks: cfg.positiveCapPerNineWeeks,
@@ -903,7 +961,6 @@ function getStudentFormCard(studentId) {
       incidentDate:   incDate,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       infractionType: row[ci['InfractionType']] ? row[ci['InfractionType']].toString() : '',
-      severity:       row[ci['Severity']]       ? row[ci['Severity']].toString()       : '',
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
       teacherName:    row[ci['TeacherName']]    ? row[ci['TeacherName']].toString()    : '',
       status:         row[ci['Status']]         ? row[ci['Status']].toString()         : 'Open',
@@ -1002,7 +1059,6 @@ function submitReferrals(referrals) {
         r.incidentDate, r.incidentTime,
         sanitizeText(r.location),
         sanitizeText(r.infractionType),
-        sanitizeText(r.severity),
         pointValue, pointsBefore, pointsAfter,
         safeDescription,
         includeDescInEmail ? 'Yes' : 'No',
@@ -1232,7 +1288,6 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         r.incidentDate, nowTimeStr,
         'N/A', // Location — not applicable to positive notes
         sanitizeText(r.infractionType),
-        'Positive',
         pointValue, pointsBefore, pointsAfter,
         safeDescription,
         'N/A', // IncludeDescriptionInEmail — moot; positive notes never go in the parent digest
@@ -1259,7 +1314,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         referral: {
           studentId: sidStr, studentName: r.studentName, grade: r.grade,
           incidentDate: r.incidentDate, incidentTime: nowTimeStr, location: 'N/A',
-          infractionType: r.infractionType, severity: 'Positive',
+          infractionType: r.infractionType,
           description: r.description, includeDescriptionInEmail: false,
           teacherName: r.teacherName || user.name, teacherEmail: user.email,
           className: r.className || ''
@@ -1303,13 +1358,15 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
   try {
     if (!referral.teacherEmail) return;
     var cfg    = getConfig();
+    if (!cfg.teacherEmailEnabled) {
+      Logger.log('Teacher emails disabled in Config — skipping confirmation for #' + referralId);
+      return;
+    }
     var ptLine = pointValue < 0
       ? 'Points Deducted: ' + Math.abs(pointValue) + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')'
       : 'Points Added:    +' + pointValue + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')';
 
     var subject = '✓ Referral Saved — ' + referral.studentName + ' — #' + referralId;
-    var dispSev = displaySeverity(referral.severity);
-    var sevSuffix = dispSev ? ' (' + dispSev + ')' : '';
     var body    =
       'Hello ' + referral.teacherName + ',\n\n' +
       'Your referral has been saved.\n\n' +
@@ -1317,7 +1374,7 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       'Student:         ' + referral.studentName + ' (Grade ' + referral.grade + ')\n' +
       'Date:            ' + referral.incidentDate + ' at ' + referral.incidentTime + '\n' +
       'Location:        ' + referral.location + '\n' +
-      'Infraction:      ' + referral.infractionType + sevSuffix + '\n\n' +
+      'Infraction:      ' + referral.infractionType + '\n\n' +
       ptLine + '\n' +
       'Current Balance: ' + pointsAfter + ' pts\n\n' +
       (cfg.emailEnabled
@@ -1364,7 +1421,6 @@ function sendDailyParentEmails() {
   var tmIdx     = REFERRAL_HEADERS.indexOf('IncidentTime');
   var locIdx    = REFERRAL_HEADERS.indexOf('Location');
   var infIdx    = REFERRAL_HEADERS.indexOf('InfractionType');
-  var sevIdx    = REFERRAL_HEADERS.indexOf('Severity');
   var ptIdx     = REFERRAL_HEADERS.indexOf('PointValue');
   var afIdx     = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
   var tchIdx    = REFERRAL_HEADERS.indexOf('TeacherName');
@@ -1403,9 +1459,7 @@ function sendDailyParentEmails() {
 
     // Positive notes (Write Off, Saturday School, etc.) are never sent to
     // parents — the daily digest is a behavior-referral notification only.
-    // PointValue's sign is the reliable signal here, not Severity, since
-    // Severity can be left blank by admins (same reasoning as elsewhere
-    // in this file — see getFormBootstrap/getDashboardData).
+    // PointValue's sign is what separates negative from positive.
     var ptsCheck = parseInt(row[ptIdx], 10) || 0;
     if (ptsCheck > 0) continue;
 
@@ -1429,7 +1483,6 @@ function sendDailyParentEmails() {
       incidentTime:   formatTimeStr(row[tmIdx]),
       location:       row[locIdx] ? row[locIdx].toString() : '',
       infractionType: row[infIdx] ? row[infIdx].toString() : '',
-      severity:       row[sevIdx] ? row[sevIdx].toString() : '',
       pointValue:     pts,
       pointsStr:      ptsStr,
       pointsAfter:    row[afIdx] !== undefined ? row[afIdx] : '',
@@ -1466,12 +1519,10 @@ function sendDailyParentEmails() {
 
       refs.forEach(function(ref, idx) {
         if (refs.length > 1) bodyRefs += '\nReferral ' + (idx + 1) + ':\n';
-        var dispSev = displaySeverity(ref.severity);
-        var sevSuffix = dispSev ? ' (' + dispSev + ')' : '';
         bodyRefs +=
           'Time:        ' + ref.incidentTime + '\n' +
           'Location:    ' + ref.location + '\n' +
-          'Infraction:  ' + ref.infractionType + sevSuffix + '\n' +
+          'Infraction:  ' + ref.infractionType + '\n' +
           'Teacher:     ' + ref.teacherName + '\n' +
           'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
         if (ref.description) {
@@ -1576,7 +1627,6 @@ function getDashboardData() {
   for (var r = 1; r < refData.length; r++) {
     var row  = refData[r];
     var inc  = formatDateStr(row[ci['IncidentDate']]);
-    var sev  = row[ci['Severity']] ? row[ci['Severity']].toString() : '';
     var stat = row[ci['Status']]   ? row[ci['Status']].toString()   : '';
     var ts   = row[ci['Timestamp']];
     var rowTeacherEmail = row[ci['TeacherEmail']] ? row[ci['TeacherEmail']].toString().trim().toLowerCase() : '';
@@ -1586,11 +1636,10 @@ function getDashboardData() {
     totalReferrals++;
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
-    // Positive/negative are derived from PointValue's sign, not Severity —
-    // Severity is an optional classification (admins can leave it blank),
-    // but every infraction always has a PointValue, so this stays accurate
-    // even for referrals with no severity assigned. ptVal === 0 counts as
-    // neither (a logged incident with no point impact).
+    // Positive/negative are derived from PointValue's sign — every
+    // infraction always has a point value, so this stays accurate
+    // regardless. ptVal === 0 counts as neither (a logged incident with
+    // no point impact).
     if (ptVal < 0) negativeCount++;
     if (ptVal > 0) positiveCount++;
 
@@ -1617,7 +1666,6 @@ function getDashboardData() {
       studentName:    row[ci['StudentName']] ? row[ci['StudentName']].toString() : '',
       grade:          row[ci['Grade']]       ? row[ci['Grade']].toString()       : '',
       infractionType: inf ? inf.toString() : '',
-      severity:       sev,
       pointValue:     ptVal,
       incidentDate:   inc,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
@@ -1862,7 +1910,6 @@ function getStudentProfile(studentId) {
       IncidentTime:         formatTimeStr(row[ci['IncidentTime']]),
       Location:             str(row[ci['Location']]),
       InfractionType:       str(row[ci['InfractionType']]),
-      Severity:             str(row[ci['Severity']]),
       PointValue:           num(row[ci['PointValue']]),
       PointsBeforeReferral: num(row[ci['PointsBeforeReferral']]),
       PointsAfterReferral:  num(row[ci['PointsAfterReferral']]),
@@ -1917,8 +1964,8 @@ function getStudentProfile(studentId) {
   referrals.forEach(function(r) {
     sumTotal++;
     if (r.Status !== 'Resolved') sumOpen++;
-    // Same reasoning as getDashboardData(): PointValue's sign is the
-    // reliable signal, since Severity can be left blank by admins.
+    // Same reasoning as getDashboardData(): PointValue's sign is what
+    // separates negative from positive.
     var ptVal = parseFloat(r.PointValue) || 0;
     if (ptVal < 0) sumNegative++;
     if (ptVal > 0) sumPos++;
@@ -2034,7 +2081,6 @@ function getReportData(filters) {
       StudentName:          row[ci['StudentName']] ? row[ci['StudentName']].toString() : '',
       Grade:                row[ci['Grade']]       ? row[ci['Grade']].toString()       : '',
       InfractionType:       inf,
-      Severity:             row[ci['Severity']]    ? row[ci['Severity']].toString()    : '',
       PointValue:           parseFloat(row[ci['PointValue']]) || 0,
       PointsBeforeReferral: parseFloat(row[ci['PointsBeforeReferral']]) || 0,
       PointsAfterReferral:  parseFloat(row[ci['PointsAfterReferral']]) || 0,
@@ -2113,6 +2159,231 @@ function resetSemesterPoints() {
     return { success: true, count: count };
   } catch (e) {
     return { success: false, error: e.message };
+  }
+}
+
+// =============================================================
+// START NEW YEAR  (archive + reset — admin only)
+// =============================================================
+// Exports Referrals, Students, and ParentContacts to CSV, saves them
+// (plus a combined zip) to a dated folder in Google Drive, and ONLY
+// THEN clears all three sheets back to headers-only. Export is always
+// verified before anything is deleted — if any part of the export
+// fails, nothing is reset. Config, Infractions, and Staff are
+// deliberately left untouched; those aren't annual data.
+//
+// IDs are not preserved across years — after a reset, new referrals
+// start again from #1. Archived years are viewed as standalone CSVs
+// (see the client-side CSV viewer in Settings.html), never merged back
+// into live data, so there's no cross-year ID collision risk in
+// practice.
+function startNewYear() {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  try {
+    var ss       = SpreadsheetApp.getActiveSpreadsheet();
+    var refSheet = ss.getSheetByName(SHEET_REFERRALS);
+    var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
+    var pcSheet  = ss.getSheetByName(SHEET_PARENT);
+
+    var refData = refSheet.getDataRange().getValues();
+    var stuData = stuSheet.getDataRange().getValues();
+    var pcData  = pcSheet.getDataRange().getValues();
+
+    var refCount = Math.max(0, refData.length - 1);
+    var stuCount = Math.max(0, stuData.length - 1);
+    var pcCount  = Math.max(0, pcData.length - 1);
+
+    var yearLabel = computeSchoolYearLabel_();
+
+    var refCsv = rowsToCsv_(refData);
+    var stuCsv = rowsToCsv_(stuData);
+    var pcCsv  = rowsToCsv_(pcData);
+
+    // ── Export first. Nothing below this point touches live data until
+    // every file is confirmed written. ──────────────────────────────
+    var archiveRoot = getOrCreateFolder_('BehaviorTracker Archives', null);
+    var yearFolder  = getOrCreateFolder_(yearLabel, archiveRoot);
+
+    var refFile = yearFolder.createFile(Utilities.newBlob(refCsv, 'text/csv', 'Referrals_' + yearLabel + '.csv'));
+    var stuFile = yearFolder.createFile(Utilities.newBlob(stuCsv, 'text/csv', 'Students_' + yearLabel + '.csv'));
+    var pcFile  = yearFolder.createFile(Utilities.newBlob(pcCsv,  'text/csv', 'ParentContacts_' + yearLabel + '.csv'));
+
+    // Verify each file actually landed with real content before
+    // proceeding — abort the whole operation (no reset) if not.
+    if (refCsv.length > 0 && refFile.getSize() === 0) throw new Error('Referrals export did not save correctly — nothing was reset.');
+    if (stuCsv.length > 0 && stuFile.getSize() === 0) throw new Error('Students export did not save correctly — nothing was reset.');
+    if (pcCsv.length  > 0 && pcFile.getSize()  === 0) throw new Error('Contacts export did not save correctly — nothing was reset.');
+
+    var zipBlob = Utilities.zip(
+      [
+        Utilities.newBlob(refCsv, 'text/csv', 'Referrals_' + yearLabel + '.csv'),
+        Utilities.newBlob(stuCsv, 'text/csv', 'Students_' + yearLabel + '.csv'),
+        Utilities.newBlob(pcCsv,  'text/csv', 'ParentContacts_' + yearLabel + '.csv')
+      ],
+      'BehaviorTracker_' + yearLabel + '.zip'
+    );
+    yearFolder.createFile(zipBlob);
+
+    // ── Export verified — safe to reset now. ─────────────────────────
+    clearSheetDataRows_(refSheet);
+    clearSheetDataRows_(stuSheet);
+    clearSheetDataRows_(pcSheet);
+    SpreadsheetApp.flush();
+
+    return {
+      success:  true,
+      yearLabel: yearLabel,
+      folderUrl: yearFolder.getUrl(),
+      counts:   { referrals: refCount, students: stuCount, contacts: pcCount },
+      zipBase64:   Utilities.base64Encode(zipBlob.getBytes()),
+      zipFilename: 'BehaviorTracker_' + yearLabel + '.zip'
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Returns "2025-2026"-style labels. School years conventionally span
+// July of one calendar year through June of the next.
+function computeSchoolYearLabel_() {
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = now.getMonth() + 1;
+  return (m >= 7) ? (y + '-' + (y + 1)) : ((y - 1) + '-' + y);
+}
+
+// Finds (or creates) a folder by name directly under parentFolder —
+// defaults to Drive's root. Reused on every reset so repeated years
+// nest under the same "BehaviorTracker Archives" folder rather than
+// creating a new duplicate each time.
+function getOrCreateFolder_(name, parentFolder) {
+  var parent  = parentFolder || DriveApp.getRootFolder();
+  var existing = parent.getFoldersByName(name);
+  return existing.hasNext() ? existing.next() : parent.createFolder(name);
+}
+
+// Converts a full getDataRange().getValues() 2D array into a CSV
+// string, values escaped per RFC 4180 (quoted if they contain a comma,
+// quote, or newline; embedded quotes doubled).
+function rowsToCsv_(data) {
+  return data.map(function(row) {
+    return row.map(csvEscapeCell_).join(',');
+  }).join('\r\n');
+}
+
+function csvEscapeCell_(val) {
+  if (val === null || val === undefined) return '';
+  var s;
+  if (val instanceof Date) {
+    // Same Date-mangling defense used in getConfig() — Sheets returns
+    // Date objects for time/date-looking cells, and a raw .toString()
+    // on those is unreadable in an exported CSV.
+    if (val.getFullYear() === 1899) {
+      // Pure time-of-day (Sheets' epoch-date quirk for time-only cells)
+      s = pad2(val.getHours()) + ':' + pad2(val.getMinutes());
+    } else {
+      // Full timestamp — preserve date AND time (formatDate() alone
+      // would silently drop the time portion).
+      s = formatDate(val) + ' ' + pad2(val.getHours()) + ':' +
+          pad2(val.getMinutes()) + ':' + pad2(val.getSeconds());
+    }
+  } else {
+    s = val.toString();
+  }
+  if (/[",\r\n]/.test(s)) {
+    s = '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+// Deletes every data row (everything below the header) from a sheet,
+// leaving just the header row — used by startNewYear() only, after the
+// export has already been verified.
+function clearSheetDataRows_(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.deleteRows(2, lastRow - 1);
+  }
+}
+
+// Lists every year folder under "BehaviorTracker Archives" that has a
+// Referrals CSV in it, newest first — lets the Reset & Archive tab offer
+// a one-click "Load" instead of requiring a manual download+reupload
+// every time.
+function listArchivedYears() {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  try {
+    var rootIter = DriveApp.getFoldersByName('BehaviorTracker Archives');
+    if (!rootIter.hasNext()) return { success: true, years: [] };
+    var archiveRoot = rootIter.next();
+
+    var years = [];
+    var yearFolders = archiveRoot.getFolders();
+    while (yearFolders.hasNext()) {
+      var yf = yearFolders.next();
+      var refFile = null;
+      var files = yf.getFilesByType(MimeType.CSV);
+      while (files.hasNext()) {
+        var f = files.next();
+        if (f.getName().indexOf('Referrals_') === 0) { refFile = f; break; }
+      }
+      if (refFile) {
+        years.push({
+          yearLabel:    yf.getName(),
+          fileId:       refFile.getId(),
+          fileName:     refFile.getName(),
+          folderUrl:    yf.getUrl(),
+          exportedDate: formatDate(refFile.getDateCreated())
+        });
+      }
+    }
+    years.sort(function(a, b) { return b.yearLabel.localeCompare(a.yearLabel); });
+
+    return { success: true, years: years };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Reads back a previously-archived Referrals CSV by Drive file ID, for
+// the Reset & Archive tab's "Load" button. Read-only — never writes
+// anywhere. Confirms the file actually lives under the
+// BehaviorTracker Archives folder tree before reading it, rather than
+// trusting any arbitrary file ID the client sends.
+function loadArchivedYearCsv(fileId) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  try {
+    var file = DriveApp.getFileById(fileId);
+
+    var inArchive = false;
+    var parents = file.getParents();
+    while (parents.hasNext() && !inArchive) {
+      var p = parents.next();
+      if (p.getName() === 'BehaviorTracker Archives') { inArchive = true; break; }
+      var grandparents = p.getParents();
+      while (grandparents.hasNext()) {
+        if (grandparents.next().getName() === 'BehaviorTracker Archives') { inArchive = true; break; }
+      }
+    }
+    if (!inArchive) {
+      return { success: false, error: 'That file is not a recognized archive export.' };
+    }
+
+    return { success: true, csv: file.getBlob().getDataAsString(), fileName: file.getName() };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -2290,7 +2561,6 @@ function getInfractionsList() {
   var hdrs  = data[0].map(function(h) { return h.toString().trim(); });
   var ni    = hdrs.indexOf(INF_COL_NAME);
   var pi    = hdrs.indexOf(INF_COL_POINTS);
-  var si    = hdrs.indexOf(INF_COL_SEVERITY);
   var nti   = hdrs.indexOf(INF_COL_NOTES);
   var rows  = [];
 
@@ -2301,7 +2571,6 @@ function getInfractionsList() {
     rows.push({
       name:       name,
       pointValue: isNaN(pts) ? 0 : pts,
-      severity:   si  >= 0 ? data[i][si].toString().trim()  : '',
       notes:      nti >= 0 ? data[i][nti].toString().trim() : ''
     });
   }
@@ -2324,10 +2593,7 @@ function saveInfractions(rows) {
     return { success: false, error: 'At least one infraction is required.' };
   }
 
-  // Validate each row. Severity is optional — an empty string means
-  // "None" (no severity assigned). Major/Minor/Positive remain the
-  // only non-empty values allowed.
-  var VALID_SEVERITIES = ['Major', 'Minor', 'Positive', ''];
+  // Severity is no longer a column in this sheet at all.
   for (var v = 0; v < rows.length; v++) {
     var r = rows[v];
     if (!r.name || r.name.toString().trim() === '') {
@@ -2335,9 +2601,6 @@ function saveInfractions(rows) {
     }
     if (isNaN(parseInt(r.pointValue, 10))) {
       return { success: false, error: 'Row ' + (v + 1) + ': Point value must be a number.' };
-    }
-    if (VALID_SEVERITIES.indexOf((r.severity || '').toString().trim()) < 0) {
-      return { success: false, error: 'Row ' + (v + 1) + ': Severity must be Major, Minor, Positive, or left blank for None.' };
     }
   }
 
@@ -2347,18 +2610,17 @@ function saveInfractions(rows) {
 
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
+      sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
     }
 
     var writeData = rows.map(function(r) {
       return [
         sanitizeText(r.name),
         parseInt(r.pointValue, 10),
-        r.severity,
         sanitizeText(r.notes || '')
       ];
     });
-    sheet.getRange(2, 1, writeData.length, 4).setValues(writeData);
+    sheet.getRange(2, 1, writeData.length, 3).setValues(writeData);
     SpreadsheetApp.flush();
 
     _infs = null; // clear execution cache
