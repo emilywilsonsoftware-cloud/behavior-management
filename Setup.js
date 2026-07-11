@@ -14,12 +14,13 @@
 // ============================================================
 
 // ── Sheet name constants (must match Code.gs) ─────────────────
-var SS_REFERRALS   = 'Referrals';
-var SS_STUDENTS    = 'Students';
-var SS_STAFF       = 'Staff';
-var SS_PARENT      = 'ParentContacts';
-var SS_CONFIG      = 'Config';
-var SS_INFRACTIONS = 'Infractions';
+var SS_REFERRALS    = 'Referrals';
+var SS_STUDENTS     = 'Students';
+var SS_STAFF        = 'Staff';
+var SS_PARENT       = 'ParentContacts';
+var SS_CONFIG       = 'Config';
+var SS_INFRACTIONS  = 'Infractions';
+var SS_DELETION_LOG = 'DeletionLog';
 
 // =============================================================
 // SPREADSHEET MENU
@@ -71,6 +72,7 @@ function setupSpreadsheet() {
   _setupStudents(ss);
   _setupStaff(ss);
   _setupParentContacts(ss);
+  _setupDeletionLog(ss);
 
   SpreadsheetApp.flush();
   ui.alert(
@@ -198,7 +200,25 @@ function _setupReferrals(ss) {
     'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
     'Description', 'IncludeDescriptionInEmail',
     'TeacherName', 'TeacherEmail',
-    'ParentNotified', 'TeacherNotified', 'Status', 'AdminNotes'
+    'ParentNotified', 'TeacherNotified', 'AdminNotes'
+  ];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+       .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
+  sheet.autoResizeColumns(1, headers.length);
+}
+
+// ── Deletion log ──────────────────────────────────────────────
+// Audit trail written by deleteReferral() in Code.gs — records who
+// deleted a referral, when, and why, without keeping the deleted
+// referral's full original content (location, description, etc.)
+// lingering anywhere.
+function _setupDeletionLog(ss) {
+  if (ss.getSheetByName(SS_DELETION_LOG)) return;
+  var sheet = ss.insertSheet(SS_DELETION_LOG);
+  var headers = [
+    'Timestamp', 'DeletedByName', 'DeletedByEmail',
+    'ReferralID', 'StudentID', 'StudentName',
+    'InfractionType', 'PointValue', 'IncidentDate', 'Reason'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
