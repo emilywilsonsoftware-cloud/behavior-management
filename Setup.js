@@ -160,33 +160,28 @@ function _setupInfractions(ss) {
   if (ss.getSheetByName(SS_INFRACTIONS)) return;
   var sheet = ss.insertSheet(SS_INFRACTIONS);
 
-  var headers = ['InfractionName', 'PointValue', 'Severity', 'Notes'];
+  var headers = ['InfractionName', 'PointValue', 'Notes'];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
 
   var data = [
-    // Severity intentionally left blank — no longer used anywhere in the
-    // app (Major/Minor was redundant with the point value's sign, which
-    // is what actually separates negative from positive). The column
-    // stays in the sheet only so any manually-added historical data
-    // isn't affected.
-    ['Dress Code Violation',         -3,  '', ''],
-    ['Failure to Follow Directions', -5,  '', ''],
-    ['Disruptive Behavior',          -5,  '', ''],
-    ['Disrespect',                   -7,  '', ''],
-    ['Bullying',                     -15, '', ''],
-    ['Fighting',                     -20, '', ''],
-    ['Vandalism',                    -15, '', ''],
-    ['Harassment',                   -15, '', ''],
-    ['Technology Violation',         -5,  '', ''],
-    ['Tardy',                        -2,  '', ''],
+    ['Dress Code Violation',         -3,  ''],
+    ['Failure to Follow Directions', -5,  ''],
+    ['Disruptive Behavior',          -5,  ''],
+    ['Disrespect',                   -7,  ''],
+    ['Bullying',                     -15, ''],
+    ['Fighting',                     -20, ''],
+    ['Vandalism',                    -15, ''],
+    ['Harassment',                   -15, ''],
+    ['Technology Violation',         -5,  ''],
+    ['Tardy',                        -2,  ''],
     // Positive types — entered only via the admin-only "Award Positive
     // Points" tab (see getFormBootstrap in Code.gs), not the main
     // incident form. Add more rows here any time; no code changes
     // needed — the tab reads this list dynamically, same as the main
     // form already does for demerit types.
-    ['Write Off',                     5,  '', ''],
-    ['Saturday School',              10,  '', '']
+    ['Write Off',                     5,  ''],
+    ['Saturday School',              10,  '']
   ];
   sheet.getRange(2, 1, data.length, headers.length).setValues(data);
   sheet.autoResizeColumns(1, headers.length);
@@ -200,7 +195,7 @@ function _setupReferrals(ss) {
   var headers = [
     'ID', 'Timestamp', 'StudentID', 'StudentName', 'Grade',
     'IncidentDate', 'IncidentTime', 'Location', 'InfractionType',
-    'Severity', 'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
+    'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
     'Description', 'IncludeDescriptionInEmail',
     'TeacherName', 'TeacherEmail',
     'ParentNotified', 'TeacherNotified', 'Status', 'AdminNotes'

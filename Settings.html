@@ -331,8 +331,9 @@
 
     /* ── Year-End tab ── */
     .card-danger { border-color: #fecaca; }
-    #yearend-loading { display: flex; align-items: center; gap: 10px; font-size: 0.85rem;
-                       color: #5a6a7e; }
+    #yearend-idle { text-align: center; }
+    #yearend-loading { display: flex; align-items: center; justify-content: center; gap: 10px;
+                       font-size: 0.85rem; color: #5a6a7e; }
     .yearend-spinner { width: 18px; height: 18px; border: 2.5px solid #dde3ef;
                        border-top-color: #dc2626; border-radius: 50%;
                        animation: yearend-spin 0.7s linear infinite; flex-shrink: 0; }
@@ -363,7 +364,7 @@
 
     .archive-upload-fallback { border-top: 1px solid #eef1f6; padding-top: 14px; margin-top: 4px; }
     .archive-upload-fallback-label { font-size: 0.76rem; font-weight: 700; text-transform: uppercase;
-                                     letter-spacing: 0.05em; color: #8a96a8; margin-bottom: 4px; }
+                                     letter-spacing: 0.05em; color: #8a96a8; margin-bottom: 8px; }
     .archive-viewer-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .archive-viewer-toolbar input[type="text"] { max-width: 260px; }
     .archive-count { font-size: 0.78rem; color: #8a96a8; white-space: nowrap; }
@@ -887,7 +888,7 @@
 
         <div class="archive-upload-fallback">
           <div class="archive-upload-fallback-label">Or upload a CSV file directly</div>
-          <p class="section-desc" style="margin-bottom:10px;">
+          <p class="section-desc" style="margin-top:0;margin-bottom:10px;">
             Useful if a file was saved somewhere other than the default archive folder — accepts
             any <code>Referrals_YYYY-YYYY.csv</code> exported by a past reset.
           </p>
@@ -1905,20 +1906,14 @@ function saveInfractions() {
     rows.push({
       name:       cells[0].value.trim(),
       pointValue: parseInt(cells[1].value, 10) || 0,
-      severity:   '',
       notes:      cells[2].value.trim()
     });
   });
-  // Severity is no longer used anywhere in the app (Major/Minor was
-  // already redundant with the point value's sign, and the Severity
-  // column itself is left in the sheet only for historical rows) — so
-  // every row, negative or positive, is written with an empty severity.
   document.querySelectorAll('#pos-inf-tbody tr').forEach(function(tr) {
     var cells = tr.querySelectorAll('input');
     rows.push({
       name:       cells[0].value.trim(),
       pointValue: parseInt(cells[1].value, 10) || 0,
-      severity:   '',
       notes:      cells[2].value.trim()
     });
   });

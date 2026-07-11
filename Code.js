@@ -113,7 +113,6 @@ var CONTACT_ROLES = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Mana
 // ── INFRACTIONS SHEET COLUMN NAMES ───────────────────────────
 var INF_COL_NAME     = 'InfractionName';
 var INF_COL_POINTS   = 'PointValue';
-var INF_COL_SEVERITY = 'Severity';
 var INF_COL_NOTES    = 'Notes';
 
 // ── REFERRAL HEADERS ──────────────────────────────────────────
@@ -121,7 +120,7 @@ var INF_COL_NOTES    = 'Notes';
 var REFERRAL_HEADERS = [
   'ID', 'Timestamp', 'StudentID', 'StudentName', 'Grade',
   'IncidentDate', 'IncidentTime', 'Location', 'InfractionType',
-  'Severity', 'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
+  'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral',
   'Description', 'IncludeDescriptionInEmail',
   'TeacherName', 'TeacherEmail',
   'ParentNotified', 'TeacherNotified', 'Status', 'AdminNotes'
@@ -538,7 +537,6 @@ function getInfractions() {
   var hdrs = data[0].map(function(h) { return h.toString().trim(); });
   var ni   = hdrs.indexOf(INF_COL_NAME);
   var pi   = hdrs.indexOf(INF_COL_POINTS);
-  var si   = hdrs.indexOf(INF_COL_SEVERITY);
 
   if (ni < 0) throw new Error('Infractions sheet missing InfractionName column.');
 
@@ -549,8 +547,7 @@ function getInfractions() {
     var pts = parseInt(data[i][pi], 10);
     _infs.push({
       name:       name,
-      pointValue: isNaN(pts) ? 0 : pts,
-      severity:   si >= 0 ? data[i][si].toString().trim() : ''
+      pointValue: isNaN(pts) ? 0 : pts
     });
   }
   _infs.sort(function(a, b) { return a.name.localeCompare(b.name); });
@@ -964,7 +961,6 @@ function getStudentFormCard(studentId) {
       incidentDate:   incDate,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       infractionType: row[ci['InfractionType']] ? row[ci['InfractionType']].toString() : '',
-      severity:       row[ci['Severity']]       ? row[ci['Severity']].toString()       : '',
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
       teacherName:    row[ci['TeacherName']]    ? row[ci['TeacherName']].toString()    : '',
       status:         row[ci['Status']]         ? row[ci['Status']].toString()         : 'Open',
@@ -1063,7 +1059,6 @@ function submitReferrals(referrals) {
         r.incidentDate, r.incidentTime,
         sanitizeText(r.location),
         sanitizeText(r.infractionType),
-        '', // Severity — no longer used anywhere in the app
         pointValue, pointsBefore, pointsAfter,
         safeDescription,
         includeDescInEmail ? 'Yes' : 'No',
@@ -1293,7 +1288,6 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         r.incidentDate, nowTimeStr,
         'N/A', // Location — not applicable to positive notes
         sanitizeText(r.infractionType),
-        '', // Severity — no longer used anywhere in the app; left blank like negative rows
         pointValue, pointsBefore, pointsAfter,
         safeDescription,
         'N/A', // IncludeDescriptionInEmail — moot; positive notes never go in the parent digest
@@ -1427,7 +1421,6 @@ function sendDailyParentEmails() {
   var tmIdx     = REFERRAL_HEADERS.indexOf('IncidentTime');
   var locIdx    = REFERRAL_HEADERS.indexOf('Location');
   var infIdx    = REFERRAL_HEADERS.indexOf('InfractionType');
-  var sevIdx    = REFERRAL_HEADERS.indexOf('Severity');
   var ptIdx     = REFERRAL_HEADERS.indexOf('PointValue');
   var afIdx     = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
   var tchIdx    = REFERRAL_HEADERS.indexOf('TeacherName');
@@ -1466,9 +1459,7 @@ function sendDailyParentEmails() {
 
     // Positive notes (Write Off, Saturday School, etc.) are never sent to
     // parents — the daily digest is a behavior-referral notification only.
-    // PointValue's sign is the reliable signal here, not Severity, since
-    // Severity can be left blank by admins (same reasoning as elsewhere
-    // in this file — see getFormBootstrap/getDashboardData).
+    // PointValue's sign is what separates negative from positive.
     var ptsCheck = parseInt(row[ptIdx], 10) || 0;
     if (ptsCheck > 0) continue;
 
@@ -1492,7 +1483,6 @@ function sendDailyParentEmails() {
       incidentTime:   formatTimeStr(row[tmIdx]),
       location:       row[locIdx] ? row[locIdx].toString() : '',
       infractionType: row[infIdx] ? row[infIdx].toString() : '',
-      severity:       row[sevIdx] ? row[sevIdx].toString() : '',
       pointValue:     pts,
       pointsStr:      ptsStr,
       pointsAfter:    row[afIdx] !== undefined ? row[afIdx] : '',
@@ -1637,7 +1627,6 @@ function getDashboardData() {
   for (var r = 1; r < refData.length; r++) {
     var row  = refData[r];
     var inc  = formatDateStr(row[ci['IncidentDate']]);
-    var sev  = row[ci['Severity']] ? row[ci['Severity']].toString() : '';
     var stat = row[ci['Status']]   ? row[ci['Status']].toString()   : '';
     var ts   = row[ci['Timestamp']];
     var rowTeacherEmail = row[ci['TeacherEmail']] ? row[ci['TeacherEmail']].toString().trim().toLowerCase() : '';
@@ -1647,11 +1636,10 @@ function getDashboardData() {
     totalReferrals++;
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
-    // Positive/negative are derived from PointValue's sign, not Severity —
-    // Severity is an optional classification (admins can leave it blank),
-    // but every infraction always has a PointValue, so this stays accurate
-    // even for referrals with no severity assigned. ptVal === 0 counts as
-    // neither (a logged incident with no point impact).
+    // Positive/negative are derived from PointValue's sign — every
+    // infraction always has a point value, so this stays accurate
+    // regardless. ptVal === 0 counts as neither (a logged incident with
+    // no point impact).
     if (ptVal < 0) negativeCount++;
     if (ptVal > 0) positiveCount++;
 
@@ -1678,7 +1666,6 @@ function getDashboardData() {
       studentName:    row[ci['StudentName']] ? row[ci['StudentName']].toString() : '',
       grade:          row[ci['Grade']]       ? row[ci['Grade']].toString()       : '',
       infractionType: inf ? inf.toString() : '',
-      severity:       sev,
       pointValue:     ptVal,
       incidentDate:   inc,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
@@ -1923,7 +1910,6 @@ function getStudentProfile(studentId) {
       IncidentTime:         formatTimeStr(row[ci['IncidentTime']]),
       Location:             str(row[ci['Location']]),
       InfractionType:       str(row[ci['InfractionType']]),
-      Severity:             str(row[ci['Severity']]),
       PointValue:           num(row[ci['PointValue']]),
       PointsBeforeReferral: num(row[ci['PointsBeforeReferral']]),
       PointsAfterReferral:  num(row[ci['PointsAfterReferral']]),
@@ -1978,8 +1964,8 @@ function getStudentProfile(studentId) {
   referrals.forEach(function(r) {
     sumTotal++;
     if (r.Status !== 'Resolved') sumOpen++;
-    // Same reasoning as getDashboardData(): PointValue's sign is the
-    // reliable signal, since Severity can be left blank by admins.
+    // Same reasoning as getDashboardData(): PointValue's sign is what
+    // separates negative from positive.
     var ptVal = parseFloat(r.PointValue) || 0;
     if (ptVal < 0) sumNegative++;
     if (ptVal > 0) sumPos++;
@@ -2095,7 +2081,6 @@ function getReportData(filters) {
       StudentName:          row[ci['StudentName']] ? row[ci['StudentName']].toString() : '',
       Grade:                row[ci['Grade']]       ? row[ci['Grade']].toString()       : '',
       InfractionType:       inf,
-      Severity:             row[ci['Severity']]    ? row[ci['Severity']].toString()    : '',
       PointValue:           parseFloat(row[ci['PointValue']]) || 0,
       PointsBeforeReferral: parseFloat(row[ci['PointsBeforeReferral']]) || 0,
       PointsAfterReferral:  parseFloat(row[ci['PointsAfterReferral']]) || 0,
@@ -2576,7 +2561,6 @@ function getInfractionsList() {
   var hdrs  = data[0].map(function(h) { return h.toString().trim(); });
   var ni    = hdrs.indexOf(INF_COL_NAME);
   var pi    = hdrs.indexOf(INF_COL_POINTS);
-  var si    = hdrs.indexOf(INF_COL_SEVERITY);
   var nti   = hdrs.indexOf(INF_COL_NOTES);
   var rows  = [];
 
@@ -2587,7 +2571,6 @@ function getInfractionsList() {
     rows.push({
       name:       name,
       pointValue: isNaN(pts) ? 0 : pts,
-      severity:   si  >= 0 ? data[i][si].toString().trim()  : '',
       notes:      nti >= 0 ? data[i][nti].toString().trim() : ''
     });
   }
@@ -2610,9 +2593,7 @@ function saveInfractions(rows) {
     return { success: false, error: 'At least one infraction is required.' };
   }
 
-  // Severity is no longer used anywhere in the app — the client always
-  // sends an empty string for it now. No validation needed here beyond
-  // name/point value.
+  // Severity is no longer a column in this sheet at all.
   for (var v = 0; v < rows.length; v++) {
     var r = rows[v];
     if (!r.name || r.name.toString().trim() === '') {
@@ -2629,18 +2610,17 @@ function saveInfractions(rows) {
 
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
+      sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
     }
 
     var writeData = rows.map(function(r) {
       return [
         sanitizeText(r.name),
         parseInt(r.pointValue, 10),
-        r.severity,
         sanitizeText(r.notes || '')
       ];
     });
-    sheet.getRange(2, 1, writeData.length, 4).setValues(writeData);
+    sheet.getRange(2, 1, writeData.length, 3).setValues(writeData);
     SpreadsheetApp.flush();
 
     _infs = null; // clear execution cache
