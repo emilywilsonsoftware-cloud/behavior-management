@@ -1011,6 +1011,7 @@ function loadContactsList() {
         return;
       }
       _contactsForStudent = r.contacts || [];
+      _contactTypes = r.roles && r.roles.length > 0 ? r.roles : _contactTypes;
       renderContactsList();
     })
     .withFailureHandler(function(err) {
@@ -1073,10 +1074,10 @@ function buildContactFormHtml() {
       '<div class="ce-search-results" id="ce-search-results"></div>' +
     '</div>' +
     '<div class="ce-grid">' +
-      '<div class="full" style="grid-column:1/-1;"><label>Role</label>' +
+      '<div class="full" style="grid-column:1/-1;"><label>Type</label>' +
         '<select id="ce-role">' +
           '<option value="">— Select —</option>' +
-          CONTACT_ROLES_JS.map(function(r) { return '<option value="'+esc(r)+'">'+esc(r)+'</option>'; }).join('') +
+          _contactTypes.map(function(r) { return '<option value="'+esc(r)+'">'+esc(r)+'</option>'; }).join('') +
         '</select>' +
       '</div>' +
       '<div><label>First Name</label><input type="text" id="ce-first" placeholder="First"></div>' +
@@ -1095,10 +1096,11 @@ function buildContactFormHtml() {
   );
 }
 
-// Role list is mirrored from CONTACT_ROLES in Code.gs (kept in sync
-// manually since this is a small fixed list, same approach as the
-// point-tier color palette).
-var CONTACT_ROLES_JS = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
+// Fallback default, used only until the real list arrives from the
+// server (getStudentContacts()'s "roles" field, sourced from the
+// admin-editable Contact Types list on Settings > General) — avoids a
+// blank dropdown for the brief moment before that first response lands.
+var _contactTypes = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
 
 // rowIndex === null → adding a brand new contact.
 // rowIndex !== null → editing the contact at that sheet row.
@@ -1223,7 +1225,7 @@ function submitContactForm() {
   var last  = document.getElementById('ce-last').value.trim();
   var email = document.getElementById('ce-email').value.trim();
 
-  if (!role)  { setCeMsg('Select a role.', 'err'); return; }
+  if (!role)  { setCeMsg('Select a type.', 'err'); return; }
   if (!first || !last || !email) {
     setCeMsg('First name, last name, and email are required.', 'err');
     return;

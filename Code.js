@@ -35,6 +35,7 @@ var SHEET_DELETION_LOG = 'DeletionLog';
 
 // ── CONFIG COLUMN NAMES ───────────────────────────────────────
 var CONFIG_COL_LOCATIONS        = 'Locations';
+var CONFIG_COL_CONTACT_TYPES    = 'ContactTypes';
 // Redirections and Motivations intentionally removed — no longer used.
 var CONFIG_COL_SCHOOL_NAME      = 'SchoolName';
 var CONFIG_COL_SEMESTER_POINTS  = 'SemesterStartPoints';
@@ -109,7 +110,10 @@ var PARENT_COL_EMAIL      = 5;
 // Constrained list of contact roles — mirrors the pattern used for the
 // point-tier color palette. Keeps role labels consistent across the
 // school rather than allowing free text.
-var CONTACT_ROLES = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
+// Used only if the Config sheet's ContactTypes column is empty (e.g. a
+// brand-new install before Setup.gs seeds it) — the real, admin-editable
+// list lives in Config and is read via getConfig().contactTypes.
+var DEFAULT_CONTACT_TYPES = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
 
 // ── INFRACTIONS SHEET COLUMN NAMES ───────────────────────────
 var INF_COL_NAME     = 'InfractionName';
@@ -500,6 +504,7 @@ function getConfig() {
 
   _cfg = {
     locations:        col(CONFIG_COL_LOCATIONS),
+    contactTypes:     col(CONFIG_COL_CONTACT_TYPES).length > 0 ? col(CONFIG_COL_CONTACT_TYPES) : DEFAULT_CONTACT_TYPES,
     schoolName:       val(CONFIG_COL_SCHOOL_NAME,     'Our School'),
     semesterPoints:   parseInt(val(CONFIG_COL_SEMESTER_POINTS, '100'), 10) || 100,
     emailEnabled:     val(CONFIG_COL_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
@@ -784,6 +789,7 @@ function getSettingsBootstrap() {
       DailyEmailSendTime:        raw[CONFIG_COL_EMAIL_SEND_TIME]   || [],
       EmailFooterText:           raw[CONFIG_COL_EMAIL_FOOTER]      || [],
       Locations:                 raw[CONFIG_COL_LOCATIONS]         || [],
+      ContactTypes:              raw[CONFIG_COL_CONTACT_TYPES]     || [],
       NineWeeksStartDates:       raw[CONFIG_COL_NINE_WEEKS]        || [],
       // Tier columns reflect the VALIDATED tiers, not raw sheet content —
       // so if the sheet had malformed data, the editor opens already
@@ -3182,7 +3188,7 @@ function getStudentContacts(studentId) {
       }
     }
 
-    return { success: true, contacts: contacts, roles: CONTACT_ROLES };
+    return { success: true, contacts: contacts, roles: getConfig().contactTypes };
 
   } catch (e) {
     return { success: false, error: e.message };
@@ -3256,8 +3262,9 @@ function saveContact(studentId, contact, updateSiblingIds) {
   var email = sanitizeText(contact.email     || '').toLowerCase();
   var guid  = contact.guid ? contact.guid.toString().trim() : generateGuid();
 
-  if (CONTACT_ROLES.indexOf(role) < 0) {
-    return { success: false, error: 'Role must be one of: ' + CONTACT_ROLES.join(', ') + '.' };
+  var contactTypes = getConfig().contactTypes;
+  if (contactTypes.indexOf(role) < 0) {
+    return { success: false, error: 'Type must be one of: ' + contactTypes.join(', ') + '.' };
   }
   if (!first) return { success: false, error: 'First name is required.' };
   if (!last)  return { success: false, error: 'Last name is required.' };

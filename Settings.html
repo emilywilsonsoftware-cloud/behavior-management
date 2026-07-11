@@ -560,6 +560,22 @@
         </div>
       </div>
 
+      <!-- Contact Types -->
+      <div class="card" id="card-contacttypes">
+        <div class="section-title">Contact Types</div>
+        <p class="section-desc">Types available when adding a referral email contact on a student's profile (e.g. Parent/Guardian, Administrator).</p>
+        <div class="list-editor" id="list-contactTypes"></div>
+        <button class="add-btn" onclick="addListItem('contactTypes', '')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add contact type
+        </button>
+        <div class="save-row" style="margin-top:12px;">
+          <span class="save-msg" id="msg-contactTypes"></span>
+          <button class="btn-save" onclick="saveSection('contactTypes')">Save</button>
+        </div>
+      </div>
+
       <!-- Nine Weeks -->
       <div class="card" id="card-nineweeks">
         <div class="section-title">Nine Weeks Start Dates</div>
@@ -991,6 +1007,7 @@ var SETTINGS_SEARCH_INDEX = [
   { label: 'Daily Parent Email Send Time',       tab: 'general',        target: 'card-email' },
   { label: 'Email Footer Text',                  tab: 'general',        target: 'card-email' },
   { label: 'Locations',                          tab: 'general',        target: 'card-locations' },
+  { label: 'Contact Types',                      tab: 'general',        target: 'card-contacttypes' },
   { label: 'Nine Weeks Start Dates',             tab: 'general',        target: 'card-nineweeks' },
   { label: 'Point Balance Colors',               tab: 'behaviorpoints', target: 'card-pointcolors' },
   { label: 'Infraction Types',                   tab: 'behaviorpoints', target: 'card-behaviorinfractions' },
@@ -1093,6 +1110,7 @@ function populateGeneral(cfg) {
   setVal('cfg-emailFooter',    (cfg.EmailFooterText    || [])[0] || '');
 
   buildList('locations',    cfg.Locations           || []);
+  buildList('contactTypes', cfg.ContactTypes        || []);
   buildList('nineWeeks',    cfg.NineWeeksStartDates || [], 'date');
 
   buildTierEditor(cfg.PointTierThresholds || [], cfg.PointTierColors || []);
@@ -1204,6 +1222,7 @@ function saveSection(section) {
     payload.DailyEmailSendTime = [getTimePickerValue()];
     payload.EmailFooterText    = [document.getElementById('cfg-emailFooter').value.trim()];
   } else if (section === 'locations')    { payload.Locations           = getListValues('locations'); }
+  else if (section === 'contactTypes')   { payload.ContactTypes        = getListValues('contactTypes'); }
   else if (section === 'nineWeeks')      { payload.NineWeeksStartDates = getListValues('nineWeeks'); }
   else if (section === 'pointTiers')     {
     var tierData = getTierValues();

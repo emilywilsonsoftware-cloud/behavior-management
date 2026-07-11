@@ -103,7 +103,7 @@ function _setupConfig(ss) {
     'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
     'TeacherEmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
-    'Locations', 'NineWeeksStartDates',
+    'Locations', 'ContactTypes', 'NineWeeksStartDates',
     'PointTierThresholds', 'PointTierColors', 'PositiveCapPerNineWeeks'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -113,42 +113,44 @@ function _setupConfig(ss) {
     'Our School', '100', 'Yes', 'Yes', '15:30',
     'If you have questions, please contact the school office.\n\n' +
     'This is an automated message — please do not reply.',
-    'Classroom', '',
+    'Classroom', 'Parent/Guardian', '',
     '70', 'green', '15'
   ];
   sheet.getRange(2, 1, 1, row2.length).setValues([row2]);
 
-  var extraLocations    = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
-  var extraNineWeeks    = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
-  var extraThresholds   = ['40', '0'];
-  var extraColors       = ['amber', 'red'];
+  var extraLocations     = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
+  var extraContactTypes  = ['Administrator', 'Counselor', 'Case Manager'];
+  var extraNineWeeks     = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
+  var extraThresholds    = ['40', '0'];
+  var extraColors        = ['amber', 'red'];
   var maxExtra = Math.max(
-    extraLocations.length, extraNineWeeks.length,
+    extraLocations.length, extraContactTypes.length, extraNineWeeks.length,
     extraThresholds.length, extraColors.length
   );
   for (var r = 0; r < maxExtra; r++) {
-    sheet.getRange(r + 3, 1, 1, 9).setValues([[
-      '', '', '', '', '',
-      extraLocations[r]  || '',
-      extraNineWeeks[r]  || '',
-      extraThresholds[r] || '',
-      extraColors[r]     || ''
+    sheet.getRange(r + 3, 1, 1, 11).setValues([[
+      '', '', '', '', '', '',
+      extraLocations[r]    || '',
+      extraContactTypes[r] || '',
+      extraNineWeeks[r]    || '',
+      extraThresholds[r]   || '',
+      extraColors[r]       || ''
     ]]);
   }
-  sheet.setColumnWidth(5, 300);
-  sheet.autoResizeColumns(1, 4);
+  sheet.setColumnWidth(6, 300);
+  sheet.autoResizeColumns(1, 5);
 
-  sheet.getRange(1, 8).setNote(
+  sheet.getRange(1, 10).setNote(
     'Pairs row-by-row with PointTierColors.\n' +
     'Defines the percentage thresholds for point-balance color tiers.\n' +
     'Edit via Settings > General in the web app, not directly here.'
   );
-  sheet.getRange(1, 9).setNote(
+  sheet.getRange(1, 11).setNote(
     'Pairs row-by-row with PointTierThresholds.\n' +
     'Allowed values: green, blue, purple, amber, orange, red.\n' +
     'Edit via Settings > General in the web app, not directly here.'
   );
-  sheet.getRange(1, 10).setNote(
+  sheet.getRange(1, 12).setNote(
     'Maximum total positive points (Write Off, Saturday School, etc.) ' +
     'a single student can be awarded per nine-weeks period, on the ' +
     'admin-only Positive Note page. Admins can still submit ' +
