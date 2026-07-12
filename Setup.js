@@ -220,7 +220,7 @@ function _setupDeletionLog(ss) {
   var headers = [
     'Timestamp', 'DeletedByName', 'DeletedByEmail',
     'ReferralID', 'StudentID', 'StudentName',
-    'InfractionType', 'PointValue', 'IncidentDate', 'Reason'
+    'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Reason'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');

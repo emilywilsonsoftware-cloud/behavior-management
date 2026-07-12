@@ -89,20 +89,27 @@
                            border-radius: 7px; padding: 9px 14px; font-size: 0.86rem; font-weight: 700;
                            cursor: pointer; font-family: inherit; transition: background 0.12s; }
     .btn-delete-referral:hover { background: #fee2e2; }
+    .btn-delete-referral:disabled { color: #94a3b8; border-color: #e2e8f0; cursor: default; background: white; }
     .btn-delete-referral svg { width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ── Toast notification ── */
     #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-                  z-index: 300; display: flex; flex-direction: column; gap: 8px;
-                  pointer-events: none; width: 100%; max-width: 420px; padding: 0 16px; }
+                  z-index: 300; display: flex; flex-direction: column; align-items: center; gap: 8px;
+                  pointer-events: none; max-width: 420px; padding: 0 16px; }
     .toast { background: #166534; color: white; border-radius: 9px;
              padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
              box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
              align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
-             transition: opacity 0.22s ease, transform 0.22s ease; }
+             transition: opacity 0.22s ease, transform 0.22s ease; max-width: 100%; }
+    .toast span { overflow-wrap: break-word; }
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast.toast-err { background: #b91c1c; }
     .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
+    .toast.toast-loading { background: #1e3a5f; }
+    .toast-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.35);
+                     border-top-color: white; border-radius: 50%;
+                     animation: toast-spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes toast-spin { to { transform: rotate(360deg); } }
 
     /* ── Confirm popup (replaces native confirm() for destructive actions) ── */
     .confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45);
@@ -279,6 +286,26 @@ function showToast(message, isError, durationMs) {
     toast.classList.remove('show');
     setTimeout(function() { toast.remove(); }, 220);
   }, durationMs || 3200);
+}
+
+// A persistent toast for an operation that's in progress — doesn't
+// auto-dismiss like showToast() does. The caller holds onto the
+// returned element and calls dismissToast() on it once the real
+// result (success or error) is ready to show its own toast.
+function showLoadingToast(message) {
+  var wrap = document.getElementById('toast-wrap');
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-loading';
+  toast.innerHTML = '<span class="toast-spinner"></span><span>' + esc(message) + '</span>';
+  wrap.appendChild(toast);
+  requestAnimationFrame(function() { toast.classList.add('show'); });
+  return toast;
+}
+
+function dismissToast(toastEl) {
+  if (!toastEl) return;
+  toastEl.classList.remove('show');
+  setTimeout(function() { toastEl.remove(); }, 220);
 }
 
 // ── Confirm popup (replaces native confirm() for destructive actions) ──
@@ -562,17 +589,20 @@ function loadDeletionLog() {
         var pts    = row.pointValue || 0;
         var ptsStr = pts > 0 ? '+'+pts : pts.toString();
         var ptsCls = pts < 0 ? 'color:#dc2626' : 'color:#166534';
+        var incident = formatDateMDY(row.incidentDate) +
+          (row.incidentTime ? ' at ' + formatTime12h(row.incidentTime) : '');
         return '<div class="d-row" style="flex-direction:column;align-items:stretch;' +
                'border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px;">' +
-          '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#94a3b8;margin-bottom:4px;">' +
-            '<span>'+esc(row.timestamp)+'</span><span>'+esc(row.deletedByName)+'</span>' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;">' +
+            '<span style="font-size:0.84rem;color:#1e293b;">Deleted by <strong>'+esc(row.deletedByName)+'</strong></span>' +
+            '<span style="font-size:0.76rem;color:#94a3b8;white-space:nowrap;">'+esc(row.timestamp)+'</span>' +
           '</div>' +
           '<div style="font-size:0.86rem;font-weight:600;">'+esc(row.studentName)+
             ' <span style="font-weight:400;color:#94a3b8;">('+esc(row.studentId)+')</span></div>' +
-          '<div style="font-size:0.82rem;">'+esc(row.infractionType)+
-            ' <span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span>' +
-            ' <span style="color:#94a3b8;">· incident '+esc(row.incidentDate)+'</span></div>' +
-          '<div style="font-size:0.82rem;margin-top:4px;"><strong>Reason:</strong> '+esc(row.reason)+'</div>' +
+          '<div style="font-size:0.82rem;margin-top:2px;">'+esc(row.infractionType)+
+            ' <span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span></div>' +
+          '<div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">Incident: '+esc(incident)+'</div>' +
+          '<div style="font-size:0.82rem;margin-top:8px;"><strong>Reason:</strong> '+esc(row.reason)+'</div>' +
         '</div>';
       }).join('');
     })
@@ -620,10 +650,19 @@ function confirmDeleteReferral() {
     reasonLabel: 'Reason for deletion (required)',
     reasonPlaceholder: 'e.g., wrong student entered, IEP protection...',
     onConfirm: function(reason) {
+      var delBtn = document.querySelector('.btn-delete-referral');
+      if (delBtn) {
+        delBtn.disabled = true;
+        delBtn.innerHTML = '<span>Deleting...</span>';
+      }
+      var loadingToast = showLoadingToast('Deleting referral...');
+
       google.script.run
         .withSuccessHandler(function(result) {
+          dismissToast(loadingToast);
           if (!result.success) {
             showToast(result.error || 'Could not delete referral.', true);
+            if (delBtn) { delBtn.disabled = false; delBtn.innerHTML = TRASH_SVG + '<span>Delete Referral</span>'; }
             return;
           }
           // Remove from both the full and filtered row sets, then close
@@ -635,11 +674,13 @@ function confirmDeleteReferral() {
           updateSummary();
 
           showToast(result.recalculated
-            ? '✓ Referral deleted. ' + result.studentName + '\u2019s balance is now ' + result.newBalance + ' pts.'
-            : '✓ Referral deleted.');
+            ? 'Referral deleted. ' + result.studentName + '\u2019s balance is now ' + result.newBalance + ' pts.'
+            : 'Referral deleted.');
         })
         .withFailureHandler(function(err) {
+          dismissToast(loadingToast);
           showToast(err.message || err, true);
+          if (delBtn) { delBtn.disabled = false; delBtn.innerHTML = TRASH_SVG + '<span>Delete Referral</span>'; }
         })
         .deleteReferral(row['ID'], reason);
     }

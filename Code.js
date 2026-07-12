@@ -140,7 +140,7 @@ var REFERRAL_HEADERS = [
 var DELETION_LOG_HEADERS = [
   'Timestamp', 'DeletedByName', 'DeletedByEmail',
   'ReferralID', 'StudentID', 'StudentName',
-  'InfractionType', 'PointValue', 'IncidentDate', 'Reason'
+  'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Reason'
 ];
 
 // ── EXECUTION CACHES (per-execution only — not persistent) ────
@@ -2238,6 +2238,7 @@ function deleteReferral(referralId, reason) {
     var infCol  = REFERRAL_HEADERS.indexOf('InfractionType');
     var pvCol   = REFERRAL_HEADERS.indexOf('PointValue');
     var dtCol   = REFERRAL_HEADERS.indexOf('IncidentDate');
+    var tmCol   = REFERRAL_HEADERS.indexOf('IncidentTime');
 
     var targetRowNum = -1;
     var targetStudentId = null;
@@ -2268,6 +2269,7 @@ function deleteReferral(referralId, reason) {
       infractionType: deletedRow[infCol] ? deletedRow[infCol].toString() : '',
       pointValue:     parseFloat(deletedRow[pvCol]) || 0,
       incidentDate:   formatDateStr(deletedRow[dtCol]),
+      incidentTime:   formatTimeStr(deletedRow[tmCol]),
       reason:         reason
     });
 
@@ -2276,14 +2278,20 @@ function deleteReferral(referralId, reason) {
     }
 
     // Recompute the student's balance from the remaining referrals.
+    // Reuses refData (already read above) rather than re-fetching the
+    // whole sheet again — the only thing that changed is the one row we
+    // just deleted, which we can just skip by ID while walking the data
+    // we already have in memory. Avoiding that second full-sheet read is
+    // the main thing keeping this fast even as the Referrals sheet grows
+    // over a school year.
     var cfg = getConfig();
     var remaining = [];
-    var freshRefData = refSheet.getDataRange().getValues(); // re-read post-delete
-    for (var r = 1; r < freshRefData.length; r++) {
-      if ((freshRefData[r][sidCol] || '').toString() === targetStudentId) {
+    for (var r = 1; r < refData.length; r++) {
+      if (refData[r][idCol] == referralId) continue; // the row we just deleted
+      if ((refData[r][sidCol] || '').toString() === targetStudentId) {
         remaining.push({
-          id:  parseInt(freshRefData[r][idCol], 10) || 0,
-          pts: parseFloat(freshRefData[r][pvCol]) || 0
+          id:  parseInt(refData[r][idCol], 10) || 0,
+          pts: parseFloat(refData[r][pvCol]) || 0
         });
       }
     }
@@ -2298,8 +2306,9 @@ function deleteReferral(referralId, reason) {
     var stuRowIdx = findStudentRow(stuData, targetStudentId);
     var studentName = '';
     if (stuRowIdx >= 0) {
-      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1).setValue(balance);
-      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS_DATE + 1).setValue(new Date());
+      // CurrentPoints and PointsLastUpdated are adjacent columns, so this
+      // writes both in one call instead of two separate round trips.
+      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[balance, new Date()]]);
       studentName = displayName(stuData[stuRowIdx][STU_COL_FIRST], stuData[stuRowIdx][STU_COL_LAST]);
     }
 
@@ -2337,6 +2346,7 @@ function logDeletion_(entry) {
     entry.infractionType,
     entry.pointValue,
     entry.incidentDate,
+    entry.incidentTime,
     entry.reason
   ]);
 }
@@ -2375,7 +2385,8 @@ function getDeletionLog() {
       studentName:    row[ci['StudentName']]    ? row[ci['StudentName']].toString()    : '',
       infractionType: row[ci['InfractionType']] ? row[ci['InfractionType']].toString() : '',
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
-      incidentDate:   row[ci['IncidentDate']] ? row[ci['IncidentDate']].toString() : '',
+      incidentDate:   formatDateStr(row[ci['IncidentDate']]),
+      incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
       reason:         row[ci['Reason']] ? row[ci['Reason']].toString() : ''
     });
   }
