@@ -152,7 +152,7 @@ function _setupConfig(ss) {
   );
   sheet.getRange(1, 12).setNote(
     'Maximum total positive points (Write Off, Saturday School, etc.) ' +
-    'a single student can be awarded per nine-weeks period, on the ' +
+    'a single student can be awarded per term, on the ' +
     'admin-only Positive Note page. Admins can still submit ' +
     'over this cap — it warns rather than blocks — but every override ' +
     'is noted on the referral for the record.'

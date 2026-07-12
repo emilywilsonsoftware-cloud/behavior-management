@@ -68,7 +68,7 @@
     .sel-badge .rm { cursor: pointer; opacity: 0.6; font-weight: 700; }
     .sel-badge .rm:hover { opacity: 1; }
 
-    /* ── Nine-weeks panel ── */
+    /* ── Term panel ── */
     #nw-panel { display: none; margin-top: 14px; }
     .nw-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
                       padding: 14px 16px; margin-bottom: 10px; }
@@ -251,7 +251,7 @@
       Maximum of 10 students reached. Remove a student to add another.
     </div>
 
-    <!-- Nine-weeks panel — one block per selected student -->
+    <!-- Term panel — one block per selected student -->
     <div id="nw-panel">
       <div id="nw-panels-container"></div>
     </div>
@@ -350,7 +350,7 @@ var state = {
   infList:     [],   // flat list of infractions for autofill search
   semPts:      100,
   pointTiers:  [],   // admin-configured point-balance color tiers
-  nwLabel:     'Current Nine Weeks',
+  nwLabel:     'Current Term',
   lastIncident: null // cached incident details for "Submit and Copy"
 };
 
@@ -379,7 +379,7 @@ function onBootstrap(data) {
   state.allStudents  = data.students   || [];
   state.semPts       = data.semesterPoints || 100;
   state.pointTiers   = data.pointTiers || [];
-  state.nwLabel      = data.currentNineWeeks ? data.currentNineWeeks.label : 'Current Nine Weeks';
+  state.nwLabel      = data.currentNineWeeks ? data.currentNineWeeks.label : 'Current Term';
 
   document.getElementById('teacher-name').value  = state.teacherName;
   document.getElementById('teacher-email').value = state.teacherEmail;
@@ -514,7 +514,7 @@ function updateMultiDescWarning() {
   warn.classList.toggle('show', state.selected.length > 1);
 }
 
-// ── Nine-Weeks Panel ──────────────────────────────────────────
+// ── Term Panel ──────────────────────────────────────────
 // Shows one panel block per selected student; fetched from server,
 // cached per studentId so re-selecting doesn't refetch.
 var _nwCache = {};  // studentId → data (avoid re-fetching)
@@ -585,7 +585,7 @@ function renderNwPanel(block, data) {
 
   var refs = data.nwRefs || [];
   if (refs.length === 0) {
-    body.innerHTML = '<div class="nw-empty">No referrals this nine weeks. ✓</div>';
+    body.innerHTML = '<div class="nw-empty">No referrals this term. ✓</div>';
     return;
   }
 
@@ -637,7 +637,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeDescModal();
 });
 
-// Toggles a single student's nine-weeks panel open/closed.
+// Toggles a single student's term panel open/closed.
 // Called from the title row's onclick.
 function toggleNwPanel(titleEl) {
   var block = titleEl.closest('.nw-panel-inner');

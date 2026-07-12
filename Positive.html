@@ -73,8 +73,8 @@
                    font-weight: 600; margin-top: 8px; display: none; }
     .max-warning.show { display: block; }
 
-    /* ── Nine-weeks positive-points panel (mirrors Index.html's
-         nine-weeks referral panel) ── */
+    /* ── Term positive-points panel (mirrors Index.html's
+         term referral panel) ── */
     #pos-cap-panel { margin-top: 14px; }
     .nw-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
                       padding: 14px 16px; margin-bottom: 10px; }
@@ -220,10 +220,10 @@
       Maximum of 10 students reached. Remove a student to add another.
     </div>
 
-    <!-- Nine-weeks positive-points panel — one collapsible block per
+    <!-- Term positive-points panel — one collapsible block per
          selected student, listing every positive note they've
          received this period, reusing the same getStudentFormCard()
-         data the Behavior Referral form's nine-weeks panel is built from. -->
+         data the Behavior Referral form's term panel is built from. -->
     <div id="pos-cap-panel"></div>
   </div>
 
@@ -450,8 +450,8 @@ function updatePosSubmitButton() {
 }
 
 // Shows one collapsible panel per selected student listing every positive
-// referral they've received this nine-weeks period (mirrors the Behavior
-// Referral form's nine-weeks panel). Reuses getStudentFormCard() — the
+// referral they've received this term (mirrors the Behavior
+// Referral form's term panel). Reuses getStudentFormCard() — the
 // same call that panel uses — since nwRefs already includes positive-point
 // entries; no separate endpoint is needed here. Cached per studentId so
 // re-selecting doesn't refetch (_nwCache is declared in the state block above).
@@ -480,7 +480,7 @@ function updatePosCapPanel() {
       block.dataset.sid = sid;
       block.innerHTML =
         '<div class="nw-title" onclick="toggleNwPanel(this)">' +
-          '<span>Nine-Weeks Positive Points — ' + esc(s.studentName) + '</span>' +
+          '<span>Term Positive Points — ' + esc(s.studentName) + '</span>' +
           '<span class="nw-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
             '<polyline points="6 9 12 15 18 9"/></svg></span>' +
         '</div>' +
@@ -515,7 +515,7 @@ function renderPosPanel(block, data) {
   if (data.error) { body.innerHTML = '<div class="nw-empty" style="color:#dc2626;">'+esc(data.error)+'</div>'; return; }
 
   // Only positive-point entries belong on this page — nwRefs includes
-  // every referral type for the student in the current nine weeks.
+  // every referral type for the student in the current term.
   var refs = (data.nwRefs || []).filter(function(r) {
     return (parseInt(r.pointValue, 10) || 0) > 0;
   });
@@ -527,7 +527,7 @@ function renderPosPanel(block, data) {
     used+' / '+posState.cap+' pts this period · '+label+'</span></div>';
 
   if (refs.length === 0) {
-    body.innerHTML = summaryHtml + '<div class="nw-empty">No positive points awarded this nine weeks. ✓</div>';
+    body.innerHTML = summaryHtml + '<div class="nw-empty">No positive points awarded this term. ✓</div>';
     return;
   }
 
@@ -629,7 +629,7 @@ function submitPositiveForm() {
 function onPositiveSubmitOk(result, referrals) {
   document.getElementById('pos-submit-btn').disabled = false;
 
-  // Server found one or more students would exceed the nine-weeks cap.
+  // Server found one or more students would exceed the term cap.
   // It hasn't saved anything yet — confirm with the admin, then resubmit
   // with the override flag if they choose to proceed.
   if (result.needsConfirmation) {
@@ -640,7 +640,7 @@ function onPositiveSubmitOk(result, referrals) {
     clearPosStatus();
     var proceed = window.confirm(
       'This would put the following student(s) over the ' + result.overCapDetails[0].cap +
-      '-point nine-weeks cap:\n\n' + lines + '\n\nSubmit anyway?'
+      '-point term cap:\n\n' + lines + '\n\nSubmit anyway?'
     );
     if (!proceed) return;
 
@@ -671,7 +671,7 @@ function onPositiveSubmitOk(result, referrals) {
 }
 
 function resetPositiveForm() {
-  // Invalidate cached nine-weeks data for the students just submitted —
+  // Invalidate cached term data for the students just submitted —
   // their positive-point total just changed, so any cached cap numbers
   // are now stale until refetched.
   posState.selected.forEach(function(s) { delete _nwCache[s.studentId]; });

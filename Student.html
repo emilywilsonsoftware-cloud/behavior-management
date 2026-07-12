@@ -93,7 +93,7 @@
     .sum-b.pos  { border-color: #10b981; }
     .sum-v { font-size: 1.4rem; font-weight: 800; } .sum-l { font-size: 0.7rem; color: #64748b; }
 
-    /* Nine-weeks tabs */
+    /* Term tabs */
     .nw-tabs { display: flex; gap: 0; margin-bottom: 0; overflow-x: auto; }
     .nw-tab  { padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
                border: 1px solid #e2e8f0; border-bottom: none; border-radius: 6px 6px 0 0;
@@ -344,7 +344,7 @@ var allStudents   = [];
 var semPts        = 100;
 var pointTiers    = []; // admin-configured point-balance color tiers
 var currentStudent = null;
-var activeNwIdx   = -1; // index into nineWeeks array; -1 = all
+var activeNwIdx   = -1; // index into term array; -1 = all
 var _refDetailLookup = {}; // referral ID → full referral object, for the View Details modal
 
 // ── Load all students once ────────────────────────────────────
@@ -519,7 +519,7 @@ function renderProfile(data) {
       badge2(sum.positive, 'Positive', 'pos')  +
     '</div>';
 
-  // Nine-weeks summary mini-cards
+  // Term summary mini-cards
   if (data.nwSummary && data.nwSummary.length > 0) {
     var curNw = data.currentNineWeeks;
     html += '<div class="nw-summary" style="margin-bottom:16px;">';
@@ -531,7 +531,7 @@ function renderProfile(data) {
     html += '</div>';
   }
 
-  // Filter tabs — Nine Weeks periods, plus an admin-only Contacts tab
+  // Filter tabs — Term periods
   // in the same row.
   var tabs = '<div class="nw-tabs">' +
     '<div class="nw-tab active" id="tab-all" onclick="filterByNW(-1)">All Referrals</div>';
@@ -587,7 +587,7 @@ function renderProfile(data) {
   document.getElementById('profile-content').innerHTML = html;
 }
 
-// ── Nine-weeks filter ─────────────────────────────────────────
+// ── Term filter ─────────────────────────────────────────
 function filterByNW(idx) {
   activeNwIdx = idx;
   // Update tab styles
@@ -655,7 +655,7 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
 }
 
 // ── Referral Detail Modal ──────────────────────────────────────
-// Mirrors the "View" pattern used for the nine-weeks history on the
+// Mirrors the "View" pattern used for the term history on the
 // referral form (Index.html) — a centered modal with full referral
 // details, opened from a button on each row rather than navigating away.
 function openRefDetailModal(refId) {
@@ -877,7 +877,7 @@ var _ceSearchTimer  = null;
 // ── Manage Student modal (Student Info + Contacts, admin only) ──────
 // Both live in one modal, switched internally, rather than competing
 // for space in the referral-history tab row above (All Referrals /
-// Nine Weeks N) — that row is a pure date-range filter, this is
+// Term N) — that row is a pure date-range filter, this is
 // student-record management, and the two don't mix well as one strip
 // of tabs.
 function openManageStudentModal() {

@@ -485,7 +485,7 @@ function getConfig() {
     var endDate = nwStarts[idx + 1]
       ? subtractDay(nwStarts[idx + 1])
       : '9999-12-31';
-    return { start: start, end: endDate, label: 'Nine Weeks ' + (idx + 1) };
+    return { start: start, end: endDate, label: 'Term ' + (idx + 1) };
   });
 
   var today = formatDate(new Date());
@@ -517,7 +517,7 @@ function getConfig() {
     currentNineWeeks: curNW,
     pointTiers:       pointTiers,
     // Admin-only positive notes (Write Off, Saturday School, etc.) are
-    // capped per student per nine-weeks period. Configurable because the
+    // capped per student per term. Configurable because the
     // school may change this number later — defaults to 15 if unset/invalid.
     positiveCapPerNineWeeks: parseInt(val(CONFIG_COL_POSITIVE_CAP, '15'), 10) || 15,
     _raw:             colMap
@@ -999,7 +999,7 @@ function getStudentFormCard(studentId) {
   var nw      = cfg.currentNineWeeks;
   var nwStart = nw ? nw.start : null;
   var nwEnd   = nw ? nw.end   : null;
-  var nwLabel = nw ? nw.label : 'Current Nine Weeks';
+  var nwLabel = nw ? nw.label : 'Current Term';
 
   var hdrs = (refData && refData.length > 0) ? refData[0] : [];
   var ci   = {};
@@ -1130,7 +1130,7 @@ function submitReferrals(referrals) {
       // value as a literal string. Without this, Google Sheets auto-detects
       // the "HH:MM" string as a time-of-day value and silently converts it
       // to a Date/time serial — which then reads back incorrectly anywhere
-      // the column is used (Report, Student profile, nine-weeks panel, etc).
+      // the column is used (Report, Student profile, term panel, etc).
       var timeCol = REFERRAL_HEADERS.indexOf('IncidentTime') + 1;
       var timeCell = refSheet.getRange(newRowNum, timeCol);
       timeCell.setNumberFormat('@STRING@');
@@ -1186,7 +1186,7 @@ function submitReferrals(referrals) {
 //     positive type (PointValue > 0, not Severity — see getFormBootstrap
 //     for why) rather than trusting whatever the client sent, since this
 //     endpoint is a privileged one.
-//   - Enforces the per-student, per-nine-weeks point cap — but as a soft
+//   - Enforces the per-student, per-term point cap — but as a soft
 //     warning the admin can override, not a hard block. First call
 //     (overrideConfirmed=false) does NOT write anything if any selected
 //     student would exceed the cap; it returns the details so the client
@@ -1218,7 +1218,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
   }
 
   // Sum of positive PointValue already logged for a student within the
-  // current nine-weeks period, read fresh from the sheet each call.
+  // current term, read fresh from the sheet each call.
   var refData = refSheet.getDataRange().getValues();
   var rHdrs   = (refData && refData.length > 0) ? refData[0] : [];
   var rci     = {};
