@@ -1425,7 +1425,7 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       ? 'Points Deducted: ' + Math.abs(pointValue) + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')'
       : 'Points Added:    +' + pointValue + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')';
 
-    var subject = '✓ Referral Saved — ' + referral.studentName + ' — #' + referralId;
+    var subject = '✓ Referral Saved — ' + cfg.schoolName + ' — ' + referral.studentName + ' — #' + referralId;
     var body    =
       'Hello ' + referral.teacherName + ',\n\n' +
       'Your referral has been saved.\n\n' +
@@ -1564,7 +1564,7 @@ function sendDailyParentEmails() {
       var studentName = refs[0].studentName;
       var grade       = refs[0].grade;
 
-      var subject = 'Daily Behavior Summary — ' + studentName + ' — ' + today;
+      var subject = 'Daily Behavior Summary — ' + cfg.schoolName + ' — ' + studentName + ' — ' + today;
 
       var bodyIntro =
         'This is the daily behavior summary from ' + cfg.schoolName +
