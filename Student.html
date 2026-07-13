@@ -71,11 +71,11 @@
                 display: flex; flex-wrap: wrap; gap: 10px; }
     .p-contact a { color: #2563eb; text-decoration: none; }
     .p-contact a:hover { text-decoration: underline; }
-    .manage-student-btn { margin-top: 10px; background: white; color: #1d4ed8;
+    .edit-info-btn { margin-top: 10px; background: white; color: #1d4ed8;
                           border: 1px solid #bfdbfe; border-radius: 7px; padding: 6px 14px;
                           font-size: 0.8rem; font-weight: 600; cursor: pointer;
                           font-family: inherit; transition: background 0.12s; }
-    .manage-student-btn:hover { background: #eff6ff; }
+    .edit-info-btn:hover { background: #eff6ff; }
     .pts-display { text-align: center; padding: 10px 20px; border-radius: 9px;
                    border: 2px solid #e2e8f0; flex-shrink: 0; min-width: 110px; }
     .pts-big   { font-size: 2rem; font-weight: 900; line-height: 1; }
@@ -245,27 +245,27 @@
                        font-weight: 600; cursor: pointer; font-family: inherit; }
     .view-detail-btn:hover { background: #f8fafc; border-color: #94a3b8; }
 
-    /* ── Manage Student modal (Student Info + Contacts, admin only) ── */
-    .manage-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    /* ── Edit Info modal (Student Info + Contacts, admin only) ── */
+    .edit-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
                       z-index: 200; display: none; align-items: center; justify-content: center;
                       padding: 16px; }
-    .manage-overlay.open { display: flex; }
-    .manage-modal { background: white; border-radius: 10px; max-width: 640px; width: 100%;
+    .edit-info-overlay.open { display: flex; }
+    .edit-info-modal { background: white; border-radius: 10px; max-width: 640px; width: 100%;
                     box-shadow: 0 10px 32px rgba(0,0,0,0.2); max-height: 88vh;
                     display: flex; flex-direction: column; overflow: hidden; }
-    .manage-hdr { display: flex; justify-content: space-between; align-items: center;
+    .edit-info-hdr { display: flex; justify-content: space-between; align-items: center;
                   padding: 18px 22px 0; }
-    .manage-title { font-size: 0.98rem; font-weight: 700; color: #1e293b; }
-    .manage-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+    .edit-info-title { font-size: 0.98rem; font-weight: 700; color: #1e293b; }
+    .edit-info-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
                     color: #9ca3af; line-height: 1; padding: 0 4px; }
-    .manage-close:hover { color: #4b5563; }
-    .manage-switcher { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid #e5e7eb; }
-    .manage-switch-btn { padding: 8px 16px; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+    .edit-info-close:hover { color: #4b5563; }
+    .edit-info-switcher { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid #e5e7eb; }
+    .edit-info-switch-btn { padding: 8px 16px; font-size: 0.84rem; font-weight: 600; cursor: pointer;
                          background: none; border: none; border-bottom: 2px solid transparent;
                          color: #64748b; font-family: inherit; }
-    .manage-switch-btn.active { color: #1d4ed8; border-bottom-color: #1d4ed8; }
-    .manage-switch-btn:hover:not(.active) { color: #1e293b; }
-    .manage-content { overflow-y: auto; flex: 1; padding-bottom: 20px; }
+    .edit-info-switch-btn.active { color: #1d4ed8; border-bottom-color: #1d4ed8; }
+    .edit-info-switch-btn:hover:not(.active) { color: #1e293b; }
+    .edit-info-content { overflow-y: auto; flex: 1; padding-bottom: 20px; }
 
     @media (max-width:680px) { .two-col { grid-template-columns: 1fr; } }
   </style>
@@ -324,18 +324,18 @@ var URL_ID = "<?!= urlId ?>";
   </div>
 </div>
 
-<!-- Manage Student modal — Student Info + Contacts (admin only) -->
-<div class="manage-overlay" id="manage-overlay" onclick="if(event.target===this) closeManageStudentModal()">
-  <div class="manage-modal">
-    <div class="manage-hdr">
-      <div class="manage-title">Edit Info</div>
-      <button class="manage-close" onclick="closeManageStudentModal()">×</button>
+<!-- Edit Info modal — Student Info + Contacts (admin only) -->
+<div class="edit-info-overlay" id="edit-info-overlay" onclick="if(event.target===this) closeEditInfoModal()">
+  <div class="edit-info-modal">
+    <div class="edit-info-hdr">
+      <div class="edit-info-title">Edit Info</div>
+      <button class="edit-info-close" onclick="closeEditInfoModal()">×</button>
     </div>
-    <div class="manage-switcher">
-      <button class="manage-switch-btn active" id="manage-tab-info" onclick="showManageInfo()">Student</button>
-      <button class="manage-switch-btn" id="manage-tab-contacts" onclick="showManageContacts()">Contacts</button>
+    <div class="edit-info-switcher">
+      <button class="edit-info-switch-btn active" id="edit-info-tab-student" onclick="showEditInfoStudent()">Student</button>
+      <button class="edit-info-switch-btn" id="edit-info-tab-contacts" onclick="showEditInfoContacts()">Contacts</button>
     </div>
-    <div class="manage-content" id="manage-content"></div>
+    <div class="edit-info-content" id="edit-info-content"></div>
   </div>
 </div>
 
@@ -502,7 +502,7 @@ function renderProfile(data) {
               : 'No referral email contacts on file') +
           '</span>' +
         '</div>' +
-        (isAdm ? '<button class="manage-student-btn" onclick="openManageStudentModal()">Edit Info</button>' : '') +
+        (isAdm ? '<button class="edit-info-btn" onclick="openEditInfoModal()">Edit Info</button>' : '') +
       '</div>' +
       '<div class="pts-display" style="border-color:'+ptColor+';background:'+ptBg+';">' +
         '<div class="pts-big" style="color:'+ptColor+';">'+s.currentPoints+'</div>' +
@@ -874,33 +874,33 @@ var _ceRowIndex     = null;   // sheet row of the contact being edited (null = n
 var _ceSiblings     = [];
 var _ceSearchTimer  = null;
 
-// ── Manage Student modal (Student Info + Contacts, admin only) ──────
+// ── Edit Info modal (Student Info + Contacts, admin only) ──────
 // Both live in one modal, switched internally, rather than competing
 // for space in the referral-history tab row above (All Referrals /
 // Term N) — that row is a pure date-range filter, this is
 // student-record management, and the two don't mix well as one strip
 // of tabs.
-function openManageStudentModal() {
-  document.getElementById('manage-overlay').classList.add('open');
-  showManageInfo();
+function openEditInfoModal() {
+  document.getElementById('edit-info-overlay').classList.add('open');
+  showEditInfoStudent();
 }
 
-function closeManageStudentModal() {
-  document.getElementById('manage-overlay').classList.remove('open');
+function closeEditInfoModal() {
+  document.getElementById('edit-info-overlay').classList.remove('open');
 }
 
-function showManageInfo() {
-  document.getElementById('manage-tab-info').className = 'manage-switch-btn active';
-  document.getElementById('manage-tab-contacts').className = 'manage-switch-btn';
+function showEditInfoStudent() {
+  document.getElementById('edit-info-tab-student').className = 'edit-info-switch-btn active';
+  document.getElementById('edit-info-tab-contacts').className = 'edit-info-switch-btn';
   renderStudentInfoForm();
 }
 
 // Switches the modal from Student Info to the Contacts list.
-function showManageContacts() {
-  document.getElementById('manage-tab-info').className = 'manage-switch-btn';
-  document.getElementById('manage-tab-contacts').className = 'manage-switch-btn active';
+function showEditInfoContacts() {
+  document.getElementById('edit-info-tab-student').className = 'edit-info-switch-btn';
+  document.getElementById('edit-info-tab-contacts').className = 'edit-info-switch-btn active';
 
-  document.getElementById('manage-content').innerHTML =
+  document.getElementById('edit-info-content').innerHTML =
     '<div id="contacts-panel"><div class="loading-msg"><span class="spin"></span>Loading contacts...</div></div>';
 
   loadContactsList();
@@ -945,7 +945,7 @@ function renderStudentInfoForm() {
       '<div class="ce-msg" id="info-msg"></div>' +
     '</div>';
 
-  document.getElementById('manage-content').innerHTML = html;
+  document.getElementById('edit-info-content').innerHTML = html;
 }
 
 function saveStudentInfoEdit() {
