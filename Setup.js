@@ -103,8 +103,8 @@ function _setupConfig(ss) {
     'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
     'TeacherEmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
-    'Locations', 'ContactTypes', 'NineWeeksStartDates',
-    'PointTierThresholds', 'PointTierColors', 'PositiveCapPerNineWeeks'
+    'Locations', 'ContactTypes', 'TermStartDates',
+    'PointTierThresholds', 'PointTierColors', 'PositiveCapPerTerm'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -120,11 +120,11 @@ function _setupConfig(ss) {
 
   var extraLocations     = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
   var extraContactTypes  = ['Administrator', 'Counselor', 'Case Manager'];
-  var extraNineWeeks     = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
+  var extraTermStarts    = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
   var extraThresholds    = ['40', '0'];
   var extraColors        = ['amber', 'red'];
   var maxExtra = Math.max(
-    extraLocations.length, extraContactTypes.length, extraNineWeeks.length,
+    extraLocations.length, extraContactTypes.length, extraTermStarts.length,
     extraThresholds.length, extraColors.length
   );
   for (var r = 0; r < maxExtra; r++) {
@@ -132,7 +132,7 @@ function _setupConfig(ss) {
       '', '', '', '', '', '',
       extraLocations[r]    || '',
       extraContactTypes[r] || '',
-      extraNineWeeks[r]    || '',
+      extraTermStarts[r]   || '',
       extraThresholds[r]   || '',
       extraColors[r]       || ''
     ]]);

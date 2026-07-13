@@ -76,27 +76,27 @@
     /* ── Term positive-points panel (mirrors Index.html's
          term referral panel) ── */
     #pos-cap-panel { margin-top: 14px; }
-    .nw-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+    .term-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
                       padding: 14px 16px; margin-bottom: 10px; }
-    .nw-panel-inner:last-child { margin-bottom: 0; }
-    .nw-title { font-size: 0.78rem; font-weight: 700; color: #166534;
+    .term-panel-inner:last-child { margin-bottom: 0; }
+    .term-title { font-size: 0.78rem; font-weight: 700; color: #166534;
                 text-transform: uppercase; letter-spacing: 0.06em;
                 display: flex; align-items: center; justify-content: space-between;
                 cursor: pointer; user-select: none; }
-    .nw-title:hover { opacity: 0.8; }
-    .nw-title .nw-chevron { transition: transform 0.15s; flex-shrink: 0; margin-left: 8px; }
-    .nw-title .nw-chevron svg { width: 14px; height: 14px; display: block; }
-    .nw-panel-inner.open .nw-title .nw-chevron { transform: rotate(180deg); }
-    .nw-body-wrap { max-height: 0; overflow: hidden; transition: max-height 0.18s ease; }
-    .nw-panel-inner.open .nw-body-wrap { max-height: 600px; }
-    .nw-body { margin-top: 10px; }
-    .nw-empty { color: #6b7280; font-size: 0.84rem; }
-    .nw-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    .nw-table th { color: #6b7280; font-size: 0.72rem; text-transform: uppercase;
+    .term-title:hover { opacity: 0.8; }
+    .term-title .term-chevron { transition: transform 0.15s; flex-shrink: 0; margin-left: 8px; }
+    .term-title .term-chevron svg { width: 14px; height: 14px; display: block; }
+    .term-panel-inner.open .term-title .term-chevron { transform: rotate(180deg); }
+    .term-body-wrap { max-height: 0; overflow: hidden; transition: max-height 0.18s ease; }
+    .term-panel-inner.open .term-body-wrap { max-height: 600px; }
+    .term-body { margin-top: 10px; }
+    .term-empty { color: #6b7280; font-size: 0.84rem; }
+    .term-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .term-table th { color: #6b7280; font-size: 0.72rem; text-transform: uppercase;
                    letter-spacing: 0.05em; padding: 4px 8px; text-align: left;
                    border-bottom: 1px solid #d1fae5; }
-    .nw-table td { padding: 6px 8px; border-bottom: 1px solid #f0fdf4; }
-    .nw-table tr:last-child td { border-bottom: none; }
+    .term-table td { padding: 6px 8px; border-bottom: 1px solid #f0fdf4; }
+    .term-table tr:last-child td { border-bottom: none; }
 
     .pos-cap-summary { margin-bottom: 10px; }
     .pos-cap-badge { padding: 2px 9px; border-radius: 20px; font-size: 0.76rem; font-weight: 700;
@@ -288,7 +288,7 @@ var posState = {
   selected:  [],   // selected student objects
   types:     [],   // positive infraction types (Write Off, Saturday School, etc.)
   typeMap:   {},   // name → { pointValue }
-  cap:       15    // positiveCapPerNineWeeks, overwritten from bootstrap
+  cap:       15    // positiveCapPerTerm, overwritten from bootstrap
 };
 
 var _nwCache = {}; // studentId → getStudentFormCard() data, avoids re-fetching
@@ -322,7 +322,7 @@ function onBootstrap(data) {
   document.getElementById('admin-email').value = state.teacherEmail;
 
   posState.types   = data.positiveInfractions || [];
-  posState.cap     = data.positiveCapPerNineWeeks || 15;
+  posState.cap     = data.positiveCapPerTerm || 15;
   posState.typeMap = {};
   posState.types.forEach(function(t) { posState.typeMap[t.name] = t; });
 
@@ -452,7 +452,7 @@ function updatePosSubmitButton() {
 // Shows one collapsible panel per selected student listing every positive
 // referral they've received this term (mirrors the Behavior
 // Referral form's term panel). Reuses getStudentFormCard() — the
-// same call that panel uses — since nwRefs already includes positive-point
+// same call that panel uses — since termRefs already includes positive-point
 // entries; no separate endpoint is needed here. Cached per studentId so
 // re-selecting doesn't refetch (_nwCache is declared in the state block above).
 
@@ -476,15 +476,15 @@ function updatePosCapPanel() {
 
     if (!block) {
       block = document.createElement('div');
-      block.className = 'nw-panel-inner open';
+      block.className = 'term-panel-inner open';
       block.dataset.sid = sid;
       block.innerHTML =
-        '<div class="nw-title" onclick="toggleNwPanel(this)">' +
+        '<div class="term-title" onclick="toggleTermPanel(this)">' +
           '<span>Term Positive Points — ' + esc(s.studentName) + '</span>' +
-          '<span class="nw-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+          '<span class="term-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
             '<polyline points="6 9 12 15 18 9"/></svg></span>' +
         '</div>' +
-        '<div class="nw-body-wrap"><div class="nw-body"><div class="nw-empty">Loading...</div></div></div>';
+        '<div class="term-body-wrap"><div class="term-body"><div class="term-empty">Loading...</div></div></div>';
       container.appendChild(block);
     }
 
@@ -503,20 +503,20 @@ function updatePosCapPanel() {
       })
       .withFailureHandler(function(err) {
         var b = container.querySelector('[data-sid="' + cssEsc(sid) + '"]');
-        if (b) b.querySelector('.nw-body').innerHTML =
-          '<div class="nw-empty" style="color:#dc2626;">Error: '+(err.message||err)+'</div>';
+        if (b) b.querySelector('.term-body').innerHTML =
+          '<div class="term-empty" style="color:#dc2626;">Error: '+(err.message||err)+'</div>';
       })
       .getStudentFormCard(sid);
   });
 }
 
 function renderPosPanel(block, data) {
-  var body = block.querySelector('.nw-body');
-  if (data.error) { body.innerHTML = '<div class="nw-empty" style="color:#dc2626;">'+esc(data.error)+'</div>'; return; }
+  var body = block.querySelector('.term-body');
+  if (data.error) { body.innerHTML = '<div class="term-empty" style="color:#dc2626;">'+esc(data.error)+'</div>'; return; }
 
-  // Only positive-point entries belong on this page — nwRefs includes
+  // Only positive-point entries belong on this page — termRefs includes
   // every referral type for the student in the current term.
-  var refs = (data.nwRefs || []).filter(function(r) {
+  var refs = (data.termRefs || []).filter(function(r) {
     return (parseInt(r.pointValue, 10) || 0) > 0;
   });
 
@@ -527,11 +527,11 @@ function renderPosPanel(block, data) {
     used+' / '+posState.cap+' pts this period · '+label+'</span></div>';
 
   if (refs.length === 0) {
-    body.innerHTML = summaryHtml + '<div class="nw-empty">No positive points awarded this term. ✓</div>';
+    body.innerHTML = summaryHtml + '<div class="term-empty">No positive points awarded this term. ✓</div>';
     return;
   }
 
-  var html = summaryHtml + '<table class="nw-table"><thead><tr>' +
+  var html = summaryHtml + '<table class="term-table"><thead><tr>' +
     '<th>Date</th><th>Type</th><th>Pts</th><th>Awarded By</th><th>Note</th>' +
     '</tr></thead><tbody>';
   refs.forEach(function(r) {
@@ -576,8 +576,8 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Toggles a single student's panel open/closed. Called from the title row's onclick.
-function toggleNwPanel(titleEl) {
-  var block = titleEl.closest('.nw-panel-inner');
+function toggleTermPanel(titleEl) {
+  var block = titleEl.closest('.term-panel-inner');
   if (block) block.classList.toggle('open');
 }
 

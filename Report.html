@@ -25,7 +25,7 @@
                    box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; }
     .filter-title { font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
                     letter-spacing: 0.07em; color: #1a56db; margin-bottom: 12px; }
-    .filter-grid  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .filter-grid  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .filter-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
     .filter-row   { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
 
@@ -197,6 +197,8 @@
            <select id="f-tch"><option value="">All Teachers</option></select></div>
       <div><label class="fl">Infraction</label>
            <select id="f-inf"><option value="">All Infractions</option></select></div>
+      <div><label class="fl">Term</label>
+           <select id="f-term"><option value="">All Terms</option></select></div>
     </div>
     <div class="filter-dates">
       <div><label class="fl">Date From</label><input type="date" id="f-from"></div>
@@ -257,6 +259,7 @@
 <script>
 var allRows = [], filteredRows = [], sortCol = 'IncidentDate', sortAsc = false, semPts = 100;
 var pointTiers = []; // admin-configured point-balance color tiers
+var terms = []; // term start/end date ranges, for the Term filter
 var detailIdx = null;
 var isAdmin = false;
 
@@ -390,6 +393,7 @@ function onDataLoaded(data) {
   allRows = data.rows || [];
   semPts  = data.semesterPoints || 100;
   pointTiers = data.pointTiers || [];
+  terms   = data.terms || [];
 
   var tchSel = document.getElementById('f-tch');
   (data.teacherOptions||[]).forEach(function(t) {
@@ -399,6 +403,12 @@ function onDataLoaded(data) {
   (data.infractionOptions||[]).forEach(function(t) {
     infSel.innerHTML += '<option value="'+esc(t)+'">'+esc(t)+'</option>';
   });
+  var termSel = document.getElementById('f-term');
+  terms.forEach(function(term, idx) {
+    var endLabel = term.end === '9999-12-31' ? 'present' : formatDateMDY(term.end);
+    termSel.innerHTML += '<option value="'+idx+'">'+esc(term.label)+
+      ' ('+esc(formatDateMDY(term.start))+' – '+esc(endLabel)+')</option>';
+  });
 
   filteredRows = allRows.slice();
   renderTable();
@@ -406,16 +416,19 @@ function onDataLoaded(data) {
 }
 
 function applyFilters() {
-  var stuName = document.getElementById('f-stu').value.trim().toLowerCase();
-  var tch     = document.getElementById('f-tch').value.toLowerCase();
-  var inf     = document.getElementById('f-inf').value;
-  var from    = document.getElementById('f-from').value;
-  var to      = document.getElementById('f-to').value;
+  var stuName  = document.getElementById('f-stu').value.trim().toLowerCase();
+  var tch      = document.getElementById('f-tch').value.toLowerCase();
+  var inf      = document.getElementById('f-inf').value;
+  var termIdx  = document.getElementById('f-term').value;
+  var term     = termIdx !== '' ? terms[parseInt(termIdx, 10)] : null;
+  var from     = document.getElementById('f-from').value;
+  var to       = document.getElementById('f-to').value;
 
   filteredRows = allRows.filter(function(row) {
     if (stuName && (row['StudentName']||'').toLowerCase().indexOf(stuName) < 0) return false;
     if (tch     && (row['TeacherName']||'').toLowerCase().indexOf(tch) < 0)     return false;
     if (inf     && row['InfractionType'] !== inf)                                return false;
+    if (term    && (row['IncidentDate'] < term.start || row['IncidentDate'] > term.end)) return false;
     if (from && row['IncidentDate'] < from)                                      return false;
     if (to   && row['IncidentDate'] > to)                                        return false;
     return true;
@@ -427,7 +440,7 @@ function applyFilters() {
 
 function clearFilters() {
   ['f-stu','f-from','f-to'].forEach(function(id){ document.getElementById(id).value=''; });
-  ['f-tch','f-inf'].forEach(function(id){ document.getElementById(id).selectedIndex=0; });
+  ['f-tch','f-inf','f-term'].forEach(function(id){ document.getElementById(id).selectedIndex=0; });
   filteredRows = allRows.slice();
   renderTable();
   updateSummary();

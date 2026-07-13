@@ -106,7 +106,7 @@
     .tch-count { font-size: 0.86rem; font-weight: 700; color: #3b82f6; }
 
     /* NW badge */
-    .nw-badge { display: inline-block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+    .term-badge { display: inline-block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
                 padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
                 margin-bottom: 16px; }
 
@@ -181,7 +181,7 @@
     </div>
   </div>
 
-  <div id="nw-badge-row"></div>
+  <div id="term-badge-row"></div>
 
   <!-- ══════════════════════════════════════════════════════════
        ADMIN DASHBOARD — full school-wide view
@@ -377,10 +377,10 @@ function render(d) {
     'Welcome, ' + d.user.name + '  ·  ' +
     now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  if (d.currentNineWeeks) {
-    document.getElementById('nw-badge-row').innerHTML =
-      '<div class="nw-badge">📅 ' + d.currentNineWeeks.label +
-      ': ' + formatDateMDY(d.currentNineWeeks.start) + ' – ' + formatDateMDY(d.currentNineWeeks.end) + '</div>';
+  if (d.currentTerm) {
+    document.getElementById('term-badge-row').innerHTML =
+      '<div class="term-badge">📅 ' + d.currentTerm.label +
+      ': ' + formatDateMDY(d.currentTerm.start) + ' – ' + formatDateMDY(d.currentTerm.end) + '</div>';
   }
 
   if (d.user && d.user.role === 'teacher') {
@@ -399,7 +399,7 @@ var _isAdminView = false;
 
 function renderAdmin(d) {
   var s = d.stats;
-  setText('st-total', s.nineWeeksReferrals);
+  setText('st-total', s.termReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
   setText('st-negative', s.negativeCount); setText('st-positive', s.positiveCount);
   setText('st-stus', s.totalStudents);

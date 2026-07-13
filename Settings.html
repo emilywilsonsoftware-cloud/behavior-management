@@ -490,7 +490,7 @@
             <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
           </div>
           <div class="form-row">
-            <label>Positive Points Cap (per 9 Weeks)</label>
+            <label>Positive Points Cap (per term)</label>
             <input type="number" id="cfg-positiveCap" min="0" max="9999" placeholder="15">
           </div>
         </div>
@@ -578,18 +578,18 @@
       </div>
 
       <!-- Term -->
-      <div class="card" id="card-nineweeks">
+      <div class="card" id="card-term">
         <div class="section-title">Term Start Dates</div>
         <p class="section-desc">Pick the first day of each term using the calendar. The current term is determined by comparing today's date against this list.</p>
-        <div class="list-editor" id="list-nineWeeks"></div>
-        <button class="add-btn" onclick="addListItem('nineWeeks', '', 'date')">
+        <div class="list-editor" id="list-term"></div>
+        <button class="add-btn" onclick="addListItem('term', '', 'date')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>Add date
         </button>
         <div class="save-row" style="margin-top:12px;">
-          <span class="save-msg" id="msg-nineWeeks"></span>
-          <button class="btn-save" onclick="saveSection('nineWeeks')">Save</button>
+          <span class="save-msg" id="msg-term"></span>
+          <button class="btn-save" onclick="saveSection('term')">Save</button>
         </div>
       </div>
     </div><!-- /tab-general -->
@@ -1009,7 +1009,7 @@ var SETTINGS_SEARCH_INDEX = [
   { label: 'Email Footer Text',                  tab: 'general',        target: 'card-email' },
   { label: 'Locations',                          tab: 'general',        target: 'card-locations' },
   { label: 'Contact Types',                      tab: 'general',        target: 'card-contacttypes' },
-  { label: 'Term Start Dates',                   tab: 'general',        target: 'card-nineweeks' },
+  { label: 'Term Start Dates',                   tab: 'general',        target: 'card-term' },
   { label: 'Point Balance Colors',               tab: 'behaviorpoints', target: 'card-pointcolors' },
   { label: 'Infraction Types',                   tab: 'behaviorpoints', target: 'card-behaviorinfractions' },
   { label: 'Positive Note Types',                tab: 'behaviorpoints', target: 'card-positivetypes' },
@@ -1099,7 +1099,7 @@ document.addEventListener('click', function(e) {
 function populateGeneral(cfg) {
   setVal('cfg-schoolName',     (cfg.SchoolName          || [])[0] || '');
   setVal('cfg-semesterPoints', (cfg.SemesterStartPoints || [])[0] || '100');
-  setVal('cfg-positiveCap',    (cfg.PositiveCapPerNineWeeks || [])[0] || '15');
+  setVal('cfg-positiveCap',    (cfg.PositiveCapPerTerm || [])[0] || '15');
 
   var emailOn = ((cfg.EmailNotificationsEnabled || [])[0] || 'Yes').toString().toLowerCase();
   document.getElementById('cfg-emailEnabled').checked = (emailOn !== 'no');
@@ -1112,7 +1112,7 @@ function populateGeneral(cfg) {
 
   buildList('locations',    cfg.Locations           || []);
   buildList('contactTypes', cfg.ContactTypes        || []);
-  buildList('nineWeeks',    cfg.NineWeeksStartDates || [], 'date');
+  buildList('term',    cfg.TermStartDates || [], 'date');
 
   buildTierEditor(cfg.PointTierThresholds || [], cfg.PointTierColors || []);
 }
@@ -1214,7 +1214,7 @@ function saveSection(section) {
   if (section === 'school') {
     payload.SchoolName          = [document.getElementById('cfg-schoolName').value.trim()];
     payload.SemesterStartPoints = [document.getElementById('cfg-semesterPoints').value.trim()];
-    payload.PositiveCapPerNineWeeks = [document.getElementById('cfg-positiveCap').value.trim()];
+    payload.PositiveCapPerTerm = [document.getElementById('cfg-positiveCap').value.trim()];
   } else if (section === 'email') {
     payload.EmailNotificationsEnabled =
       [document.getElementById('cfg-emailEnabled').checked ? 'Yes' : 'No'];
@@ -1224,7 +1224,7 @@ function saveSection(section) {
     payload.EmailFooterText    = [document.getElementById('cfg-emailFooter').value.trim()];
   } else if (section === 'locations')    { payload.Locations           = getListValues('locations'); }
   else if (section === 'contactTypes')   { payload.ContactTypes        = getListValues('contactTypes'); }
-  else if (section === 'nineWeeks')      { payload.NineWeeksStartDates = getListValues('nineWeeks'); }
+  else if (section === 'term')      { payload.TermStartDates = getListValues('term'); }
   else if (section === 'pointTiers')     {
     var tierData = getTierValues();
     if (tierData.error) { setMsg('pointTiers', tierData.error, 'err'); return; }

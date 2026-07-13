@@ -43,10 +43,10 @@ var CONFIG_COL_EMAIL_ENABLED    = 'EmailNotificationsEnabled';
 var CONFIG_COL_TEACHER_EMAIL_ENABLED = 'TeacherEmailNotificationsEnabled';
 var CONFIG_COL_EMAIL_FOOTER     = 'EmailFooterText';
 var CONFIG_COL_EMAIL_SEND_TIME  = 'DailyEmailSendTime';
-var CONFIG_COL_NINE_WEEKS       = 'NineWeeksStartDates';
+var CONFIG_COL_TERM_START_DATES = 'TermStartDates';
 var CONFIG_COL_POINT_THRESHOLDS = 'PointTierThresholds';
 var CONFIG_COL_POINT_COLORS     = 'PointTierColors';
-var CONFIG_COL_POSITIVE_CAP     = 'PositiveCapPerNineWeeks';
+var CONFIG_COL_POSITIVE_CAP     = 'PositiveCapPerTerm';
 // NOTE: CONFIG_COL_ADMIN_EMAILS intentionally removed.
 // Admin role is now determined by Role = 'admin' in the Staff sheet.
 
@@ -476,23 +476,23 @@ function getConfig() {
   function col(n)      { return colMap[n] || []; }
   function val(n, def) { var c = col(n); return c.length ? c[0] : def; }
 
-  var nwStarts = col(CONFIG_COL_NINE_WEEKS)
+  var termStarts = col(CONFIG_COL_TERM_START_DATES)
     .map(function(d) { return d.trim(); })
     .filter(function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); })
     .sort();
 
-  var nineWeeks = nwStarts.map(function(start, idx) {
-    var endDate = nwStarts[idx + 1]
-      ? subtractDay(nwStarts[idx + 1])
+  var terms = termStarts.map(function(start, idx) {
+    var endDate = termStarts[idx + 1]
+      ? subtractDay(termStarts[idx + 1])
       : '9999-12-31';
     return { start: start, end: endDate, label: 'Term ' + (idx + 1) };
   });
 
   var today = formatDate(new Date());
-  var curNW = null;
-  for (var i = 0; i < nineWeeks.length; i++) {
-    if (today >= nineWeeks[i].start && today <= nineWeeks[i].end) {
-      curNW = nineWeeks[i];
+  var curTerm = null;
+  for (var i = 0; i < terms.length; i++) {
+    if (today >= terms[i].start && today <= terms[i].end) {
+      curTerm = terms[i];
       break;
     }
   }
@@ -513,13 +513,13 @@ function getConfig() {
                         'If you have questions, please contact the school office.\n\n' +
                         'This is an automated message — please do not reply.',
     emailSendTime:    val(CONFIG_COL_EMAIL_SEND_TIME, '15:30'),
-    nineWeeks:        nineWeeks,
-    currentNineWeeks: curNW,
+    terms:        terms,
+    currentTerm: curTerm,
     pointTiers:       pointTiers,
     // Admin-only positive notes (Write Off, Saturday School, etc.) are
     // capped per student per term. Configurable because the
     // school may change this number later — defaults to 15 if unset/invalid.
-    positiveCapPerNineWeeks: parseInt(val(CONFIG_COL_POSITIVE_CAP, '15'), 10) || 15,
+    positiveCapPerTerm: parseInt(val(CONFIG_COL_POSITIVE_CAP, '15'), 10) || 15,
     _raw:             colMap
     // NOTE: adminEmails intentionally absent — use getCurrentUser() for role checks.
   };
@@ -790,13 +790,13 @@ function getSettingsBootstrap() {
       EmailFooterText:           raw[CONFIG_COL_EMAIL_FOOTER]      || [],
       Locations:                 raw[CONFIG_COL_LOCATIONS]         || [],
       ContactTypes:              raw[CONFIG_COL_CONTACT_TYPES]     || [],
-      NineWeeksStartDates:       raw[CONFIG_COL_NINE_WEEKS]        || [],
+      TermStartDates:            raw[CONFIG_COL_TERM_START_DATES] || [],
       // Tier columns reflect the VALIDATED tiers, not raw sheet content —
       // so if the sheet had malformed data, the editor opens already
       // showing the safe 3-tier default rather than broken values.
       PointTierThresholds:       cfg.pointTiers.map(function(t) { return t.threshold; }),
       PointTierColors:           cfg.pointTiers.map(function(t) { return t.color; }),
-      PositiveCapPerNineWeeks:   raw[CONFIG_COL_POSITIVE_CAP] || []
+      PositiveCapPerTerm:        raw[CONFIG_COL_POSITIVE_CAP] || []
       // AdminEmails intentionally absent — managed via Staff manager
     }
   };
@@ -945,8 +945,8 @@ function getFormBootstrap() {
     semesterPoints:   cfg.semesterPoints,
     emailEnabled:     cfg.emailEnabled,
     locations:        cfg.locations,
-    currentNineWeeks: cfg.currentNineWeeks,
-    nineWeeks:        cfg.nineWeeks,
+    currentTerm: cfg.currentTerm,
+    terms:        cfg.terms,
     pointTiers:       cfg.pointTiers,
     // Split by PointValue's sign — Severity is no longer used anywhere
     // in the app (Major/Minor was redundant with the point value's
@@ -965,7 +965,7 @@ function getFormBootstrap() {
                return { name: inf.name, pointValue: inf.pointValue };
              })
       : [],
-    positiveCapPerNineWeeks: cfg.positiveCapPerNineWeeks,
+    positiveCapPerTerm: cfg.positiveCapPerTerm,
     students: students
   };
 }
@@ -996,10 +996,10 @@ function getStudentFormCard(studentId) {
   }
   if (!student) return { error: 'Student not found: ' + studentId };
 
-  var nw      = cfg.currentNineWeeks;
-  var nwStart = nw ? nw.start : null;
-  var nwEnd   = nw ? nw.end   : null;
-  var nwLabel = nw ? nw.label : 'Current Term';
+  var term      = cfg.currentTerm;
+  var termStart = term ? term.start : null;
+  var termEnd   = term ? term.end   : null;
+  var termLabel = term ? term.label : 'Current Term';
 
   var hdrs = (refData && refData.length > 0) ? refData[0] : [];
   var ci   = {};
@@ -1007,16 +1007,16 @@ function getStudentFormCard(studentId) {
     if (hdrs[h]) ci[hdrs[h].toString().trim()] = h;
   }
 
-  var nwRefs = [];
+  var termRefs = [];
   for (var r = 1; r < refData.length; r++) {
     var row = refData[r];
     if ((row[ci['StudentID']] || '').toString() !== studentId.toString()) continue;
 
     var incDate = formatDateStr(row[ci['IncidentDate']]);
-    if (nwStart && incDate < nwStart) continue;
-    if (nwEnd   && incDate > nwEnd)   continue;
+    if (termStart && incDate < termStart) continue;
+    if (termEnd   && incDate > termEnd)   continue;
 
-    nwRefs.push({
+    termRefs.push({
       id:             row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
       incidentDate:   incDate,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
@@ -1027,16 +1027,16 @@ function getStudentFormCard(studentId) {
     });
   }
 
-  nwRefs.sort(function(a, b) {
+  termRefs.sort(function(a, b) {
     return b.incidentDate < a.incidentDate ? -1 : b.incidentDate > a.incidentDate ? 1 : 0;
   });
 
   return {
     student:        student,
-    nwRefs:         nwRefs,
-    nwLabel:        nwLabel,
-    nwStart:        nwStart,
-    nwEnd:          nwEnd,
+    termRefs:         termRefs,
+    termLabel:        termLabel,
+    termStart:        termStart,
+    termEnd:          termEnd,
     semesterPoints: cfg.semesterPoints
   };
 }
@@ -1206,8 +1206,8 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
   var refSheet = ss.getSheetByName(SHEET_REFERRALS);
   var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
   var cfg      = getConfig();
-  var cap      = cfg.positiveCapPerNineWeeks;
-  var nw       = cfg.currentNineWeeks;
+  var cap      = cfg.positiveCapPerTerm;
+  var term       = cfg.currentTerm;
 
   ensureHeaders(refSheet, REFERRAL_HEADERS);
 
@@ -1232,9 +1232,9 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
       if ((row[rci['StudentID']] || '').toString() !== studentId.toString()) continue;
       var pv = parseFloat(row[rci['PointValue']]) || 0;
       if (pv <= 0) continue;
-      if (nw) {
+      if (term) {
         var incDate = formatDateStr(row[rci['IncidentDate']]);
-        if (incDate < nw.start || incDate > nw.end) continue;
+        if (incDate < term.start || incDate > term.end) continue;
       }
       total += pv;
     }
@@ -1334,7 +1334,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         if (overCapDetails[od].studentId === sidStr) { matchDetail = overCapDetails[od]; break; }
       }
       adminNotes = item.overCap && matchDetail
-        ? 'Exceeds ' + matchDetail.cap + '-pt/9-weeks positive cap (admin override): ' +
+        ? 'Exceeds ' + matchDetail.cap + '-pt/term positive cap (admin override): ' +
           matchDetail.existing + ' already awarded + ' + matchDetail.adding +
           ' = ' + matchDetail.wouldBe + '.'
         : '';
@@ -1670,7 +1670,7 @@ function getDashboardData() {
   var tchMap = {};
 
   var totalReferrals = 0;
-  var nineWeeksReferrals = 0;
+  var termReferrals = 0;
   var todayReferrals = 0;
   var weekReferrals  = 0;
   var negativeCount  = 0; // PointValue < 0 (point-losing referrals, regardless of severity)
@@ -1693,8 +1693,8 @@ function getDashboardData() {
     var ptVal = parseFloat(row[ci['PointValue']]) || 0;
 
     totalReferrals++;
-    if (cfg.currentNineWeeks && inc >= cfg.currentNineWeeks.start && inc <= cfg.currentNineWeeks.end) {
-      nineWeeksReferrals++;
+    if (cfg.currentTerm && inc >= cfg.currentTerm.start && inc <= cfg.currentTerm.end) {
+      termReferrals++;
     }
     if (inc === today)       todayReferrals++;
     if (inc >= day7ago)      weekReferrals++;
@@ -1783,7 +1783,7 @@ function getDashboardData() {
       user:             user,
       schoolName:       cfg.schoolName,
       semesterPoints:   sp,
-      currentNineWeeks: cfg.currentNineWeeks,
+      currentTerm: cfg.currentTerm,
       pointTiers:       cfg.pointTiers,
       stats: {
         myTotal: myTotal,
@@ -1866,11 +1866,11 @@ function getDashboardData() {
     user:                user,
     schoolName:          cfg.schoolName,
     semesterPoints:      sp,
-    currentNineWeeks:    cfg.currentNineWeeks,
+    currentTerm:    cfg.currentTerm,
     pointTiers:          cfg.pointTiers,
     stats: {
       totalReferrals:  totalReferrals,
-      nineWeeksReferrals: nineWeeksReferrals,
+      termReferrals: termReferrals,
       todayReferrals:  todayReferrals,
       weekReferrals:   weekReferrals,
       negativeCount:   negativeCount,
@@ -1915,9 +1915,9 @@ function getStudentProfile(studentId) {
       referrals:           [],
       pointTimeline:       [],
       infractionBreakdown: [],
-      nwSummary:           [],
-      nineWeeks:           cfg.nineWeeks,
-      currentNineWeeks:    cfg.currentNineWeeks,
+      termSummary:           [],
+      terms:           cfg.terms,
+      currentTerm:    cfg.currentTerm,
       semesterPoints:      cfg.semesterPoints,
       schoolName:          cfg.schoolName,
       pointTiers:          cfg.pointTiers,
@@ -2013,12 +2013,12 @@ function getStudentProfile(studentId) {
     .map(function(k) { return { name: k, count: infMap[k] }; })
     .sort(function(a, b) { return b.count - a.count; });
 
-  var nwSummary = cfg.nineWeeks.map(function(nw) {
+  var termSummary = cfg.terms.map(function(term) {
     var count = 0;
     referrals.forEach(function(r) {
-      if (r.IncidentDate >= nw.start && r.IncidentDate <= nw.end) count++;
+      if (r.IncidentDate >= term.start && r.IncidentDate <= term.end) count++;
     });
-    return { label: nw.label, start: nw.start, end: nw.end, count: count };
+    return { label: term.label, start: term.start, end: term.end, count: count };
   });
 
   var sumTotal = 0, sumNegative = 0, sumPos = 0;
@@ -2036,9 +2036,9 @@ function getStudentProfile(studentId) {
     referrals:           referrals,
     pointTimeline:       pointTimeline,
     infractionBreakdown: infractionBreakdown,
-    nwSummary:           nwSummary,
-    nineWeeks:           cfg.nineWeeks,
-    currentNineWeeks:    cfg.currentNineWeeks,
+    termSummary:           termSummary,
+    terms:           cfg.terms,
+    currentTerm:    cfg.currentTerm,
     semesterPoints:      cfg.semesterPoints,
     schoolName:          cfg.schoolName,
     pointTiers:          cfg.pointTiers,
@@ -2171,6 +2171,7 @@ function getReportData(filters) {
     semesterPoints:    cfg.semesterPoints,
     schoolName:        cfg.schoolName,
     pointTiers:        cfg.pointTiers,
+    terms:             cfg.terms,
     user:              user
   };
 }

@@ -94,13 +94,13 @@
     .sum-v { font-size: 1.4rem; font-weight: 800; } .sum-l { font-size: 0.7rem; color: #64748b; }
 
     /* Term tabs */
-    .nw-tabs { display: flex; gap: 0; margin-bottom: 0; overflow-x: auto; }
-    .nw-tab  { padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    .term-tabs { display: flex; gap: 0; margin-bottom: 0; overflow-x: auto; }
+    .term-tab  { padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
                border: 1px solid #e2e8f0; border-bottom: none; border-radius: 6px 6px 0 0;
                background: #f8fafc; color: #64748b; white-space: nowrap; margin-right: 2px;
                transition: background 0.1s; }
-    .nw-tab.active { background: white; color: #1d4ed8; border-color: #bfdbfe; }
-    .nw-tab:hover:not(.active) { background: #f1f5f9; }
+    .term-tab.active { background: white; color: #1d4ed8; border-color: #bfdbfe; }
+    .term-tab:hover:not(.active) { background: #f1f5f9; }
 
     /* Cards */
     .card { background: white; border-radius: 10px;
@@ -122,12 +122,12 @@
     .pts-neg { color:#dc2626; font-weight:700; } .pts-pos { color:#166534; font-weight:700; }
 
     /* NW summary mini-cards */
-    .nw-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
-    .nw-mini { background: #f8fafc; border-radius: 7px; padding: 9px 12px; text-align: center;
+    .term-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
+    .term-mini { background: #f8fafc; border-radius: 7px; padding: 9px 12px; text-align: center;
                border: 1px solid #e2e8f0; min-width: 80px; }
-    .nw-mini.current { border-color: #bfdbfe; background: #eff6ff; }
-    .nw-mini-v { font-size: 1.3rem; font-weight: 800; color: #1e293b; }
-    .nw-mini-l { font-size: 0.7rem; color: #64748b; margin-top: 1px; }
+    .term-mini.current { border-color: #bfdbfe; background: #eff6ff; }
+    .term-mini-v { font-size: 1.3rem; font-weight: 800; color: #1e293b; }
+    .term-mini-l { font-size: 0.7rem; color: #64748b; margin-top: 1px; }
 
     .empty-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
     .loading-msg { color: #94a3b8; padding: 24px; text-align: center; }
@@ -344,7 +344,7 @@ var allStudents   = [];
 var semPts        = 100;
 var pointTiers    = []; // admin-configured point-balance color tiers
 var currentStudent = null;
-var activeNwIdx   = -1; // index into term array; -1 = all
+var activeTermIdx   = -1; // index into term array; -1 = all
 var _refDetailLookup = {}; // referral ID → full referral object, for the View Details modal
 
 // ── Load all students once ────────────────────────────────────
@@ -451,7 +451,7 @@ function loadProfile(studentId) {
   document.getElementById('search-panel').style.display = 'none';
   document.getElementById('profile-area').style.display = 'block';
   document.getElementById('profile-content').innerHTML = '<div class="loading-msg">Loading profile...</div>';
-  activeNwIdx = -1;
+  activeTermIdx = -1;
 
   google.script.run
     .withSuccessHandler(renderProfile)
@@ -520,26 +520,26 @@ function renderProfile(data) {
     '</div>';
 
   // Term summary mini-cards
-  if (data.nwSummary && data.nwSummary.length > 0) {
-    var curNw = data.currentNineWeeks;
-    html += '<div class="nw-summary" style="margin-bottom:16px;">';
-    data.nwSummary.forEach(function(nw) {
-      var isCur = curNw && nw.start === curNw.start;
-      html += '<div class="nw-mini'+(isCur?' current':'')+'"><div class="nw-mini-v">'+nw.count+'</div>' +
-              '<div class="nw-mini-l">'+esc(nw.label)+(isCur?' ★':'')+'</div></div>';
+  if (data.termSummary && data.termSummary.length > 0) {
+    var curTerm = data.currentTerm;
+    html += '<div class="term-summary" style="margin-bottom:16px;">';
+    data.termSummary.forEach(function(term) {
+      var isCur = curTerm && term.start === curTerm.start;
+      html += '<div class="term-mini'+(isCur?' current':'')+'"><div class="term-mini-v">'+term.count+'</div>' +
+              '<div class="term-mini-l">'+esc(term.label)+(isCur?' ★':'')+'</div></div>';
     });
     html += '</div>';
   }
 
   // Filter tabs — Term periods
   // in the same row.
-  var tabs = '<div class="nw-tabs">' +
-    '<div class="nw-tab active" id="tab-all" onclick="filterByNW(-1)">All Referrals</div>';
-  if (data.nineWeeks) {
-    data.nineWeeks.forEach(function(nw, idx) {
-      var isCur = data.currentNineWeeks && nw.start === data.currentNineWeeks.start;
-      tabs += '<div class="nw-tab" id="tab-'+idx+'" onclick="filterByNW('+idx+')">' +
-              esc(nw.label) + (isCur ? ' ★' : '') + '</div>';
+  var tabs = '<div class="term-tabs">' +
+    '<div class="term-tab active" id="tab-all" onclick="filterByTerm(-1)">All Referrals</div>';
+  if (data.terms) {
+    data.terms.forEach(function(term, idx) {
+      var isCur = data.currentTerm && term.start === data.currentTerm.start;
+      tabs += '<div class="term-tab" id="tab-'+idx+'" onclick="filterByTerm('+idx+')">' +
+              esc(term.label) + (isCur ? ' ★' : '') + '</div>';
     });
   }
   tabs += '</div>';
@@ -551,7 +551,7 @@ function renderProfile(data) {
   html += '<div>' + tabs +
     '<div class="card" style="border-radius:0 10px 10px 10px;">' +
     '<div class="card-bdy" style="padding:0;overflow-x:auto;" id="left-panel-wrap">' +
-    '<div id="ref-table-wrap">' + buildRefTable(data.referrals, -1, data.nineWeeks) + '</div>' +
+    '<div id="ref-table-wrap">' + buildRefTable(data.referrals, -1, data.terms) + '</div>' +
     '</div></div></div>';
 
   // Right column: timeline + breakdown
@@ -588,15 +588,15 @@ function renderProfile(data) {
 }
 
 // ── Term filter ─────────────────────────────────────────
-function filterByNW(idx) {
-  activeNwIdx = idx;
+function filterByTerm(idx) {
+  activeTermIdx = idx;
   // Update tab styles
   var allTab = document.getElementById('tab-all');
-  if (allTab) allTab.className = 'nw-tab' + (idx === -1 ? ' active' : '');
-  if (currentStudent && currentStudent.nineWeeks) {
-    currentStudent.nineWeeks.forEach(function(_, i) {
+  if (allTab) allTab.className = 'term-tab' + (idx === -1 ? ' active' : '');
+  if (currentStudent && currentStudent.terms) {
+    currentStudent.terms.forEach(function(_, i) {
       var t = document.getElementById('tab-' + i);
-      if (t) t.className = 'nw-tab' + (i === idx ? ' active' : '');
+      if (t) t.className = 'term-tab' + (i === idx ? ' active' : '');
     });
   }
 
@@ -608,17 +608,17 @@ function filterByNW(idx) {
     wrap = document.getElementById('ref-table-wrap');
   }
   if (wrap && currentStudent) {
-    wrap.innerHTML = buildRefTable(currentStudent.referrals, idx, currentStudent.nineWeeks);
+    wrap.innerHTML = buildRefTable(currentStudent.referrals, idx, currentStudent.terms);
   }
 }
 
-function buildRefTable(referrals, nwIdx, nineWeeks) {
+function buildRefTable(referrals, termIdx, terms) {
   var filtered = referrals;
-  if (nwIdx >= 0 && nineWeeks && nineWeeks[nwIdx]) {
-    var nw = nineWeeks[nwIdx];
+  if (termIdx >= 0 && terms && terms[termIdx]) {
+    var term = terms[termIdx];
     filtered = referrals.filter(function(r) {
       var d = (r['IncidentDate'] || '').toString();
-      return d >= nw.start && d <= nw.end;
+      return d >= term.start && d <= term.end;
     });
   }
 
