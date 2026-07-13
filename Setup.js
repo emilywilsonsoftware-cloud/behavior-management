@@ -278,7 +278,7 @@ function _setupStaff(ss) {
 }
 
 // ── ParentContacts sheet ──────────────────────────────────────
-// Layout: StudentID | ContactGUID | Role | FirstName | LastName | Email
+// Layout: StudentID | ContactGUID | Type | FirstName | LastName | Email
 // A student can have MULTIPLE contact rows — Parent/Guardian,
 // Administrator, Counselor, Case Manager — all of whom receive the
 // same end-of-day referral email digest for that student. This list
@@ -290,7 +290,7 @@ function _setupParentContacts(ss) {
   var sheet = ss.insertSheet(SS_PARENT);
 
   var headers = [
-    'StudentID', 'ContactGUID', 'Role', 'FirstName', 'LastName', 'Email'
+    'StudentID', 'ContactGUID', 'Type', 'FirstName', 'LastName', 'Email'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -310,7 +310,7 @@ function _setupParentContacts(ss) {
   sheet.getRange(1, 2).setNote(
     'ContactGUID links rows that represent the SAME PERSON across\n' +
     'multiple students (e.g. one parent with two kids at the school).\n' +
-    'Unrelated to Role. Do not edit GUIDs manually — use the web app.'
+    'Unrelated to Type. Do not edit GUIDs manually — use the web app.'
   );
   sheet.getRange(1, 3).setNote(
     'Must be exactly one of: Parent/Guardian, Administrator,\n' +

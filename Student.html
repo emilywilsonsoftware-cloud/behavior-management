@@ -197,7 +197,7 @@
                     border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;
                     background: white; }
     .contact-card:last-child { margin-bottom: 0; }
-    .contact-role-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    .contact-type-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
                           letter-spacing: 0.04em; padding: 3px 9px; border-radius: 20px;
                           background: #eef2ff; color: #3730a3; flex-shrink: 0; white-space: nowrap; }
     .contact-card-info { flex: 1; min-width: 0; }
@@ -216,10 +216,10 @@
                        font-weight: 600; background: #fafbfc; width: 100%; font-family: inherit;
                        transition: background 0.12s, border-color 0.12s, color 0.12s; }
     .add-contact-btn:hover { background: #f0f4fa; border-color: #1e3a5f; color: #1e3a5f; }
-    .ce-grid select#ce-role { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
+    .ce-grid select#ce-type { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
                               border-radius: 5px; font-size: 0.86rem; font-family: inherit;
                               background: white; }
-    .ce-grid select#ce-role:focus { outline: none; border-color: #1d4ed8; }
+    .ce-grid select#ce-type:focus { outline: none; border-color: #1d4ed8; }
 
     /* ── Referral detail modal (View button on each referral row) ── */
     .ref-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
@@ -1011,7 +1011,7 @@ function loadContactsList() {
         return;
       }
       _contactsForStudent = r.contacts || [];
-      _contactTypes = r.roles && r.roles.length > 0 ? r.roles : _contactTypes;
+      _contactTypes = r.types && r.types.length > 0 ? r.types : _contactTypes;
       renderContactsList();
     })
     .withFailureHandler(function(err) {
@@ -1040,7 +1040,7 @@ function renderContactsList() {
   } else {
     html += _contactsForStudent.map(function(c) {
       return '<div class="contact-card">' +
-        '<span class="contact-role-badge">'+esc(c.role || 'Unspecified')+'</span>' +
+        '<span class="contact-type-badge">'+esc(c.type || 'Unspecified')+'</span>' +
         '<div class="contact-card-info">' +
           '<div class="contact-card-name">'+esc(c.name)+'</div>' +
           '<div class="contact-card-email">'+esc(c.email)+'</div>' +
@@ -1075,7 +1075,7 @@ function buildContactFormHtml() {
     '</div>' +
     '<div class="ce-grid">' +
       '<div class="full" style="grid-column:1/-1;"><label>Type</label>' +
-        '<select id="ce-role">' +
+        '<select id="ce-type">' +
           '<option value="">— Select —</option>' +
           _contactTypes.map(function(r) { return '<option value="'+esc(r)+'">'+esc(r)+'</option>'; }).join('') +
         '</select>' +
@@ -1097,7 +1097,7 @@ function buildContactFormHtml() {
 }
 
 // Fallback default, used only until the real list arrives from the
-// server (getStudentContacts()'s "roles" field, sourced from the
+// server (getStudentContacts()'s "types" field, sourced from the
 // admin-editable Contact Types list on Settings > General) — avoids a
 // blank dropdown for the brief moment before that first response lands.
 var _contactTypes = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
@@ -1114,7 +1114,7 @@ function openContactEditor(rowIndex) {
   setCeMsg('', '');
 
   clearVal('ce-first'); clearVal('ce-last'); clearVal('ce-email');
-  document.getElementById('ce-role').value = '';
+  document.getElementById('ce-type').value = '';
 
   if (rowIndex === null) {
     // New contact — show search-before-create, no siblings yet.
@@ -1130,7 +1130,7 @@ function openContactEditor(rowIndex) {
       setVal('ce-first', existing.firstName || '');
       setVal('ce-last',  existing.lastName  || '');
       setVal('ce-email', existing.email     || '');
-      document.getElementById('ce-role').value = existing.role || '';
+      document.getElementById('ce-type').value = existing.type || '';
     }
 
     // Look up siblings sharing this contact's GUID (same person linked
@@ -1196,7 +1196,7 @@ function onContactSearch(query) {
         results.innerHTML = r.results.map(function(p) {
           return '<div class="ce-search-item" onclick="selectExistingContact('+
             JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
-            '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.role||'—')+')</span></div>' +
+            '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.type||'—')+')</span></div>' +
             '<div class="ce-si-email">'+esc(p.email)+'</div>' +
           '</div>';
         }).join('');
@@ -1214,18 +1214,18 @@ function selectExistingContact(p) {
   setVal('ce-first', p.firstName || '');
   setVal('ce-last',  p.lastName  || '');
   setVal('ce-email', p.email || '');
-  if (p.role) document.getElementById('ce-role').value = p.role;
+  if (p.type) document.getElementById('ce-type').value = p.type;
   document.getElementById('ce-search-results').style.display = 'none';
   document.getElementById('ce-search-input').value = p.name || '';
 }
 
 function submitContactForm() {
-  var role  = document.getElementById('ce-role').value;
+  var type  = document.getElementById('ce-type').value;
   var first = document.getElementById('ce-first').value.trim();
   var last  = document.getElementById('ce-last').value.trim();
   var email = document.getElementById('ce-email').value.trim();
 
-  if (!role)  { setCeMsg('Select a type.', 'err'); return; }
+  if (!type)  { setCeMsg('Select a type.', 'err'); return; }
   if (!first || !last || !email) {
     setCeMsg('First name, last name, and email are required.', 'err');
     return;
@@ -1240,7 +1240,7 @@ function submitContactForm() {
 
   var contact = {
     guid:      _ceGuid,
-    role:      role,
+    type:      type,
     firstName: first,
     lastName:  last,
     email:     email

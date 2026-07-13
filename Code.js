@@ -92,23 +92,23 @@ var STAFF_COL_EMAIL = 2;
 var STAFF_COL_ROLE  = 3;
 
 // ── PARENT CONTACTS SHEET COLUMN INDICES (0-based) ────────────
-// Layout: StudentID | ContactGUID | Role | FirstName | LastName | Email
+// Layout: StudentID | ContactGUID | Type | FirstName | LastName | Email
 // A student can now have multiple contact rows (Parent/Guardian,
 // Administrator, Counselor, Case Manager) — all of whom receive the
 // same end-of-day referral email for that student. ContactGUID links
 // rows that represent the SAME PERSON across multiple students (e.g.
-// one parent with two kids at the school) — it is unrelated to Role.
+// one parent with two kids at the school) — it is unrelated to Type.
 // Phone intentionally removed — this list exists only to drive referral
 // email delivery, not to be a general-purpose contact directory.
 var PARENT_COL_STUDENT_ID = 0;
 var PARENT_COL_GUID       = 1;
-var PARENT_COL_ROLE       = 2;
+var PARENT_COL_TYPE       = 2;
 var PARENT_COL_FIRST      = 3;
 var PARENT_COL_LAST       = 4;
 var PARENT_COL_EMAIL      = 5;
 
-// Constrained list of contact roles — mirrors the pattern used for the
-// point-tier color palette. Keeps role labels consistent across the
+// Constrained list of contact types — mirrors the pattern used for the
+// point-tier color palette. Keeps type labels consistent across the
 // school rather than allowing free text.
 // Used only if the Config sheet's ContactTypes column is empty (e.g. a
 // brand-new install before Setup.gs seeds it) — the real, admin-editable
@@ -3135,7 +3135,7 @@ function searchParentContacts(query) {
 
     for (var i = 1; i < data.length; i++) {
       var guid  = data[i][PARENT_COL_GUID]  ? data[i][PARENT_COL_GUID].toString().trim()  : '';
-      var role  = data[i][PARENT_COL_ROLE]  ? data[i][PARENT_COL_ROLE].toString().trim()  : '';
+      var type  = data[i][PARENT_COL_TYPE]  ? data[i][PARENT_COL_TYPE].toString().trim()  : '';
       var first = data[i][PARENT_COL_FIRST] ? data[i][PARENT_COL_FIRST].toString().trim() : '';
       var last  = data[i][PARENT_COL_LAST]  ? data[i][PARENT_COL_LAST].toString().trim()  : '';
       var email = data[i][PARENT_COL_EMAIL] ? data[i][PARENT_COL_EMAIL].toString().trim() : '';
@@ -3152,7 +3152,7 @@ function searchParentContacts(query) {
       if (matches) {
         seen[guid] = true;
         results.push({
-          guid: guid, role: role, firstName: first, lastName: last,
+          guid: guid, type: type, firstName: first, lastName: last,
           name: name, email: email
         });
       }
@@ -3191,7 +3191,7 @@ function getStudentContacts(studentId) {
         contacts.push({
           rowIndex:  i + 1, // 1-based sheet row, used by saveContact/deleteContact
           guid:      pData[i][PARENT_COL_GUID]  ? pData[i][PARENT_COL_GUID].toString().trim()  : '',
-          role:      pData[i][PARENT_COL_ROLE]  ? pData[i][PARENT_COL_ROLE].toString().trim()  : '',
+          type:      pData[i][PARENT_COL_TYPE]  ? pData[i][PARENT_COL_TYPE].toString().trim()  : '',
           firstName: first,
           lastName:  last,
           name:      displayName(first, last),
@@ -3200,7 +3200,7 @@ function getStudentContacts(studentId) {
       }
     }
 
-    return { success: true, contacts: contacts, roles: getConfig().contactTypes };
+    return { success: true, contacts: contacts, types: getConfig().contactTypes };
 
   } catch (e) {
     return { success: false, error: e.message };
@@ -3254,7 +3254,7 @@ function findContactSiblings(guid, excludeStudentId) {
  * - contact.guid empty        → generates a new ContactGUID.
  * - contact.guid provided     → reuses it (from search-before-create,
  *   linking this contact to the same person already on file elsewhere).
- * - updateSiblingIds, if provided, also pushes the same name/email/role
+ * - updateSiblingIds, if provided, also pushes the same name/email/type
  *   to the matching contact row (same GUID) for those other students.
  *
  * Admin only.
@@ -3268,14 +3268,14 @@ function saveContact(studentId, contact, updateSiblingIds) {
   var id = studentId.toString().trim();
   if (!id) return { success: false, error: 'Student ID is required.' };
 
-  var role  = (contact.role || '').toString().trim();
+  var type  = (contact.type || '').toString().trim();
   var first = sanitizeText(contact.firstName || '');
   var last  = sanitizeText(contact.lastName  || '');
   var email = sanitizeText(contact.email     || '').toLowerCase();
   var guid  = contact.guid ? contact.guid.toString().trim() : generateGuid();
 
   var contactTypes = getConfig().contactTypes;
-  if (contactTypes.indexOf(role) < 0) {
+  if (contactTypes.indexOf(type) < 0) {
     return { success: false, error: 'Type must be one of: ' + contactTypes.join(', ') + '.' };
   }
   if (!first) return { success: false, error: 'First name is required.' };
@@ -3290,17 +3290,17 @@ function saveContact(studentId, contact, updateSiblingIds) {
       // Editing an existing contact row.
       var rowNum = parseInt(contact.rowIndex, 10);
       sheet.getRange(rowNum, PARENT_COL_GUID  + 1).setValue(guid);
-      sheet.getRange(rowNum, PARENT_COL_ROLE  + 1).setValue(role);
+      sheet.getRange(rowNum, PARENT_COL_TYPE  + 1).setValue(type);
       sheet.getRange(rowNum, PARENT_COL_FIRST + 1).setValue(first);
       sheet.getRange(rowNum, PARENT_COL_LAST  + 1).setValue(last);
       sheet.getRange(rowNum, PARENT_COL_EMAIL + 1).setValue(email);
     } else {
       // New contact — always appended as a new row, since a student
       // can have several independent contacts at once.
-      sheet.appendRow([id, guid, role, first, last, email]);
+      sheet.appendRow([id, guid, type, first, last, email]);
     }
 
-    // Optionally push the same name/email/role to sibling rows sharing
+    // Optionally push the same name/email/type to sibling rows sharing
     // this GUID for other students (e.g. updating a parent's email for
     // all of their children at once).
     var updatedSiblings = 0;
@@ -3311,7 +3311,7 @@ function saveContact(studentId, contact, updateSiblingIds) {
         var rowSid  = data[i][PARENT_COL_STUDENT_ID].toString().trim();
         var rowGuid = data[i][PARENT_COL_GUID] ? data[i][PARENT_COL_GUID].toString().trim() : '';
         if (targetSids.indexOf(rowSid) >= 0 && rowGuid === guid) {
-          sheet.getRange(i + 1, PARENT_COL_ROLE  + 1).setValue(role);
+          sheet.getRange(i + 1, PARENT_COL_TYPE  + 1).setValue(type);
           sheet.getRange(i + 1, PARENT_COL_FIRST + 1).setValue(first);
           sheet.getRange(i + 1, PARENT_COL_LAST  + 1).setValue(last);
           sheet.getRange(i + 1, PARENT_COL_EMAIL + 1).setValue(email);
