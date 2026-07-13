@@ -1934,6 +1934,9 @@ function getStudentProfile(studentId) {
       student = {
         studentId:         stuData[s][STU_COL_ID].toString(),
         studentName:   displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]),
+        firstName:         stuData[s][STU_COL_FIRST]  ? stuData[s][STU_COL_FIRST].toString()  : '',
+        lastName:          stuData[s][STU_COL_LAST]   ? stuData[s][STU_COL_LAST].toString()   : '',
+        middleName:        stuData[s][STU_COL_MIDDLE] ? stuData[s][STU_COL_MIDDLE].toString() : '',
         grade:             stuData[s][STU_COL_GRADE].toString(),
         currentPoints:     curPts,
         pct:               curPct,
@@ -2918,6 +2921,9 @@ function getStudentsList() {
         data[i][STU_COL_FIRST] ? data[i][STU_COL_FIRST].toString().trim() : '',
         data[i][STU_COL_LAST]  ? data[i][STU_COL_LAST].toString().trim()  : ''
       ),
+      firstName:     data[i][STU_COL_FIRST]  ? data[i][STU_COL_FIRST].toString().trim()  : '',
+      lastName:      data[i][STU_COL_LAST]   ? data[i][STU_COL_LAST].toString().trim()   : '',
+      middleName:    data[i][STU_COL_MIDDLE] ? data[i][STU_COL_MIDDLE].toString().trim() : '',
       grade:         data[i][STU_COL_GRADE] ? data[i][STU_COL_GRADE].toString().trim() : '',
       currentPoints: isNaN(pts) ? cfg.semesterPoints : pts
     });
