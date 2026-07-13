@@ -26,6 +26,21 @@
     .filter-title { font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
                     letter-spacing: 0.07em; color: #1a56db; margin-bottom: 12px; }
     .filter-grid  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+    #f-stu-results { position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+                     border: 1px solid #d1d5db; border-radius: 6px; margin-top: 4px;
+                     max-height: 240px; overflow-y: auto; background: white;
+                     box-shadow: 0 8px 20px rgba(0,0,0,0.12); display: none; }
+    .rstu-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+                cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+    .rstu-item:last-child { border-bottom: none; }
+    .rstu-item:hover { background: #f0f7ff; }
+    .rstu-name { font-weight: 600; font-size: 0.85rem; flex: 1; }
+    .rstu-id   { font-size: 0.74rem; color: #9ca3af; }
+    .rstu-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+                 background: none; border: none;
+                 color: #9ca3af; cursor: pointer; font-size: 1rem; padding: 2px 4px; display: none; }
+    .rstu-clear:hover { color: #4b5563; }
     .filter-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
     .filter-row   { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
 
@@ -192,7 +207,15 @@
   <div class="filter-card">
     <div class="filter-title">Filters</div>
     <div class="filter-grid">
-      <div><label class="fl">Student Name</label><input type="text" id="f-stu" placeholder="Search..."></div>
+      <div>
+        <label class="fl">Student</label>
+        <div style="position:relative;">
+          <input type="text" id="f-stu" placeholder="Type a name or ID..." autocomplete="off"
+                 oninput="searchReportStudents(this.value)" onfocus="searchReportStudents(this.value)">
+          <button type="button" class="rstu-clear" id="f-stu-clear" onclick="clearReportStudent()">×</button>
+          <div id="f-stu-results"></div>
+        </div>
+      </div>
       <div><label class="fl">Teacher</label>
            <select id="f-tch"><option value="">All Teachers</option></select></div>
       <div><label class="fl">Infraction</label>
@@ -260,6 +283,8 @@
 var allRows = [], filteredRows = [], sortCol = 'IncidentDate', sortAsc = false, semPts = 100;
 var pointTiers = []; // admin-configured point-balance color tiers
 var terms = []; // term start/end date ranges, for the Term filter
+var reportStudents = []; // unique {studentId, studentName} pairs, derived from allRows
+var selectedStudentId = ''; // set when a student is picked from the Student search dropdown
 var detailIdx = null;
 var isAdmin = false;
 
@@ -395,6 +420,20 @@ function onDataLoaded(data) {
   pointTiers = data.pointTiers || [];
   terms   = data.terms || [];
 
+  // Unique student list for the Student search dropdown — derived from
+  // the referral rows themselves rather than a separate fetch, so it
+  // naturally only ever lists students who actually have referrals.
+  var seenStu = {};
+  reportStudents = [];
+  allRows.forEach(function(row) {
+    var sid = (row['StudentID']||'').toString();
+    if (sid && !seenStu[sid]) {
+      seenStu[sid] = true;
+      reportStudents.push({ studentId: sid, studentName: row['StudentName']||'' });
+    }
+  });
+  reportStudents.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
+
   var tchSel = document.getElementById('f-tch');
   (data.teacherOptions||[]).forEach(function(t) {
     tchSel.innerHTML += '<option value="'+esc(t)+'">'+esc(t)+'</option>';
@@ -415,8 +454,79 @@ function onDataLoaded(data) {
   updateSummary();
 }
 
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
+// ── Student search dropdown (mirrors the referral form's student picker,
+// adapted for single-select filtering rather than multi-select submission) ──
+function searchReportStudents(query) {
+  var q = (query || '').trim().toLowerCase();
+  var results = document.getElementById('f-stu-results');
+
+  // Typing anything (even matching the currently-selected student's own
+  // name) clears the active filter until a result is clicked again —
+  // same "must pick from the list" behavior as the referral form.
+  if (selectedStudentId) {
+    selectedStudentId = '';
+    document.getElementById('f-stu-clear').style.display = 'none';
+    applyFilters();
+  }
+
+  if (!q) { results.style.display = 'none'; return; }
+
+  var hits = reportStudents.filter(function(s) {
+    return matchesWordStart(s.studentName, q) ||
+           (/\d/.test(q) && s.studentId.toLowerCase().indexOf(q) >= 0);
+  }).slice(0, 40);
+
+  if (hits.length === 0) {
+    results.innerHTML = '<div style="padding:10px 12px;color:#9ca3af;font-size:0.82rem;">No students found.</div>';
+    results.style.display = 'block';
+    return;
+  }
+
+  results.innerHTML = hits.map(function(s) {
+    return '<div class="rstu-item" onmousedown="selectReportStudent(\''+esc(s.studentId)+'\',\''+esc(s.studentName)+'\')">' +
+      '<span class="rstu-name">'+esc(s.studentName)+'</span>' +
+      '<span class="rstu-id">'+esc(s.studentId)+'</span>' +
+    '</div>';
+  }).join('');
+  results.style.display = 'block';
+}
+
+function selectReportStudent(studentId, studentName) {
+  selectedStudentId = studentId;
+  document.getElementById('f-stu').value = studentName;
+  document.getElementById('f-stu-clear').style.display = 'block';
+  document.getElementById('f-stu-results').style.display = 'none';
+  applyFilters();
+}
+
+function clearReportStudent() {
+  selectedStudentId = '';
+  document.getElementById('f-stu').value = '';
+  document.getElementById('f-stu-clear').style.display = 'none';
+  document.getElementById('f-stu-results').style.display = 'none';
+  applyFilters();
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#f-stu') && !e.target.closest('#f-stu-results')) {
+    var r = document.getElementById('f-stu-results');
+    if (r) r.style.display = 'none';
+  }
+});
+
 function applyFilters() {
-  var stuName  = document.getElementById('f-stu').value.trim().toLowerCase();
   var tch      = document.getElementById('f-tch').value.toLowerCase();
   var inf      = document.getElementById('f-inf').value;
   var termIdx  = document.getElementById('f-term').value;
@@ -425,7 +535,7 @@ function applyFilters() {
   var to       = document.getElementById('f-to').value;
 
   filteredRows = allRows.filter(function(row) {
-    if (stuName && (row['StudentName']||'').toLowerCase().indexOf(stuName) < 0) return false;
+    if (selectedStudentId && (row['StudentID']||'').toString() !== selectedStudentId) return false;
     if (tch     && (row['TeacherName']||'').toLowerCase().indexOf(tch) < 0)     return false;
     if (inf     && row['InfractionType'] !== inf)                                return false;
     if (term    && (row['IncidentDate'] < term.start || row['IncidentDate'] > term.end)) return false;
@@ -441,6 +551,9 @@ function applyFilters() {
 function clearFilters() {
   ['f-stu','f-from','f-to'].forEach(function(id){ document.getElementById(id).value=''; });
   ['f-tch','f-inf','f-term'].forEach(function(id){ document.getElementById(id).selectedIndex=0; });
+  selectedStudentId = '';
+  document.getElementById('f-stu-clear').style.display = 'none';
+  document.getElementById('f-stu-results').style.display = 'none';
   filteredRows = allRows.slice();
   renderTable();
   updateSummary();

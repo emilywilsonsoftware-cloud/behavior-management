@@ -351,6 +351,18 @@ function onBootstrap(data) {
 }
 
 // ── Positive Note — Student Search (client-side — no round trip) ──
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
 function searchPosStudents(query) {
   var q        = (query || '').trim().toLowerCase();
   var gradeVal = document.getElementById('pos-filter-grade').value;
@@ -366,8 +378,8 @@ function searchPosStudents(query) {
 
   var hits = state.allStudents.filter(function(s) {
     if (gradeVal && s.grade !== gradeVal) return false;
-    if (q && s.studentName.toLowerCase().indexOf(q) < 0 &&
-             s.studentId.toLowerCase().indexOf(q)   < 0) return false;
+    if (q && !matchesWordStart(s.studentName, q) &&
+             !(/\d/.test(q) && s.studentId.toLowerCase().indexOf(q) >= 0)) return false;
     return true;
   }).slice(0, 40);
 

@@ -1043,7 +1043,7 @@ function onSettingsSearch(query) {
   }
 
   _searchMatches = SETTINGS_SEARCH_INDEX.filter(function(item) {
-    return item.label.toLowerCase().indexOf(q) >= 0;
+    return matchesWordStart(item.label, q);
   });
 
   resultsEl.innerHTML = _searchMatches.length === 0
@@ -2078,14 +2078,26 @@ function loadStudents() {
     .getStudentsList();
 }
 
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
 function filterRoster(query) {
   var q        = (query || '').trim().toLowerCase();
   var gradeVal = document.getElementById('stu-roster-grade').value;
   var hits     = _allStudents.filter(function(s) {
     if (gradeVal && s.grade !== gradeVal) return false;
     if (q) {
-      var name = (s.firstName + ' ' + s.lastName).toLowerCase();
-      return name.indexOf(q) >= 0 || s.studentId.toLowerCase().indexOf(q) >= 0;
+      var name = (s.firstName + ' ' + s.lastName);
+      return matchesWordStart(name, q) || (/\d/.test(q) && s.studentId.toLowerCase().indexOf(q) >= 0);
     }
     return true;
   });

@@ -428,6 +428,18 @@ function displayName(first, last) {
   return (((first || '').trim()) + ' ' + ((last || '').trim())).trim().replace(/\s+/g, ' ');
 }
 
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toString().toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
 // =============================================================
 // CONFIG & INFRACTIONS READERS  (cached per execution)
 // =============================================================
@@ -3150,9 +3162,9 @@ function searchParentContacts(query) {
       if (!guid) continue;
       if (seen[guid]) continue;
 
-      var matches = name.toLowerCase().indexOf(q) >= 0 ||
-                    first.toLowerCase().indexOf(q) >= 0 ||
-                    last.toLowerCase().indexOf(q) >= 0 ||
+      var matches = matchesWordStart(name, q) ||
+                    matchesWordStart(first, q) ||
+                    matchesWordStart(last, q) ||
                     email.toLowerCase().indexOf(q) >= 0;
 
       if (matches) {
