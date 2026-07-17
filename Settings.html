@@ -56,10 +56,14 @@
     .stab { padding: 9px 16px; font-size: 0.85rem; font-weight: 600;
             cursor: pointer; border: none; background: none;
             color: #5a6a7e; border-bottom: 3px solid transparent;
-            margin-bottom: -2px; transition: color 0.12s; font-family: inherit; }
+            margin-bottom: -2px; transition: color 0.12s; font-family: inherit;
+            position: relative; }
     .stab:hover { color: #1e3a5f; }
     .stab.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
     .stab.stab-danger { color: #b91c1c; }
+    .stab-dot { display: none; width: 7px; height: 7px; border-radius: 50%;
+               background: #d97706; position: absolute; top: 6px; right: 2px; }
+    .stab-dot.show { display: inline-block; }
     .stab.stab-danger:hover { color: #991b1b; }
     .stab.stab-danger.active { color: #991b1b; border-bottom-color: #dc2626; }
 
@@ -288,12 +292,16 @@
 
     /* ── Save row becomes sticky + highlighted only while there are
        unsaved tier changes — a single Save button, not a duplicate. ── */
-    .tier-save-row.dirty { position: sticky; bottom: 12px; z-index: 40;
-                           background: white; border: 1px solid #c8d0e0;
-                           border-radius: 8px; padding: 10px 14px;
-                           box-shadow: 0 4px 16px rgba(30,58,95,0.16);
-                           transition: box-shadow 0.2s ease; }
-    .tier-save-row.dirty .save-msg:empty::before { content: 'Unsaved changes'; color: #92400e; font-weight: 600; }
+    /* ── Save row becomes sticky + highlighted only while a section has
+       unsaved changes — a single Save button, not a duplicate. Originally
+       built for the Point Colors tier editor; now shared by every
+       section so switching away from unsaved work is hard to miss. ── */
+    .save-row.dirty { position: sticky; bottom: 12px; z-index: 40;
+                      background: white; border: 1px solid #c8d0e0;
+                      border-radius: 8px; padding: 10px 14px;
+                      box-shadow: 0 4px 16px rgba(30,58,95,0.16);
+                      transition: box-shadow 0.2s ease; }
+    .save-row.dirty .save-msg:empty::before { content: 'Unsaved changes'; color: #92400e; font-weight: 600; }
 
     /* ── Toggle ── */
     .toggle-row { display: flex; align-items: center; justify-content: space-between;
@@ -467,9 +475,9 @@
 
     <!-- ── Tab bar ── -->
     <div class="settings-tabs">
-      <button class="stab active" onclick="showTab('general')">General</button>
-      <button class="stab" onclick="showTab('behaviorpoints')">Behavior &amp; Points</button>
-      <button class="stab" onclick="showTab('staff')">Staff</button>
+      <button class="stab active" onclick="showTab('general')">General<span class="stab-dot" id="stab-dot-general"></span></button>
+      <button class="stab" onclick="showTab('behaviorpoints')">Behavior &amp; Points<span class="stab-dot" id="stab-dot-behaviorpoints"></span></button>
+      <button class="stab" onclick="showTab('staff')">Staff<span class="stab-dot" id="stab-dot-staff"></span></button>
       <button class="stab" onclick="showTab('students')">Students</button>
       <button class="stab stab-danger" onclick="showTab('yearend')">Reset &amp; Archive</button>
     </div>
@@ -494,7 +502,7 @@
             <input type="number" id="cfg-positiveCap" min="0" max="9999" placeholder="15">
           </div>
         </div>
-        <div class="save-row">
+        <div class="save-row" data-dirty-key="school">
           <span class="save-msg" id="msg-school"></span>
           <button class="btn-save" onclick="saveSection('school')">Save</button>
         </div>
@@ -539,7 +547,7 @@
           <label>Email Footer Text</label>
           <textarea id="cfg-emailFooter" rows="3"></textarea>
         </div>
-        <div class="save-row">
+        <div class="save-row" data-dirty-key="email">
           <span class="save-msg" id="msg-email"></span>
           <button class="btn-save" onclick="saveSection('email')">Save</button>
         </div>
@@ -555,7 +563,7 @@
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>Add location
         </button>
-        <div class="save-row" style="margin-top:12px;">
+        <div class="save-row" style="margin-top:12px;" data-dirty-key="locations">
           <span class="save-msg" id="msg-locations"></span>
           <button class="btn-save" onclick="saveSection('locations')">Save</button>
         </div>
@@ -571,7 +579,7 @@
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>Add contact type
         </button>
-        <div class="save-row" style="margin-top:12px;">
+        <div class="save-row" style="margin-top:12px;" data-dirty-key="contactTypes">
           <span class="save-msg" id="msg-contactTypes"></span>
           <button class="btn-save" onclick="saveSection('contactTypes')">Save</button>
         </div>
@@ -587,7 +595,7 @@
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>Add date
         </button>
-        <div class="save-row" style="margin-top:12px;">
+        <div class="save-row" style="margin-top:12px;" data-dirty-key="term">
           <span class="save-msg" id="msg-term"></span>
           <button class="btn-save" onclick="saveSection('term')">Save</button>
         </div>
@@ -656,7 +664,7 @@
           </button>
         </div>
 
-        <div class="save-row" style="margin-top:14px;">
+        <div class="save-row" style="margin-top:14px;" data-dirty-key="infractions">
           <span class="save-msg" id="msg-infractions"></span>
           <button class="btn-save" onclick="saveInfractions()">Save All</button>
         </div>
@@ -686,7 +694,7 @@
           </button>
         </div>
 
-        <div class="save-row" style="margin-top:14px;">
+        <div class="save-row" style="margin-top:14px;" data-dirty-key="infractions">
           <span class="save-msg" id="msg-pos-infractions"></span>
           <button class="btn-save" onclick="saveInfractions()">Save All</button>
         </div>
@@ -721,7 +729,7 @@
           </button>
         </div>
 
-        <div class="save-row" style="margin-top:14px;">
+        <div class="save-row" style="margin-top:14px;" data-dirty-key="staff">
           <span class="save-msg" id="msg-staff"></span>
           <button class="btn-save" onclick="saveStaff()">Save All</button>
         </div>
@@ -1174,11 +1182,11 @@ function getTimePickerValue() {
 function buildList(key, items, inputType) {
   var container = document.getElementById('list-' + key);
   container.innerHTML = '';
-  if (items.length === 0) { addListItem(key, '', inputType); return; }
-  items.forEach(function(v) { addListItem(key, v, inputType); });
+  if (items.length === 0) { addListItem(key, '', inputType, true); return; }
+  items.forEach(function(v) { addListItem(key, v, inputType, true); });
 }
 
-function addListItem(key, value, inputType) {
+function addListItem(key, value, inputType, isInitialLoad) {
   var container = document.getElementById('list-' + key);
   var div = document.createElement('div');
   div.className = 'list-item';
@@ -1189,15 +1197,19 @@ function addListItem(key, value, inputType) {
     '<button class="rm-btn" onclick="removeListItem(this)">×</button>';
   container.appendChild(div);
   if (!value && type !== 'date') div.querySelector('input').focus();
+  if (!isInitialLoad) markDirty(key);
 }
 
 function removeListItem(btn) {
   var container = btn.closest('.list-editor');
+  var key = container.id.replace('list-', '');
   if (container.querySelectorAll('.list-item').length <= 1) {
     btn.closest('.list-item').querySelector('input').value = '';
+    markDirty(key);
     return;
   }
   btn.closest('.list-item').remove();
+  markDirty(key);
 }
 
 function getListValues(key) {
@@ -1241,6 +1253,8 @@ function saveSection(section) {
         if (section === 'pointTiers') {
           _tierDirty = false;
           updateTierStickyBar();
+        } else {
+          clearDirty(section);
         }
       } else {
         setMsg(section, 'Error: ' + (r.error || 'Unknown'), 'err');
@@ -1255,6 +1269,107 @@ function saveSection(section) {
 // ══════════════════════════════════════════════════════════
 var TIER_MIN = 2;
 var TIER_MAX = 6;
+// ── Generic unsaved-changes tracking ───────────────────────────
+// Extends the same sticky/highlighted save-row pattern originally
+// built for the Point Colors tier editor (see _tierDirty below) to
+// every other section, so switching tabs or closing the browser with
+// unsaved work is hard to miss rather than silently losing it.
+var _dirtySections = {};
+
+function markDirty(key) {
+  if (_dirtySections[key]) return;
+  _dirtySections[key] = true;
+  updateStickyBar(key);
+}
+
+function clearDirty(key) {
+  if (!_dirtySections[key]) return;
+  _dirtySections[key] = false;
+  updateStickyBar(key);
+}
+
+// Which tab each dirty key lives on, so the tab button itself can show
+// a dot when a key on it is dirty — needed because switching tabs hides
+// the sticky save-row along with the rest of that tab's content.
+var DIRTY_KEY_TAB = {
+  school: 'general', email: 'general', locations: 'general',
+  contactTypes: 'general', term: 'general',
+  infractions: 'behaviorpoints', pointTiers: 'behaviorpoints',
+  staff: 'staff'
+};
+
+function updateStickyBar(key) {
+  document.querySelectorAll('[data-dirty-key="' + key + '"]').forEach(function(row) {
+    row.classList.toggle('dirty', !!_dirtySections[key]);
+  });
+  updateTabDot(DIRTY_KEY_TAB[key]);
+}
+
+function updateTabDot(tabName) {
+  var dot = document.getElementById('stab-dot-' + tabName);
+  if (!dot) return;
+  var dirty = Object.keys(DIRTY_KEY_TAB).some(function(k) {
+    if (DIRTY_KEY_TAB[k] !== tabName) return false;
+    return k === 'pointTiers' ? _tierDirty : !!_dirtySections[k];
+  });
+  dot.classList.toggle('show', dirty);
+}
+
+function anyUnsavedChanges() {
+  if (_tierDirty) return true;
+  return Object.keys(_dirtySections).some(function(k) { return _dirtySections[k]; });
+}
+
+window.addEventListener('beforeunload', function(e) {
+  if (anyUnsavedChanges()) {
+    e.preventDefault();
+    e.returnValue = ''; // required for the browser's native "leave site?" prompt
+  }
+});
+
+// School and Email are plain form fields (no add/remove rows), so a
+// single delegated listener per card catches every change — typing,
+// toggling a switch, picking a time, all of it.
+['card-school', 'card-email'].forEach(function(cardId) {
+  var key = cardId.replace('card-', '');
+  var card = document.getElementById(cardId);
+  if (card) {
+    card.addEventListener('input',  function() { markDirty(key); });
+    card.addEventListener('change', function() { markDirty(key); });
+  }
+});
+
+// List-editor cards (add/remove already marks dirty inside
+// addListItem()/removeListItem() — this delegated listener additionally
+// catches editing the VALUE of an already-existing item).
+[['card-locations', 'locations'], ['card-contacttypes', 'contactTypes'], ['card-term', 'term']]
+  .forEach(function(pair) {
+    var card = document.getElementById(pair[0]);
+    if (card) card.addEventListener('input', function(e) {
+      if (e.target.matches('.list-item input')) markDirty(pair[1]);
+    });
+  });
+
+// Infractions tables (add/remove already marks dirty inside
+// appendInfractionRow()/appendPositiveInfractionRow()/removeInfractionRow()
+// — this catches editing an existing row's name/points/notes).
+['card-behaviorinfractions', 'card-positivetypes'].forEach(function(cardId) {
+  var card = document.getElementById(cardId);
+  if (card) card.addEventListener('input', function(e) {
+    if (e.target.closest('tbody tr')) markDirty('infractions');
+  });
+});
+
+// Staff table: same pattern, its own dirty key. Also listens for
+// 'change' specifically because the role <select> fires change, not input.
+(function() {
+  var card = document.getElementById('card-staff');
+  if (card) {
+    card.addEventListener('input',  function(e) { if (e.target.closest('tbody tr')) markDirty('staff'); });
+    card.addEventListener('change', function(e) { if (e.target.closest('tbody tr')) markDirty('staff'); });
+  }
+})();
+
 var _tierDirty = false; // tracks unsaved changes for the sticky save row
 
 // Reads the live value of the Semester Start Points field. Tiers are
@@ -1503,6 +1618,7 @@ function computeTierWarnings(rows, sp) {
 // without showing a second, separate Save button.
 function updateTierStickyBar() {
   document.getElementById('tier-inline-save').classList.toggle('dirty', _tierDirty);
+  updateTabDot('behaviorpoints');
 }
 
 // Reads the tier rows into a list of {min, max, color} point ranges,
@@ -1882,8 +1998,8 @@ function renderInfractionsTable(rows) {
   negTbody.innerHTML = '';
   posTbody.innerHTML = '';
   rows.forEach(function(r) {
-    if ((parseInt(r.pointValue, 10) || 0) > 0) appendPositiveInfractionRow(r);
-    else appendInfractionRow(r);
+    if ((parseInt(r.pointValue, 10) || 0) > 0) appendPositiveInfractionRow(r, true);
+    else appendInfractionRow(r, true);
   });
 }
 
@@ -1893,14 +2009,15 @@ function addInfractionRow() {
   tbody.lastElementChild.querySelector('input').focus();
 }
 
-function appendInfractionRow(r) {
+function appendInfractionRow(r, isInitialLoad) {
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input type="text" value="'+esc(r.name)+'" placeholder="Infraction name"></td>' +
     '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
     '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
-    '<td class="td-del"><button class="icon-remove-btn" onclick="this.closest(\'tr\').remove()" title="Remove">' + TRASH_SVG + '</button></td>';
+    '<td class="td-del"><button class="icon-remove-btn" onclick="removeInfractionRow(this)" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('inf-tbody').appendChild(tr);
+  if (!isInitialLoad) markDirty('infractions');
 }
 
 function addPositiveInfractionRow() {
@@ -1909,14 +2026,23 @@ function addPositiveInfractionRow() {
   tbody.lastElementChild.querySelector('input').focus();
 }
 
-function appendPositiveInfractionRow(r) {
+function appendPositiveInfractionRow(r, isInitialLoad) {
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input type="text" value="'+esc(r.name)+'" placeholder="Type name"></td>' +
     '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
     '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
-    '<td class="td-del"><button class="icon-remove-btn" onclick="this.closest(\'tr\').remove()" title="Remove">' + TRASH_SVG + '</button></td>';
+    '<td class="td-del"><button class="icon-remove-btn" onclick="removeInfractionRow(this)" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('pos-inf-tbody').appendChild(tr);
+  if (!isInitialLoad) markDirty('infractions');
+}
+
+// Shared by both the Behavior Infractions and Positive Note Types
+// tables — both save together via saveInfractions(), so they share one
+// dirty flag (both save-rows glow together, matching that behavior).
+function removeInfractionRow(btn) {
+  btn.closest('tr').remove();
+  markDirty('infractions');
 }
 
 function saveInfractions() {
@@ -1946,6 +2072,7 @@ function saveInfractions() {
         setMsg('infractions', '✓ Saved ' + r.count + ' total.', 'ok');
         setMsg('pos-infractions', '✓ Saved ' + r.count + ' total.', 'ok');
         setTimeout(function(){ setMsg('infractions','',''); setMsg('pos-infractions','',''); }, 3000);
+        clearDirty('infractions');
       } else {
         setMsg('infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
         setMsg('pos-infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
@@ -1978,7 +2105,7 @@ function loadStaff() {
 function renderStaffTable(rows) {
   var tbody = document.getElementById('staff-tbody');
   tbody.innerHTML = '';
-  rows.forEach(function(r) { appendStaffRow(r); });
+  rows.forEach(function(r) { appendStaffRow(r, true); });
 }
 
 function addStaffRow() {
@@ -1987,7 +2114,7 @@ function addStaffRow() {
   tbody.lastElementChild.querySelector('input').focus();
 }
 
-function appendStaffRow(r) {
+function appendStaffRow(r, isInitialLoad) {
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input type="text"  value="'+esc(r.firstName||'')+'" placeholder="First"></td>' +
@@ -1999,6 +2126,7 @@ function appendStaffRow(r) {
     '</select></td>' +
     '<td class="td-del"><button class="icon-remove-btn" onclick="confirmRemoveStaffRow(this)" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('staff-tbody').appendChild(tr);
+  if (!isInitialLoad) markDirty('staff');
 }
 
 // Row removal here is client-side only (pending until "Save All" is
@@ -2018,6 +2146,7 @@ function confirmRemoveStaffRow(btn) {
     confirmLabel: 'Remove',
     onConfirm: function() {
       tr.remove();
+      markDirty('staff');
       showToast('Removed — click "Save All" to apply.');
     }
   });
@@ -2040,6 +2169,7 @@ function saveStaff() {
       if (r.success) {
         setMsg('staff', '✓ Saved ' + r.count + ' staff members.', 'ok');
         setTimeout(function(){ setMsg('staff','',''); }, 3000);
+        clearDirty('staff');
         // Clear nav cache so Settings visibility updates for role-changed users
         try { sessionStorage.removeItem('bt_nav_user'); } catch(e) {}
       } else setMsg('staff', 'Error: ' + (r.error || 'Unknown'), 'err');

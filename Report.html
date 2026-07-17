@@ -814,7 +814,7 @@ function confirmDeleteReferral() {
 }
 
 function exportCsv() {
-  if (filteredRows.length === 0) { alert('No data to export.'); return; }
+  if (filteredRows.length === 0) { showToast('No data to export.', true); return; }
   var cols = ['ID','IncidentDate','IncidentTime','StudentName','Grade','InfractionType',
               'PointValue','PointsBeforeReferral','PointsAfterReferral','CurrentPoints',
               'Location','Description','IncludeDescriptionInEmail','TeacherName',

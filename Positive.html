@@ -159,7 +159,30 @@
              transition: opacity 0.22s ease, transform 0.22s ease; max-width: 100%; }
     .toast span { overflow-wrap: break-word; }
     .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.toast-err { background: #b91c1c; }
     .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
+
+    /* ── Confirm popup (replaces native confirm() for destructive actions) ── */
+    .confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+                       z-index: 310; display: none; align-items: center; justify-content: center;
+                       padding: 16px; }
+    .confirm-overlay.open { display: flex; }
+    .confirm-card { background: white; border-radius: 12px; max-width: 380px; width: 100%;
+                    padding: 22px 24px; box-shadow: 0 14px 40px rgba(0,0,0,0.25); text-align: center; }
+    .confirm-icon { width: 44px; height: 44px; border-radius: 50%; background: #fee2e2;
+                    color: #dc2626; display: flex; align-items: center; justify-content: center;
+                    margin: 0 auto 14px; }
+    .confirm-icon svg { width: 22px; height: 22px; }
+    .confirm-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+    .confirm-msg { font-size: 0.86rem; color: #64748b; line-height: 1.5; margin-bottom: 20px;
+                  white-space: pre-line; }
+    .confirm-btn-row { display: flex; gap: 10px; }
+    .confirm-btn { flex: 1; padding: 9px 14px; border-radius: 7px; font-size: 0.86rem;
+                  font-weight: 700; cursor: pointer; font-family: inherit; border: none; }
+    .confirm-btn.cancel { background: #f1f5f9; color: #475569; }
+    .confirm-btn.cancel:hover { background: #e2e8f0; }
+    .confirm-btn.danger { background: #dc2626; color: white; }
+    .confirm-btn.danger:hover { background: #b91c1c; }
 
     @media (max-width: 560px) {
       .form-grid { grid-template-columns: 1fr; }
@@ -173,6 +196,23 @@
 <script>var BASE_URL = "<?!= baseUrl ?>";</script>
 
 <div id="toast-wrap" aria-live="polite"></div>
+
+<div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this) _confirmCancel()">
+  <div class="confirm-card">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <div class="confirm-title" id="confirm-title"></div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btn-row">
+      <button class="confirm-btn cancel" onclick="_confirmCancel()">Cancel</button>
+      <button class="confirm-btn danger" id="confirm-danger-btn" onclick="_confirmAccept()">Continue</button>
+    </div>
+  </div>
+</div>
 
 <main>
   <div id="init-msg" class="card" style="text-align:center;color:#6b7280;">Loading form...</div>
@@ -650,21 +690,24 @@ function onPositiveSubmitOk(result, referrals) {
              ' = ' + d.wouldBe + ' (cap is ' + d.cap + ')';
     }).join('\n');
     clearPosStatus();
-    var proceed = window.confirm(
-      'This would put the following student(s) over the ' + result.overCapDetails[0].cap +
-      '-point term cap:\n\n' + lines + '\n\nSubmit anyway?'
-    );
-    if (!proceed) return;
 
-    document.getElementById('pos-submit-btn').disabled = true;
-    showPosLoad('Submitting...');
-    google.script.run
-      .withSuccessHandler(function(r) { onPositiveSubmitOk(r, referrals); })
-      .withFailureHandler(function(err) {
-        showPosErr('Submission failed: ' + (err.message || err));
-        document.getElementById('pos-submit-btn').disabled = false;
-      })
-      .submitPositiveReferrals(referrals, true);
+    showConfirm({
+      title: 'Over the positive points cap?',
+      message: 'This would put the following student(s) over the ' + result.overCapDetails[0].cap +
+                '-point term cap:\n\n' + lines,
+      confirmLabel: 'Submit Anyway',
+      onConfirm: function() {
+        document.getElementById('pos-submit-btn').disabled = true;
+        showPosLoad('Submitting...');
+        google.script.run
+          .withSuccessHandler(function(r) { onPositiveSubmitOk(r, referrals); })
+          .withFailureHandler(function(err) {
+            showPosErr('Submission failed: ' + (err.message || err));
+            document.getElementById('pos-submit-btn').disabled = false;
+          })
+          .submitPositiveReferrals(referrals, true);
+      }
+    });
     return;
   }
 
@@ -715,15 +758,17 @@ function clearPosStatus() {
 }
 
 // ── Toast notification ──────────────────────────────────────────
-var _toastTimer = null;
-function showToast(message, durationMs) {
+function showToast(message, isError, durationMs) {
   var wrap = document.getElementById('toast-wrap');
   var toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.innerHTML =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
-      '<path d="M20 6L9 17l-5-5"/>' +
-    '</svg>' +
+  toast.className = 'toast' + (isError ? ' toast-err' : '');
+  toast.innerHTML = (isError
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' +
+      '</svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<path d="M20 6L9 17l-5-5"/>' +
+      '</svg>') +
     '<span>' + esc(message) + '</span>';
   wrap.appendChild(toast);
 
@@ -734,6 +779,33 @@ function showToast(message, durationMs) {
     setTimeout(function() { toast.remove(); }, 220);
   }, durationMs || 3200);
 }
+
+// ── Confirm popup (replaces native confirm() for destructive/blocking actions) ──
+var _confirmOnAccept = null;
+
+function showConfirm(opts) {
+  document.getElementById('confirm-title').textContent = opts.title || 'Are you sure?';
+  document.getElementById('confirm-msg').textContent   = opts.message || '';
+  document.getElementById('confirm-danger-btn').textContent = opts.confirmLabel || 'Continue';
+  _confirmOnAccept = opts.onConfirm || null;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function _confirmCancel() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+}
+
+function _confirmAccept() {
+  var fn = _confirmOnAccept;
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+  if (fn) fn();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') _confirmCancel();
+});
 
 // ── Utilities ─────────────────────────────────────────────────
 function dateStr(d) { return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
