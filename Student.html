@@ -102,10 +102,6 @@
     .p-info   { flex: 1; min-width: 180px; }
     .p-name   { font-size: 1.3rem; font-weight: 800; }
     .p-meta   { font-size: 0.83rem; color: #64748b; margin-top: 3px; }
-    .p-contact{ font-size: 0.8rem; color: #475569; margin-top: 7px;
-                display: flex; flex-wrap: wrap; gap: 10px; }
-    .p-contact a { color: #2563eb; text-decoration: none; }
-    .p-contact a:hover { text-decoration: underline; }
     .edit-info-btn { margin-top: 10px; background: white; color: #1d4ed8;
                           border: 1px solid #bfdbfe; border-radius: 7px; padding: 6px 14px;
                           font-size: 0.8rem; font-weight: 600; cursor: pointer;
@@ -564,13 +560,6 @@ function renderProfile(data) {
       '<div class="p-info">' +
         '<div class="p-name">'+esc(s.studentName)+'</div>' +
         '<div class="p-meta">Grade '+esc(s.grade)+' · ID: '+esc(s.studentId)+'</div>' +
-        '<div class="p-contact">' +
-          '<span style="color:#94a3b8;">' +
-            (s.contactCount > 0
-              ? s.contactCount + ' referral email contact' + (s.contactCount > 1 ? 's' : '') + ' on file'
-              : 'No referral email contacts on file') +
-          '</span>' +
-        '</div>' +
         (isAdm ? '<button class="edit-info-btn" onclick="openEditInfoModal()">Edit Info</button>' : '') +
       '</div>' +
       '<div class="pts-display" style="border-color:'+ptColor+';background:'+ptBg+';">' +

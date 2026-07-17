@@ -105,11 +105,6 @@
     .tch-name  { font-size: 0.8rem; font-weight: 500; }
     .tch-count { font-size: 0.86rem; font-weight: 700; color: #3b82f6; }
 
-    /* NW badge */
-    .term-badge { display: inline-block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
-                padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
-                margin-bottom: 16px; }
-
     .loading-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
 
     /* ── Teacher dashboard ── */
@@ -180,8 +175,6 @@
       </button>
     </div>
   </div>
-
-  <div id="term-badge-row"></div>
 
   <!-- ══════════════════════════════════════════════════════════
        ADMIN DASHBOARD — full school-wide view
@@ -376,12 +369,6 @@ function render(d) {
   document.getElementById('pg-sub').textContent =
     'Welcome, ' + d.user.name + '  ·  ' +
     now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-
-  if (d.currentTerm) {
-    document.getElementById('term-badge-row').innerHTML =
-      '<div class="term-badge">📅 ' + d.currentTerm.label +
-      ': ' + formatDateMDY(d.currentTerm.start) + ' – ' + formatDateMDY(d.currentTerm.end) + '</div>';
-  }
 
   if (d.user && d.user.role === 'teacher') {
     _isAdminView = false;
