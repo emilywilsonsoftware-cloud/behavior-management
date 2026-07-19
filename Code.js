@@ -1708,8 +1708,8 @@ function getDashboardData() {
     if (cfg.currentTerm && inc >= cfg.currentTerm.start && inc <= cfg.currentTerm.end) {
       termReferrals++;
     }
-    if (inc === today)       todayReferrals++;
-    if (inc >= day7ago)      weekReferrals++;
+    if (inc === today)                      todayReferrals++;
+    if (inc >= day7ago && inc <= today)      weekReferrals++;
     // Positive/negative are derived from PointValue's sign — every
     // infraction always has a point value, so this stays accurate
     // regardless. ptVal === 0 counts as neither (a logged incident with
@@ -1757,8 +1757,8 @@ function getDashboardData() {
     // the main loop rather than re-scanning the sheet a second time.
     if (user.role === 'teacher' && rowTeacherEmail === user.email.toLowerCase()) {
       myTotal++;
-      if (inc === today)  myToday++;
-      if (inc >= day7ago) myWeek++;
+      if (inc === today)                 myToday++;
+      if (inc >= day7ago && inc <= today) myWeek++;
       myRefs.push(refObj);
     }
   }
@@ -3173,6 +3173,57 @@ function searchParentContacts(query) {
           guid: guid, type: type, firstName: first, lastName: last,
           name: name, email: email
         });
+      }
+    }
+
+    results.sort(function(a, b) { return a.name.localeCompare(b.name); });
+    return { success: true, results: results };
+
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Same idea as searchParentContacts() above, but searches the Staff
+ * sheet instead — lets an admin add an existing teacher/admin (e.g. a
+ * counselor who's also in Staff) as a student's referral contact
+ * without retyping their name and email. Staff members have no
+ * inherent "contact type" the way parent contacts have a GUID-linked
+ * one, so the Type field is left for the admin to choose after picking
+ * a result, same as typing a brand-new contact in by hand.
+ */
+function searchStaffContacts(query) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  var q = (query || '').toString().trim().toLowerCase();
+  if (!q || q.length < 2) {
+    return { success: true, results: [] };
+  }
+
+  try {
+    var ss   = SpreadsheetApp.getActiveSpreadsheet();
+    var data = ss.getSheetByName(SHEET_STAFF).getDataRange().getValues();
+    var results = [];
+
+    for (var i = 1; i < data.length; i++) {
+      var first = data[i][STAFF_COL_FIRST] ? data[i][STAFF_COL_FIRST].toString().trim() : '';
+      var last  = data[i][STAFF_COL_LAST]  ? data[i][STAFF_COL_LAST].toString().trim()  : '';
+      var email = data[i][STAFF_COL_EMAIL] ? data[i][STAFF_COL_EMAIL].toString().trim() : '';
+      var role  = data[i][STAFF_COL_ROLE]  ? data[i][STAFF_COL_ROLE].toString().trim().toLowerCase() : '';
+      var name  = displayName(first, last);
+      if (!email) continue;
+
+      var matches = matchesWordStart(name, q) ||
+                    matchesWordStart(first, q) ||
+                    matchesWordStart(last, q) ||
+                    email.toLowerCase().indexOf(q) >= 0;
+
+      if (matches) {
+        results.push({ firstName: first, lastName: last, name: name, email: email, role: role });
       }
     }
 

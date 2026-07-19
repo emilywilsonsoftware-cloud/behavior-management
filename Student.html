@@ -181,6 +181,12 @@
     .ce-grid input:focus { outline: none; border-color: #1d4ed8;
                            box-shadow: 0 0 0 2px rgba(29,78,216,0.1); }
     .ce-search { margin-bottom: 10px; position: relative; }
+    .ce-search-toggle { display: flex; gap: 4px; margin-bottom: 6px; }
+    .ce-search-toggle-btn { padding: 3px 10px; border-radius: 20px; border: 1px solid #d1d5db;
+                            background: white; color: #64748b; font-size: 0.74rem; font-weight: 600;
+                            cursor: pointer; font-family: inherit; }
+    .ce-search-toggle-btn:hover { background: #f8fafc; }
+    .ce-search-toggle-btn.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
     .ce-search input { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
                        border-radius: 5px; font-size: 0.86rem; font-family: inherit; }
     .ce-search input:focus { outline: none; border-color: #1d4ed8; }
@@ -1174,9 +1180,15 @@ function buildContactFormHtml() {
   return (
     '<div class="ce-search" id="ce-search-wrap" style="display:none;">' +
       '<label style="font-size:0.76rem;font-weight:600;color:#374151;margin-bottom:4px;display:block;">' +
-        'Search existing contacts' +
+        'Search existing contacts or staff' +
         '<span style="font-weight:400;color:#94a3b8;margin-left:6px;">— or fill in new below</span>' +
       '</label>' +
+      '<div class="ce-search-toggle">' +
+        '<button type="button" class="ce-search-toggle-btn active" id="ce-toggle-contacts" ' +
+                'onclick="setContactSearchMode(\'contacts\')">Existing Contacts</button>' +
+        '<button type="button" class="ce-search-toggle-btn" id="ce-toggle-staff" ' +
+                'onclick="setContactSearchMode(\'staff\')">Staff</button>' +
+      '</div>' +
       '<input type="text" id="ce-search-input" placeholder="Type a name or email..."' +
              ' oninput="onContactSearch(this.value)">' +
       '<div class="ce-search-results" id="ce-search-results"></div>' +
@@ -1229,6 +1241,7 @@ function openContactEditor(rowIndex) {
     document.getElementById('ce-search-wrap').style.display = 'block';
     document.getElementById('ce-search-input').value = '';
     document.getElementById('ce-siblings').style.display = 'none';
+    setContactSearchMode('contacts');
   } else {
     // Editing an existing contact — find it in the cached list.
     document.getElementById('ce-search-wrap').style.display = 'none';
@@ -1284,9 +1297,25 @@ function closeContactEditor() {
   if (results) results.style.display = 'none';
 }
 
-// Search existing contacts as the admin types (search-before-create —
-// prevents accidentally creating a duplicate GUID for someone already
-// on file for another student).
+// Which source the "search existing" box is currently querying —
+// 'contacts' (other students' referral contacts, the original
+// behavior) or 'staff' (the Staff sheet, so an admin can add an
+// existing teacher/counselor/admin without retyping their info).
+var _ceSearchMode = 'contacts';
+
+function setContactSearchMode(mode) {
+  _ceSearchMode = mode;
+  document.getElementById('ce-toggle-contacts').classList.toggle('active', mode === 'contacts');
+  document.getElementById('ce-toggle-staff').classList.toggle('active', mode === 'staff');
+  var input = document.getElementById('ce-search-input');
+  input.placeholder = mode === 'staff' ? 'Type a staff name or email...' : 'Type a name or email...';
+  document.getElementById('ce-search-results').style.display = 'none';
+  if (input.value.trim().length >= 2) onContactSearch(input.value);
+}
+
+// Search existing contacts (or staff, per _ceSearchMode) as the admin
+// types — search-before-create prevents accidentally creating a
+// duplicate GUID for someone already on file for another student.
 function onContactSearch(query) {
   clearTimeout(_ceSearchTimer);
   var results = document.getElementById('ce-search-results');
@@ -1294,25 +1323,50 @@ function onContactSearch(query) {
     results.style.display = 'none';
     return;
   }
+  var mode = _ceSearchMode;
   _ceSearchTimer = setTimeout(function() {
-    google.script.run
-      .withSuccessHandler(function(r) {
-        if (!r.success || r.results.length === 0) {
-          results.style.display = 'none';
-          return;
-        }
-        results.innerHTML = r.results.map(function(p) {
-          return '<div class="ce-search-item" onclick="selectExistingContact('+
-            JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
-            '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.type||'—')+')</span></div>' +
-            '<div class="ce-si-email">'+esc(p.email)+'</div>' +
-          '</div>';
-        }).join('');
-        results.style.display = 'block';
-      })
-      .withFailureHandler(function() { results.style.display = 'none'; })
-      .searchParentContacts(query);
+    if (mode === 'staff') {
+      google.script.run
+        .withSuccessHandler(onStaffSearchResults)
+        .withFailureHandler(onSearchFailed)
+        .searchStaffContacts(query);
+    } else {
+      google.script.run
+        .withSuccessHandler(onContactSearchResults)
+        .withFailureHandler(onSearchFailed)
+        .searchParentContacts(query);
+    }
   }, 300);
+}
+
+function onSearchFailed() {
+  document.getElementById('ce-search-results').style.display = 'none';
+}
+
+function onContactSearchResults(r) {
+  var results = document.getElementById('ce-search-results');
+  if (!r.success || r.results.length === 0) { results.style.display = 'none'; return; }
+  results.innerHTML = r.results.map(function(p) {
+    return '<div class="ce-search-item" onclick="selectExistingContact('+
+      JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
+      '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.type||'—')+')</span></div>' +
+      '<div class="ce-si-email">'+esc(p.email)+'</div>' +
+    '</div>';
+  }).join('');
+  results.style.display = 'block';
+}
+
+function onStaffSearchResults(r) {
+  var results = document.getElementById('ce-search-results');
+  if (!r.success || r.results.length === 0) { results.style.display = 'none'; return; }
+  results.innerHTML = r.results.map(function(p) {
+    return '<div class="ce-search-item" onclick="selectStaffContact('+
+      JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
+      '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.role||'staff')+')</span></div>' +
+      '<div class="ce-si-email">'+esc(p.email)+'</div>' +
+    '</div>';
+  }).join('');
+  results.style.display = 'block';
 }
 
 // Admin selected an existing contact from search results — reuse their
@@ -1323,6 +1377,22 @@ function selectExistingContact(p) {
   setVal('ce-last',  p.lastName  || '');
   setVal('ce-email', p.email || '');
   if (p.type) document.getElementById('ce-type').value = p.type;
+  document.getElementById('ce-search-results').style.display = 'none';
+  document.getElementById('ce-search-input').value = p.name || '';
+}
+
+// Admin selected a staff member instead. Staff aren't linked across
+// students the way parent contacts are (that "siblings" concept is
+// specifically for one parent's multiple kids, not one staff member
+// serving many unrelated students) — so this is left as an independent
+// contact, no GUID reused, same as typing someone in by hand. Type is
+// deliberately left for the admin to choose (Administrator, Counselor,
+// Case Manager, etc.) since a staff role doesn't map 1:1 to a contact type.
+function selectStaffContact(p) {
+  _ceGuid = '';
+  setVal('ce-first', p.firstName || '');
+  setVal('ce-last',  p.lastName  || '');
+  setVal('ce-email', p.email || '');
   document.getElementById('ce-search-results').style.display = 'none';
   document.getElementById('ce-search-input').value = p.name || '';
 }
