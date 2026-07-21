@@ -47,6 +47,34 @@
     .confirm-btn.danger:hover { background: #b91c1c; }
 
     /* Search panel */
+    .page-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .page-tab { padding: 9px 18px; border: 1px solid #d1d5db; background: white; color: #64748b;
+               border-radius: 8px; font-size: 0.86rem; font-weight: 600; cursor: pointer;
+               font-family: inherit; }
+    .page-tab:hover { background: #f8fafc; }
+    .page-tab.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+    .pts-tab-filters { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+    .pts-tab-filters label { font-size: 0.8rem; font-weight: 600; color: #374151; display: block; margin-bottom: 4px; }
+    .pts-tab-filters input[type="number"] { width: 110px; padding: 8px 10px; border: 1px solid #d1d5db;
+                                            border-radius: 6px; font-size: 0.9rem; }
+    .pts-tab-filters input[type="number"]:focus { outline: none; border-color: #1d4ed8;
+                                                  box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .pts-tab-filters select { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+                             font-size: 0.9rem; color: #374151; background: white; cursor: pointer;
+                             min-width: 150px; }
+    .pts-tab-filters select:focus { outline: none; border-color: #1d4ed8;
+                                    box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .pts-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px;
+              border-bottom: 1px solid #f1f5f9; }
+    .pts-row:last-child { border-bottom: none; }
+    .pts-row .pts-name { flex: 1; font-weight: 600; font-size: 0.88rem; }
+    .pts-row .pts-sub  { font-size: 0.76rem; color: #94a3b8; }
+    .pts-row .pts-val  { font-weight: 700; font-size: 0.92rem; }
+    .btn-download { padding: 8px 14px; border: 1px solid #86efac; background: #f0fdf4; color: #166534;
+                    border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+                    font-family: inherit; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .btn-download:hover { background: #dcfce7; }
+    .btn-download:disabled { opacity: 0.5; cursor: not-allowed; }
     .search-card { background: white; border-radius: 10px; padding: 22px 24px;
                    box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 18px; }
     .search-card h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; }
@@ -344,6 +372,12 @@ var URL_ID = "<?!= urlId ?>";
 
 <div class="page-body">
 
+  <div class="page-tabs">
+    <button class="page-tab active" id="tab-lookup" onclick="showPageTab('lookup')">Student Lookup</button>
+    <button class="page-tab" id="tab-points" onclick="showPageTab('points')">Point Range</button>
+  </div>
+
+  <div id="lookup-tab-content">
   <!-- Search panel -->
   <div class="search-card" id="search-panel">
     <h2>Student Lookup</h2>
@@ -366,8 +400,36 @@ var URL_ID = "<?!= urlId ?>";
     <button class="back-btn" onclick="showSearch()">← Back to Search</button>
     <div id="profile-content"><div class="loading-msg">Loading...</div></div>
   </div>
+  </div>
+
+  <!-- Point Range tab (hidden until selected — this page is primarily for
+       looking up one specific student, so this stays out of the way
+       unless someone deliberately wants it) -->
+  <div class="search-card" id="points-tab-content" style="display:none;">
+    <h2>Find Students by Point Range</h2>
+    <p style="font-size:0.84rem;color:#64748b;margin-bottom:16px;">
+      Searches every student's current balance — including students with no referral history at all.
+    </p>
+    <div class="pts-tab-filters">
+      <div><label>Min Points</label><input type="number" id="pts-tab-min" placeholder="e.g. 80" oninput="filterPointsTab()"></div>
+      <div><label>Max Points</label><input type="number" id="pts-tab-max" placeholder="e.g. 100" oninput="filterPointsTab()"></div>
+      <div><label>Grade</label>
+        <select id="pts-tab-grade" onchange="filterPointsTab()"><option value="">All Grades</option></select>
+      </div>
+      <div><label>Sort By</label>
+        <select id="pts-tab-sort" onchange="filterPointsTab()">
+          <option value="pts-asc">Points (Low to High)</option>
+          <option value="pts-desc">Points (High to Low)</option>
+          <option value="name">Name (A–Z)</option>
+          <option value="grade">Grade</option>
+        </select>
+      </div>
+    </div>
+    <div id="points-tab-body"></div>
+  </div>
 
 </div>
+
 
 <!-- Referral detail modal — opened by the View button on each referral row -->
 <div class="ref-detail-overlay" id="ref-detail-overlay" onclick="if(event.target===this) closeRefDetailModal()">
@@ -429,8 +491,10 @@ window.addEventListener('load', function() {
         return (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b);
       });
       var gradeSel = document.getElementById('filter-grade');
+      var ptsGradeSel = document.getElementById('pts-tab-grade');
       grades.forEach(function(g) {
         gradeSel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
+        ptsGradeSel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
       });
       document.getElementById('filter-count').textContent = allStudents.length + ' students';
 
@@ -515,6 +579,98 @@ function clearSearch() {
   document.getElementById('search-results').innerHTML =
     '<div class="empty-msg">Start typing a name, or filter by grade.</div>';
   document.getElementById('filter-count').textContent = allStudents.length + ' students';
+}
+
+// ── Page tabs ───────────────────────────────────────────────────
+function showPageTab(tab) {
+  document.getElementById('tab-lookup').classList.toggle('active', tab === 'lookup');
+  document.getElementById('tab-points').classList.toggle('active', tab === 'points');
+  document.getElementById('lookup-tab-content').style.display = tab === 'lookup' ? '' : 'none';
+  document.getElementById('points-tab-content').style.display = tab === 'points' ? '' : 'none';
+  if (tab === 'points') filterPointsTab();
+}
+
+// ── Find Students by Point Range ──────────────────────────────
+// Reuses allStudents — already loaded on page init for the search tab
+// above — so switching to this tab is instant, no extra server call.
+// Unlike a referral-based filter, this always includes every student,
+// including anyone with a completely clean record and zero referrals.
+function getPointsTabHits() {
+  var minVal   = document.getElementById('pts-tab-min').value.trim();
+  var maxVal   = document.getElementById('pts-tab-max').value.trim();
+  var gradeVal = document.getElementById('pts-tab-grade').value;
+  var sortVal  = document.getElementById('pts-tab-sort').value;
+  var ptsMin   = minVal !== '' ? parseFloat(minVal) : null;
+  var ptsMax   = maxVal !== '' ? parseFloat(maxVal) : null;
+
+  var hits = allStudents.filter(function(s) {
+    if (ptsMin !== null && s.currentPoints < ptsMin) return false;
+    if (ptsMax !== null && s.currentPoints > ptsMax) return false;
+    if (gradeVal && s.grade !== gradeVal) return false;
+    return true;
+  });
+
+  hits.sort(function(a, b) {
+    switch (sortVal) {
+      case 'pts-desc': return b.currentPoints - a.currentPoints;
+      case 'name':     return a.studentName.localeCompare(b.studentName);
+      case 'grade':    return (parseInt(a.grade,10)||0) - (parseInt(b.grade,10)||0) ||
+                              a.studentName.localeCompare(b.studentName);
+      default:         return a.currentPoints - b.currentPoints; // pts-asc
+    }
+  });
+
+  return hits;
+}
+
+function filterPointsTab() {
+  renderPointsTab(getPointsTabHits());
+}
+
+function renderPointsTab(hits) {
+  var wrap = document.getElementById('points-tab-body');
+
+  var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+    '<span class="filter-count">' + hits.length + ' of ' + allStudents.length + ' students</span>' +
+    '<button class="btn-download" onclick="downloadPointsTabList()" ' + (hits.length===0?'disabled':'') + '>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">' +
+        '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' +
+      '</svg>Download CSV</button>' +
+    '</div>';
+
+  if (hits.length === 0) {
+    wrap.innerHTML = header + '<div class="empty-msg">No students match this range.</div>';
+    return;
+  }
+
+  var rows = hits.map(function(s) {
+    var pct   = semPts > 0 ? Math.round(s.currentPoints / semPts * 100) : 0;
+    var color = s.pointColor || getPointColor(pct, pointTiers);
+    return '<div class="pts-row">' +
+      '<div style="flex:1;"><div class="pts-name">' + esc(s.studentName) + '</div>' +
+      '<div class="pts-sub">Grade ' + esc(s.grade) + ' · ID: ' + esc(s.studentId) + '</div></div>' +
+      '<div class="pts-val" style="color:' + color + ';">' + s.currentPoints + '</div>' +
+      '</div>';
+  }).join('');
+
+  wrap.innerHTML = header + rows;
+}
+
+function downloadPointsTabList() {
+  var list = getPointsTabHits();
+  if (list.length === 0) { showToast('No students match this range.', true); return; }
+
+  var cols = ['StudentID', 'StudentName', 'Grade', 'CurrentPoints'];
+  var csv = cols.join(',') + '\n' + list.map(function(s) {
+    return [s.studentId, s.studentName, s.grade, s.currentPoints]
+      .map(function(v) { return '"' + v.toString().replace(/"/g, '""') + '"'; })
+      .join(',');
+  }).join('\n');
+
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'students_by_points_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
 }
 
 // ── Load Student Profile ──────────────────────────────────────
@@ -856,6 +1012,7 @@ function initials(name) {
   if (words.length >= 2) return (words[0][0] + words[words.length-1][0]).toUpperCase();
   return name.slice(0,2).toUpperCase();
 }
+
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

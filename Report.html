@@ -104,7 +104,7 @@
                     box-shadow:-4px 0 20px rgba(0,0,0,0.15); z-index:101; overflow-y:auto;
                     padding:22px; transform:translateX(100%); transition:transform 0.22s ease; }
     .detail-panel.open { transform:translateX(0); }
-    #deletion-log-panel { width: 640px; }
+    #change-log-panel { width: 640px; }
     .d-close { float:right; background:none; border:none; font-size:1.3rem; cursor:pointer; color:#6b7280; }
     .d-title { font-size:1rem; font-weight:700; color:#1e3a5f; margin-bottom:14px; }
     .d-row   { display:flex; gap:8px; margin-bottom:9px; }
@@ -113,6 +113,10 @@
     .d-hr    { border:none; border-top:1px solid #e5e7eb; margin:14px 0; }
     textarea.d-notes { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:7px;
                        font-size:0.84rem; min-height:72px; resize:vertical; }
+    .d-edit-input { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 8px;
+                    font-size:0.84rem; font-family:inherit; }
+    .d-edit-row { display:flex; gap:8px; margin-bottom:9px; align-items:center; }
+    .d-edit-row .d-label { padding-top:0; }
 
     .btn-delete-referral { display: flex; align-items: center; justify-content: center; gap: 8px;
                            width: 100%; background: white; color: #dc2626; border: 1px solid #fca5a5;
@@ -170,7 +174,7 @@
     @media (max-width:768px) {
       .sum-row { grid-template-columns: 1fr 1fr; }
       .filter-grid { grid-template-columns: 1fr; }
-      .detail-panel, #deletion-log-panel { width:100%; }
+      .detail-panel, #change-log-panel { width:100%; }
     }
   </style>
 </head>
@@ -221,7 +225,7 @@
 
   <div class="filter-card">
     <div class="filter-title">Filters</div>
-    <div class="filter-grid">
+    <div class="filter-grid" id="filter-grid">
       <div>
         <label class="fl">Student</label>
         <div style="position:relative;">
@@ -231,7 +235,7 @@
           <div id="f-stu-results"></div>
         </div>
       </div>
-      <div><label class="fl">Teacher</label>
+      <div id="f-tch-wrap"><label class="fl">Teacher</label>
            <select id="f-tch"><option value="">All Teachers</option></select></div>
       <div><label class="fl">Infraction</label>
            <select id="f-inf"><option value="">All Infractions</option></select></div>
@@ -246,8 +250,8 @@
       <button class="btn btn-primary" id="btn-apply-filters" onclick="applyFilters()">Apply</button>
       <button class="btn btn-outline" id="btn-clear-filters" onclick="clearFilters()">Clear</button>
       <div style="flex:1;"></div>
-      <button class="btn btn-outline" id="btn-view-deletion-log" style="display:none;"
-              onclick="openDeletionLogPanel()">View Deletion Log</button>
+      <button class="btn btn-outline" id="btn-view-change-log" style="display:none;"
+              onclick="openChangeLogPanel()">View Change Log</button>
       <button class="btn btn-green" id="btn-export-csv" onclick="exportCsv()">Export CSV</button>
     </div>
   </div>
@@ -287,14 +291,14 @@
   <div id="d-content"></div>
 </div>
 
-<div class="overlay" id="log-overlay" onclick="closeDeletionLogPanel()"></div>
-<div class="detail-panel" id="deletion-log-panel">
-  <button class="d-close" onclick="closeDeletionLogPanel()">×</button>
-  <div class="d-title">Deletion Log</div>
+<div class="overlay" id="log-overlay" onclick="closeChangeLogPanel()"></div>
+<div class="detail-panel" id="change-log-panel">
+  <button class="d-close" onclick="closeChangeLogPanel()">×</button>
+  <div class="d-title">Change Log</div>
   <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:14px;">
     Every referral that's been deleted — who deleted it, when, and why.
   </div>
-  <div id="deletion-log-content"></div>
+  <div id="change-log-content"></div>
 </div>
 
 <script>
@@ -306,6 +310,7 @@ var selectedStudentId = ''; // set when a student is picked from the Student sea
 var PAGE_SIZE = 50;
 var currentPage = 1;
 var knownTotalCount = 0;
+var reportLocations = [];
 var detailIdx = null;
 var isAdmin = false;
 
@@ -444,12 +449,21 @@ function onFirstPageLoaded(data) {
   showLoading(false);
   if (typeof updateNavUser === 'function') updateNavUser(data.user);
   isAdmin = !!(data.user && data.user.role === 'admin');
-  if (isAdmin) document.getElementById('btn-view-deletion-log').style.display = '';
+  if (isAdmin) document.getElementById('btn-view-change-log').style.display = '';
+
+  // Teacher filter is admin-only, per request — non-admin staff still
+  // see every referral in the report, just without the ability to
+  // filter the list down to one specific teacher's submissions.
+  if (!isAdmin) {
+    document.getElementById('f-tch-wrap').style.display = 'none';
+    document.getElementById('filter-grid').style.gridTemplateColumns = 'repeat(3, 1fr)';
+  }
 
   allRows    = data.rows || [];
   semPts     = data.semesterPoints || 100;
   pointTiers = data.pointTiers || [];
   terms      = data.terms || [];
+  reportLocations = data.locations || [];
 
   var tchSel = document.getElementById('f-tch');
   (data.teacherOptions||[]).forEach(function(t) {
@@ -733,11 +747,18 @@ function updateSummary() {
   setText('s-pts',   total > 0 ? (totalDed/total).toFixed(1) : '0');
 }
 
+var _editInfractionsCache = null;
+
 function openDetail(idx) {
   detailIdx = idx;
-  var row   = filteredRows[idx];
+  var row = filteredRows[idx];
   document.getElementById('d-title').textContent = 'Referral #'+(row['ID']||'')+' — '+(row['StudentName']||'');
+  renderDetailView(row);
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+}
 
+function renderDetailView(row) {
   var pts    = parseFloat(row['PointValue'])||0;
   var ptsStr = pts > 0 ? '+'+pts : pts.toString();
   var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
@@ -771,6 +792,12 @@ function openDetail(idx) {
             '</div></div></div>';
   }
 
+  if (isAdmin) {
+    html += '<div style="margin-top:12px;">' +
+      '<button class="btn btn-outline btn-sm" onclick="enterReferralEditMode()">Edit Referral Details</button>' +
+      '</div>';
+  }
+
   html += '<hr class="d-hr">' +
     '<div style="margin-bottom:6px;font-weight:600;font-size:0.82rem;">Admin Notes</div>' +
     '<textarea class="d-notes" id="d-notes">'+esc(row['AdminNotes']||'')+'</textarea>' +
@@ -783,12 +810,132 @@ function openDetail(idx) {
       '<span>Delete Referral</span></button>' +
       '<div style="margin-top:6px;font-size:0.74rem;color:#94a3b8;">' +
       'Permanently removes this referral, corrects the student\'s point balance, and records a ' +
-      'reason in the deletion log.</div>';
+      'reason in the change log.</div>';
   }
 
   document.getElementById('d-content').innerHTML = html;
-  document.getElementById('overlay').classList.add('open');
-  document.getElementById('detail-panel').classList.add('open');
+}
+
+// ── Edit Referral Details (admin only) ───────────────────────────
+// Deliberately scoped to Date/Time/Location/Infraction/Description —
+// the fields a teacher actually filled in on the original form. The
+// student and teacher stay fixed; reassigning either is a different
+// kind of correction (better handled by deleting and resubmitting, so
+// the record of who actually submitted what stays honest).
+function enterReferralEditMode() {
+  if (_editInfractionsCache) { renderDetailEdit(); return; }
+  document.getElementById('d-content').innerHTML = '<div class="empty-msg">Loading infraction list…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) {
+        showToast(r.error || 'Could not load infraction list.', true);
+        renderDetailView(filteredRows[detailIdx]);
+        return;
+      }
+      _editInfractionsCache = r.rows || [];
+      renderDetailEdit();
+    })
+    .withFailureHandler(function(err) {
+      showToast(err.message || err, true);
+      renderDetailView(filteredRows[detailIdx]);
+    })
+    .getInfractionsList();
+}
+
+function renderDetailEdit() {
+  var row = filteredRows[detailIdx];
+
+  var locOptions = reportLocations.map(function(l) {
+    return '<option value="'+esc(l)+'"'+(l===row['Location']?' selected':'')+'>'+esc(l)+'</option>';
+  }).join('');
+  if (row['Location'] && reportLocations.indexOf(row['Location']) < 0) {
+    locOptions += '<option value="'+esc(row['Location'])+'" selected>'+esc(row['Location'])+' (not in list)</option>';
+  }
+
+  var infOptions = _editInfractionsCache.map(function(inf) {
+    var sign = inf.pointValue > 0 ? '+' : '';
+    return '<option value="'+esc(inf.name)+'"'+(inf.name===row['InfractionType']?' selected':'')+'>'+
+      esc(inf.name)+' ('+sign+inf.pointValue+' pts)</option>';
+  }).join('');
+
+  var html =
+    '<div class="d-edit-row"><div class="d-label">Date</div>' +
+      '<input type="date" class="d-edit-input" id="de-date" value="'+esc(row['IncidentDate']||'')+'"></div>' +
+    '<div class="d-edit-row"><div class="d-label">Time</div>' +
+      '<input type="time" class="d-edit-input" id="de-time" value="'+esc(row['IncidentTime']||'')+'"></div>' +
+    '<div class="d-edit-row"><div class="d-label">Location</div>' +
+      '<select class="d-edit-input" id="de-location">'+locOptions+'</select></div>' +
+    '<div class="d-edit-row"><div class="d-label">Infraction</div>' +
+      '<select class="d-edit-input" id="de-infraction">'+infOptions+'</select></div>' +
+    '<div class="d-edit-row" style="align-items:flex-start;">' +
+      '<div class="d-label" style="padding-top:6px;">Description</div>' +
+      '<textarea class="d-edit-input" id="de-description" style="min-height:60px;resize:vertical;">'+
+        esc(row['Description']||'')+'</textarea></div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+      '<button class="btn btn-outline" style="flex:1;" onclick="cancelReferralEdit()">Cancel</button>' +
+      '<button class="btn btn-primary" style="flex:1;" onclick="saveReferralEdit()">Save Changes</button>' +
+    '</div>' +
+    '<div id="de-save-msg" style="margin-top:7px;font-size:0.8rem;min-height:18px;"></div>';
+
+  document.getElementById('d-content').innerHTML = html;
+}
+
+function cancelReferralEdit() {
+  renderDetailView(filteredRows[detailIdx]);
+}
+
+function saveReferralEdit() {
+  var row = filteredRows[detailIdx];
+  var updates = {
+    incidentDate:   document.getElementById('de-date').value,
+    incidentTime:   document.getElementById('de-time').value,
+    location:       document.getElementById('de-location').value,
+    infractionType: document.getElementById('de-infraction').value,
+    description:    document.getElementById('de-description').value.trim()
+  };
+  var msgEl = document.getElementById('de-save-msg');
+  if (!updates.incidentDate || !updates.incidentTime || !updates.location || !updates.infractionType) {
+    msgEl.textContent = 'Date, time, location, and infraction are required.';
+    msgEl.style.color = '#dc2626';
+    return;
+  }
+
+  msgEl.textContent = 'Saving…';
+  msgEl.style.color = '#1a56db';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result.success) {
+        msgEl.textContent = result.error || 'Could not save changes.';
+        msgEl.style.color = '#dc2626';
+        return;
+      }
+      row['IncidentDate']        = updates.incidentDate;
+      row['IncidentTime']        = updates.incidentTime;
+      row['Location']            = updates.location;
+      row['InfractionType']      = updates.infractionType;
+      row['Description']         = updates.description;
+      row['PointValue']          = result.newPointValue;
+      row['PointsAfterReferral'] = result.newAfter;
+
+      // CurrentPoints (the student's live balance) is shown on every
+      // row belonging to them, not just this one — keep all of them
+      // in sync rather than just the row that was actually edited.
+      if (result.newBalance !== null && result.newBalance !== undefined) {
+        allRows.forEach(function(r) {
+          if (r['StudentID'] === row['StudentID']) r['CurrentPoints'] = result.newBalance;
+        });
+      }
+
+      showToast('Referral updated.');
+      renderDetailView(row);
+      renderTable();
+    })
+    .withFailureHandler(function(err) {
+      msgEl.textContent = err.message || err;
+      msgEl.style.color = '#dc2626';
+    })
+    .updateReferralDetails(row['ID'], updates);
 }
 
 function closeDetail() {
@@ -797,33 +944,34 @@ function closeDetail() {
   detailIdx = null;
 }
 
-// ── Deletion Log panel (admin only) ──────────────────────────────
-var _deletionLogLoaded = false;
+// ── Change Log panel (admin only) ──────────────────────────────
+var _changeLogLoaded = false;
 
-function openDeletionLogPanel() {
+function openChangeLogPanel() {
   document.getElementById('log-overlay').classList.add('open');
-  document.getElementById('deletion-log-panel').classList.add('open');
-  if (!_deletionLogLoaded) loadDeletionLog();
+  document.getElementById('change-log-panel').classList.add('open');
+  if (!_changeLogLoaded) loadChangeLog();
 }
 
-function closeDeletionLogPanel() {
+function closeChangeLogPanel() {
   document.getElementById('log-overlay').classList.remove('open');
-  document.getElementById('deletion-log-panel').classList.remove('open');
+  document.getElementById('change-log-panel').classList.remove('open');
 }
 
-function loadDeletionLog() {
-  var wrap = document.getElementById('deletion-log-content');
+
+function loadChangeLog() {
+  var wrap = document.getElementById('change-log-content');
   wrap.innerHTML = '<div class="empty-msg">Loading...</div>';
 
   google.script.run
     .withSuccessHandler(function(r) {
-      _deletionLogLoaded = true;
+      _changeLogLoaded = true;
       if (!r.success) {
-        wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the deletion log: ' + esc(r.error || 'Unknown error') + '</div>';
+        wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the change log: ' + esc(r.error || 'Unknown error') + '</div>';
         return;
       }
       if (r.rows.length === 0) {
-        wrap.innerHTML = '<div class="empty-msg">No referrals have been deleted yet.</div>';
+        wrap.innerHTML = '<div class="empty-msg">No referrals have been deleted or edited yet.</div>';
         return;
       }
       wrap.innerHTML = r.rows.map(function(row) {
@@ -832,10 +980,16 @@ function loadDeletionLog() {
         var ptsCls = pts < 0 ? 'color:#dc2626' : 'color:#166534';
         var incident = formatDateMDY(row.incidentDate) +
           (row.incidentTime ? ' at ' + formatTime12h(row.incidentTime) : '');
+        var isDeleted = row.action !== 'Edited';
+        var badgeBg = isDeleted ? '#fee2e2' : '#dbeafe';
+        var badgeFg = isDeleted ? '#991b1b' : '#1e40af';
         return '<div class="d-row" style="flex-direction:column;align-items:stretch;' +
                'border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px;">' +
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;">' +
-            '<span style="font-size:0.84rem;color:#1e293b;">Deleted by <strong>'+esc(row.deletedByName)+'</strong></span>' +
+            '<span style="font-size:0.84rem;color:#1e293b;">' +
+              '<span style="background:'+badgeBg+';color:'+badgeFg+';font-size:0.7rem;font-weight:700;' +
+                'padding:2px 7px;border-radius:20px;margin-right:6px;text-transform:uppercase;">'+esc(row.action||'Deleted')+'</span>' +
+              'by <strong>'+esc(row.changedByName)+'</strong></span>' +
             '<span style="font-size:0.76rem;color:#94a3b8;white-space:nowrap;">'+esc(row.timestamp)+'</span>' +
           '</div>' +
           '<div style="font-size:0.86rem;font-weight:600;">'+esc(row.studentName)+
@@ -843,15 +997,15 @@ function loadDeletionLog() {
           '<div style="font-size:0.82rem;margin-top:2px;">'+esc(row.infractionType)+
             ' <span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span></div>' +
           '<div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">Incident: '+esc(incident)+'</div>' +
-          '<div style="font-size:0.82rem;margin-top:8px;"><strong>Reason:</strong> '+esc(row.reason)+'</div>' +
+          '<div style="font-size:0.82rem;margin-top:8px;"><strong>Details:</strong> '+esc(row.details)+'</div>' +
         '</div>';
       }).join('');
     })
     .withFailureHandler(function(err) {
-      _deletionLogLoaded = true;
-      wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the deletion log: ' + esc(err.message || err) + '</div>';
+      _changeLogLoaded = true;
+      wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the change log: ' + esc(err.message || err) + '</div>';
     })
-    .getDeletionLog();
+    .getChangeLog();
 }
 
 function saveDetail() {

@@ -20,7 +20,7 @@ var SS_STAFF        = 'Staff';
 var SS_PARENT       = 'ParentContacts';
 var SS_CONFIG       = 'Config';
 var SS_INFRACTIONS  = 'Infractions';
-var SS_DELETION_LOG = 'DeletionLog';
+var SS_CHANGE_LOG   = 'ChangeLog';
 
 // =============================================================
 // SPREADSHEET MENU
@@ -37,6 +37,9 @@ function onOpen() {
     .addItem('Clear All Staff Role Caches', 'clearAllUserCachesMenu')
     .addSeparator()
     .addItem('Reset Semester Points (NEW SEMESTER)', 'resetSemesterPointsMenu')
+    .addSeparator()
+    .addItem('Clear Test Referral Data',       'clearTestReferralDataMenu')
+    .addItem('Generate Test Referral Data...', 'generateTestReferralDataMenu')
     .addToUi();
 }
 
@@ -72,7 +75,7 @@ function setupSpreadsheet() {
   _setupStudents(ss);
   _setupStaff(ss);
   _setupParentContacts(ss);
-  _setupDeletionLog(ss);
+  _setupChangeLog(ss);
 
   SpreadsheetApp.flush();
   ui.alert(
@@ -214,13 +217,13 @@ function _setupReferrals(ss) {
 // deleted a referral, when, and why, without keeping the deleted
 // referral's full original content (location, description, etc.)
 // lingering anywhere.
-function _setupDeletionLog(ss) {
-  if (ss.getSheetByName(SS_DELETION_LOG)) return;
-  var sheet = ss.insertSheet(SS_DELETION_LOG);
+function _setupChangeLog(ss) {
+  if (ss.getSheetByName(SS_CHANGE_LOG)) return;
+  var sheet = ss.insertSheet(SS_CHANGE_LOG);
   var headers = [
-    'Timestamp', 'DeletedByName', 'DeletedByEmail',
+    'Timestamp', 'Action', 'ChangedByName', 'ChangedByEmail',
     'ReferralID', 'StudentID', 'StudentName',
-    'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Reason'
+    'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Details'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -362,6 +365,69 @@ function resetSemesterPointsMenu() {
   var result = resetSemesterPoints();
   if (result.success) {
     ui.alert('Done', 'Reset ' + result.count + ' student balances.', ui.ButtonSet.OK);
+  } else {
+    ui.alert('Error', result.error || 'Unknown error.', ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Spreadsheet-menu wrapper for clearTestReferralData() (defined in
+ * Code.gs). Wipes all referrals and the change log, and resets every
+ * student's points — nothing is archived first, so this is only meant
+ * for disposable test data, never real referral history.
+ */
+function clearTestReferralDataMenu() {
+  var ui       = SpreadsheetApp.getUi();
+  var response = ui.alert(
+    'Clear Test Referral Data',
+    'This permanently deletes EVERY row in the Referrals and ' +
+    'ChangeLog sheets, and resets every student\u2019s point balance ' +
+    'back to Semester Start Points.\n\n' +
+    'Nothing is archived first \u2014 this cannot be undone. Only use this ' +
+    'on test/demo data, never on a live school\u2019s real referral history.' +
+    '\n\nAre you sure?',
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) return;
+  var result = clearTestReferralData();
+  if (result.success) {
+    ui.alert('Done',
+      'Cleared ' + result.referralsCleared + ' referral(s) and reset ' +
+      result.studentsReset + ' student balance(s).', ui.ButtonSet.OK);
+  } else {
+    ui.alert('Error', result.error || 'Unknown error.', ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Spreadsheet-menu wrapper for generateTestReferralData() (defined in
+ * Code.gs). Prompts for how many referrals to generate, then builds a
+ * realistic school year's worth of data using your actual students,
+ * staff, infractions, and locations.
+ */
+function generateTestReferralDataMenu() {
+  var ui       = SpreadsheetApp.getUi();
+  var promptRes = ui.prompt(
+    'Generate Test Referral Data',
+    'How many referrals should be generated? A typical full school ' +
+    'year for a mid-size school is roughly 800\u20131200.\n\n' +
+    'Leave blank for the default (900).',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (promptRes.getSelectedButton() !== ui.Button.OK) return;
+
+  var countText = promptRes.getResponseText().trim();
+  var count = countText ? parseInt(countText, 10) : 900;
+  if (isNaN(count) || count < 1) {
+    ui.alert('Error', 'Please enter a positive number.', ui.ButtonSet.OK);
+    return;
+  }
+
+  var result = generateTestReferralData(count);
+  if (result.success) {
+    ui.alert('Done',
+      'Generated ' + result.count + ' referral(s) across ' + result.studentsAffected +
+      ' student(s), dated ' + result.dateRange + '.', ui.ButtonSet.OK);
   } else {
     ui.alert('Error', result.error || 'Unknown error.', ui.ButtonSet.OK);
   }
