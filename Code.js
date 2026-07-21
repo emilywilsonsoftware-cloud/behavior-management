@@ -2106,12 +2106,11 @@ function getAllStudents() {
 // REPORT DATA
 // =============================================================
 
-function getReportData(filters) {
-  var user = getCurrentUser();
-  if (user.role !== 'admin' && user.role !== 'teacher') {
-    throw new Error('Access denied.');
-  }
-
+// Shared by getReportData() (returns everything, used for the
+// background full-fetch) and getReportDataPage() (returns just one
+// page, used for the fast initial paint) — both need the exact same
+// row-building and sort, so this exists once rather than twice.
+function buildReportRows_() {
   var ss      = SpreadsheetApp.getActiveSpreadsheet();
   var refData = ss.getSheetByName(SHEET_REFERRALS).getDataRange().getValues();
   var stuData = ss.getSheetByName(SHEET_STUDENTS).getDataRange().getValues();
@@ -2178,11 +2177,62 @@ function getReportData(filters) {
            a.IncidentDate < b.IncidentDate ?  1 : 0;
   });
 
+  return { rows: rows, teacherOptions: Object.keys(teacherSet).sort(), infractionOptions: Object.keys(infraSet).sort(), cfg: cfg };
+}
+
+function getReportData(filters) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin' && user.role !== 'teacher') {
+    throw new Error('Access denied.');
+  }
+
+  var built = buildReportRows_();
+  var cfg   = built.cfg;
+
   return {
-    rows:              rows,
+    rows:              built.rows,
     headers:           REFERRAL_HEADERS,
-    teacherOptions:    Object.keys(teacherSet).sort(),
-    infractionOptions: Object.keys(infraSet).sort(),
+    teacherOptions:    built.teacherOptions,
+    infractionOptions: built.infractionOptions,
+    semesterPoints:    cfg.semesterPoints,
+    schoolName:        cfg.schoolName,
+    pointTiers:        cfg.pointTiers,
+    terms:             cfg.terms,
+    user:              user
+  };
+}
+
+/**
+ * Fast initial paint for the Report page: returns just one page of
+ * rows (default sort, newest first — same as getReportData()'s sort),
+ * plus totalCount so the client can render correct-looking pagination
+ * immediately, without waiting for every referral to be read,
+ * transformed, and sent over the wire. The full set still needs to be
+ * fetched separately afterward (via getReportData()) for accurate
+ * summary stats, filtering, sorting, and CSV export — this call exists
+ * purely to get *something real* on screen as fast as possible.
+ */
+function getReportDataPage(page, pageSize) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin' && user.role !== 'teacher') {
+    throw new Error('Access denied.');
+  }
+
+  page     = parseInt(page, 10)     || 1;
+  pageSize = parseInt(pageSize, 10) || 50;
+
+  var built = buildReportRows_();
+  var cfg   = built.cfg;
+
+  var startIdx = (page - 1) * pageSize;
+  var pageRows = built.rows.slice(startIdx, startIdx + pageSize);
+
+  return {
+    rows:              pageRows,
+    totalCount:        built.rows.length,
+    headers:           REFERRAL_HEADERS,
+    teacherOptions:    built.teacherOptions,
+    infractionOptions: built.infractionOptions,
     semesterPoints:    cfg.semesterPoints,
     schoolName:        cfg.schoolName,
     pointTiers:        cfg.pointTiers,

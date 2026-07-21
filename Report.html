@@ -61,8 +61,22 @@
     .btn-green:hover { background: #14532d; }
 
     /* Results */
-    .results-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .results-bar { display: flex; align-items: center; justify-content: space-between;
+                  gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
     .res-count   { font-size: 0.84rem; color: #64748b; }
+
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 6px;
+                 margin-top: 14px; flex-wrap: wrap; }
+    .pagination.pagination-top { margin-top: 0; }
+    .pg-btn { padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+             background: white; color: #1e293b; font-size: 0.82rem; font-weight: 600;
+             cursor: pointer; font-family: inherit; }
+    .pg-btn:hover:not(:disabled) { background: #f0f7ff; border-color: #93c5fd; }
+    .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pg-status { font-size: 0.82rem; color: #64748b; display: flex; align-items: center; gap: 6px;
+                margin: 0 6px; white-space: nowrap; }
+    .pg-jump { width: 52px; padding: 5px 6px; border: 1px solid #d1d5db; border-radius: 6px;
+              font-size: 0.82rem; text-align: center; }
 
     /* Table */
     .tbl-wrap { background: white; border-radius: 9px; overflow: hidden;
@@ -72,6 +86,7 @@
                font-weight: 600; font-size: 0.74rem; text-transform: uppercase;
                letter-spacing: 0.04em; white-space: nowrap; cursor: pointer; user-select: none; }
     thead th:hover { background: #1a3158; }
+    #sort-header-row.sort-disabled th { cursor: not-allowed; opacity: 0.55; pointer-events: none; }
     tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.08s; }
     tbody tr:hover { background: #f0f7ff; }
     td { padding: 9px 11px; vertical-align: middle; }
@@ -228,23 +243,24 @@
       <div><label class="fl">Date To</label><input type="date" id="f-to"></div>
     </div>
     <div class="filter-row">
-      <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
-      <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+      <button class="btn btn-primary" id="btn-apply-filters" onclick="applyFilters()">Apply</button>
+      <button class="btn btn-outline" id="btn-clear-filters" onclick="clearFilters()">Clear</button>
       <div style="flex:1;"></div>
       <button class="btn btn-outline" id="btn-view-deletion-log" style="display:none;"
               onclick="openDeletionLogPanel()">View Deletion Log</button>
-      <button class="btn btn-green" onclick="exportCsv()">Export CSV</button>
+      <button class="btn btn-green" id="btn-export-csv" onclick="exportCsv()">Export CSV</button>
     </div>
   </div>
 
   <div class="results-bar">
     <span class="res-count" id="res-count">Loading...</span>
+    <div class="pagination pagination-top" id="pagination-top"></div>
   </div>
 
   <div class="tbl-wrap">
     <table>
       <thead>
-        <tr>
+        <tr id="sort-header-row">
           <th onclick="sortBy('ID')">#</th>
           <th onclick="sortBy('IncidentDate')">Date</th>
           <th onclick="sortBy('StudentName')">Student</th>
@@ -260,6 +276,8 @@
       <tbody id="tbl-body"><tr><td colspan="10" class="empty-msg">Loading...</td></tr></tbody>
     </table>
   </div>
+
+  <div class="pagination" id="pagination"></div>
 </div>
 
 <div class="overlay" id="overlay" onclick="closeDetail()"></div>
@@ -285,6 +303,9 @@ var pointTiers = []; // admin-configured point-balance color tiers
 var terms = []; // term start/end date ranges, for the Term filter
 var reportStudents = []; // unique {studentId, studentName} pairs, derived from allRows
 var selectedStudentId = ''; // set when a student is picked from the Student search dropdown
+var PAGE_SIZE = 50;
+var currentPage = 1;
+var knownTotalCount = 0;
 var detailIdx = null;
 var isAdmin = false;
 
@@ -401,38 +422,34 @@ document.addEventListener('keydown', function(e) {
 window.addEventListener('load', function() {
   showLoading(true);
   google.script.run
-    .withSuccessHandler(onDataLoaded)
+    .withSuccessHandler(onFirstPageLoaded)
     .withFailureHandler(function(err) {
       showLoading(false);
       document.getElementById('tbl-body').innerHTML =
         '<tr><td colspan="10" class="empty-msg" style="color:#dc2626;">Error: '+esc(err.message||err)+'</td></tr>';
     })
-    .getReportData({});
+    .getReportDataPage(1, PAGE_SIZE);
 });
 
-function onDataLoaded(data) {
+// Phase 1: paint real data as fast as possible — just page 1, plus
+// enough metadata (dropdown options, total count) to make the page
+// look and behave normally. Filtering, sorting, export, and the
+// summary cards all need the complete dataset to be accurate, so
+// those stay disabled with a visible "loading everything" indicator
+// until the background fetch in phase 2 finishes.
+var fullDataLoaded = false;
+var _bgLoadingToast = null;
+
+function onFirstPageLoaded(data) {
   showLoading(false);
   if (typeof updateNavUser === 'function') updateNavUser(data.user);
   isAdmin = !!(data.user && data.user.role === 'admin');
   if (isAdmin) document.getElementById('btn-view-deletion-log').style.display = '';
-  allRows = data.rows || [];
-  semPts  = data.semesterPoints || 100;
-  pointTiers = data.pointTiers || [];
-  terms   = data.terms || [];
 
-  // Unique student list for the Student search dropdown — derived from
-  // the referral rows themselves rather than a separate fetch, so it
-  // naturally only ever lists students who actually have referrals.
-  var seenStu = {};
-  reportStudents = [];
-  allRows.forEach(function(row) {
-    var sid = (row['StudentID']||'').toString();
-    if (sid && !seenStu[sid]) {
-      seenStu[sid] = true;
-      reportStudents.push({ studentId: sid, studentName: row['StudentName']||'' });
-    }
-  });
-  reportStudents.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
+  allRows    = data.rows || [];
+  semPts     = data.semesterPoints || 100;
+  pointTiers = data.pointTiers || [];
+  terms      = data.terms || [];
 
   var tchSel = document.getElementById('f-tch');
   (data.teacherOptions||[]).forEach(function(t) {
@@ -449,9 +466,56 @@ function onDataLoaded(data) {
       ' ('+esc(formatDateMDY(term.start))+' – '+esc(endLabel)+')</option>';
   });
 
+  // Page 1 only — reportStudents and filteredRows get rebuilt properly
+  // once the full set arrives. This just gets something real on screen.
   filteredRows = allRows.slice();
+  knownTotalCount = data.totalCount || allRows.length;
+  renderTable();
+  setControlsEnabled(false);
+  _bgLoadingToast = showLoadingToast('Loading all ' + knownTotalCount + ' referrals\u2026');
+
+  google.script.run
+    .withSuccessHandler(onFullDataLoaded)
+    .withFailureHandler(function(err) {
+      dismissToast(_bgLoadingToast);
+      showToast('Could not load full results: ' + (err.message || err), true);
+    })
+    .getReportData({});
+}
+
+// Phase 2: the complete dataset has arrived — replace the page-1-only
+// data with everything, rebuild the student picker's full list, and
+// turn filtering/sorting/export/summary stats back on.
+function onFullDataLoaded(data) {
+  allRows = data.rows || [];
+
+  var seenStu = {};
+  reportStudents = [];
+  allRows.forEach(function(row) {
+    var sid = (row['StudentID']||'').toString();
+    if (sid && !seenStu[sid]) {
+      seenStu[sid] = true;
+      reportStudents.push({ studentId: sid, studentName: row['StudentName']||'' });
+    }
+  });
+  reportStudents.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
+
+  filteredRows = allRows.slice();
+  currentPage = 1;
+  fullDataLoaded = true;
   renderTable();
   updateSummary();
+  setControlsEnabled(true);
+  dismissToast(_bgLoadingToast);
+  showToast('All ' + allRows.length + ' referrals loaded.');
+}
+
+function setControlsEnabled(enabled) {
+  document.querySelectorAll('#f-tch, #f-inf, #f-term, #f-from, #f-to, #f-stu, ' +
+    '#btn-apply-filters, #btn-clear-filters, #btn-export-csv').forEach(function(el) {
+    el.disabled = !enabled;
+  });
+  document.getElementById('sort-header-row').classList.toggle('sort-disabled', !enabled);
 }
 
 // Matches only at the start of a word, not anywhere within a word — so
@@ -527,6 +591,7 @@ document.addEventListener('click', function(e) {
 });
 
 function applyFilters() {
+  if (!fullDataLoaded) { showToast('Still loading all referrals — one moment.', true); return; }
   var tch      = document.getElementById('f-tch').value.toLowerCase();
   var inf      = document.getElementById('f-inf').value;
   var termIdx  = document.getElementById('f-term').value;
@@ -544,6 +609,7 @@ function applyFilters() {
     return true;
   });
 
+  currentPage = 1;
   renderTable();
   updateSummary();
 }
@@ -555,11 +621,13 @@ function clearFilters() {
   document.getElementById('f-stu-clear').style.display = 'none';
   document.getElementById('f-stu-results').style.display = 'none';
   filteredRows = allRows.slice();
+  currentPage = 1;
   renderTable();
   updateSummary();
 }
 
 function sortBy(col) {
+  if (!fullDataLoaded) return;
   if (sortCol === col) sortAsc = !sortAsc;
   else { sortCol = col; sortAsc = true; }
   var numCols = ['PointValue','CurrentPoints','ID','PointsBeforeReferral','PointsAfterReferral'];
@@ -570,20 +638,35 @@ function sortBy(col) {
     else { av = av.toString().toLowerCase(); bv = bv.toString().toLowerCase(); }
     return av < bv ? (sortAsc?-1:1) : av > bv ? (sortAsc?1:-1) : 0;
   });
+  currentPage = 1;
   renderTable();
 }
 
 function renderTable() {
-  document.getElementById('res-count').textContent =
-    filteredRows.length + ' referral' + (filteredRows.length!==1?'s':'') + ' shown';
+  var effectiveTotal = fullDataLoaded ? filteredRows.length : Math.max(filteredRows.length, knownTotalCount);
+  var totalPages = Math.max(1, Math.ceil(effectiveTotal / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  var startIdx = (currentPage - 1) * PAGE_SIZE;
+  var endIdx   = Math.min(startIdx + PAGE_SIZE, filteredRows.length);
+  var pageRows = filteredRows.slice(startIdx, endIdx);
+
+  document.getElementById('res-count').textContent = effectiveTotal === 0
+    ? '0 referrals shown'
+    : 'Showing ' + (startIdx + 1) + '\u2013' + endIdx + ' of ' + effectiveTotal +
+      ' referral' + (effectiveTotal !== 1 ? 's' : '') +
+      (fullDataLoaded ? '' : ' (loading all\u2026)');
 
   if (filteredRows.length === 0) {
     document.getElementById('tbl-body').innerHTML =
       '<tr><td colspan="10" class="empty-msg">No referrals match the filters.</td></tr>';
+    renderPagination(totalPages);
     return;
   }
 
-  document.getElementById('tbl-body').innerHTML = filteredRows.map(function(row, idx) {
+  document.getElementById('tbl-body').innerHTML = pageRows.map(function(row, localIdx) {
+    var idx      = startIdx + localIdx; // global index into filteredRows — openDetail() depends on this
     var pts      = parseFloat(row['PointValue'])||0;
     var ptsStr   = pts > 0 ? '+'+pts : pts.toString();
     var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : '';
@@ -604,6 +687,38 @@ function renderTable() {
       '<td><button class="btn btn-outline btn-sm" onclick="openDetail('+idx+')">View</button></td>' +
       '</tr>';
   }).join('');
+
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  var topEl = document.getElementById('pagination-top');
+  var botEl = document.getElementById('pagination');
+
+  if (totalPages <= 1) { topEl.innerHTML = ''; botEl.innerHTML = ''; return; }
+
+  var lockedByLoad = !fullDataLoaded;
+
+  function buildHtml(jumpInputId) {
+    return '<button class="pg-btn" onclick="goToPage(1)" '+(lockedByLoad||currentPage<=1?'disabled':'')+'>\u00ab First</button>' +
+      '<button class="pg-btn" onclick="goToPage(currentPage-1)" '+(lockedByLoad||currentPage<=1?'disabled':'')+'>\u2039 Prev</button>' +
+      '<span class="pg-status">Page ' +
+        '<input type="number" class="pg-jump" id="'+jumpInputId+'" value="'+currentPage+'" min="1" max="'+totalPages+'" '+(lockedByLoad?'disabled':'')+' ' +
+               'onchange="goToPage(parseInt(this.value,10)||1)" onkeydown="if(event.key===\'Enter\')this.blur()">' +
+        ' of ' + totalPages + (lockedByLoad ? ' <span style="color:#94a3b8;">(loading\u2026)</span>' : '') +
+      '</span>' +
+      '<button class="pg-btn" onclick="goToPage(currentPage+1)" '+(lockedByLoad||currentPage>=totalPages?'disabled':'')+'>Next \u203a</button>' +
+      '<button class="pg-btn" onclick="goToPage('+totalPages+')" '+(lockedByLoad||currentPage>=totalPages?'disabled':'')+'>Last \u00bb</button>';
+  }
+
+  topEl.innerHTML = buildHtml('pg-jump-input-top');
+  botEl.innerHTML = buildHtml('pg-jump-input-bottom');
+}
+
+function goToPage(n) {
+  currentPage = n;
+  renderTable();
+  document.querySelector('.tbl-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function updateSummary() {
@@ -814,6 +929,7 @@ function confirmDeleteReferral() {
 }
 
 function exportCsv() {
+  if (!fullDataLoaded) { showToast('Still loading all referrals — one moment.', true); return; }
   if (filteredRows.length === 0) { showToast('No data to export.', true); return; }
   var cols = ['ID','IncidentDate','IncidentTime','StudentName','Grade','InfractionType',
               'PointValue','PointsBeforeReferral','PointsAfterReferral','CurrentPoints',
