@@ -122,6 +122,11 @@
     /* ── Grid layouts ── */
     .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .new-contact-row { display: flex; gap: 12px; align-items: flex-end;
+                       padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+    .new-contact-row:first-child { padding-top: 0; }
+    .new-contact-row .form-grid-3 { flex: 1; }
+    .new-contact-row .icon-remove-btn { margin-bottom: 1px; }
 
     /* ── Simple list editor (locations etc.) ── */
     .list-editor { border: 1px solid #c8d0e0; border-radius: 6px; overflow: hidden; }
@@ -168,7 +173,7 @@
     /* ── Point tier — global validation message ── */
     /* Shown for structural errors that aren't tied to one specific row
        (e.g. "at least 2 tiers required," "top tier must reach the
-       semester total") — per-row issues surface next to the row itself
+       term total") — per-row issues surface next to the row itself
        instead, via .tier-warning below. */
     .tier-global-msg { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
                        margin-bottom: 12px; background: #fef9c3; border: 1px solid #fde68a;
@@ -494,8 +499,8 @@
             <input type="text" id="cfg-schoolName" placeholder="e.g. Calloway County Middle School">
           </div>
           <div class="form-row">
-            <label>Semester Start Points</label>
-            <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
+            <label>Term Start Points</label>
+            <input type="number" id="cfg-termPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
           </div>
           <div class="form-row">
             <label>Positive Points Cap (per term)</label>
@@ -744,7 +749,7 @@
       <!-- Add single student -->
       <div class="card" id="card-addstudent">
         <div class="section-title">Add Student</div>
-        <p class="section-desc">Add a single student — for mid-year enrollments. Points default to the current Semester Start Points value.</p>
+        <p class="section-desc">Add a single student — for mid-year enrollments. Points default to the current Term Start Points value.</p>
         <div class="form-grid-3">
           <div class="form-row">
             <label>Student ID</label>
@@ -770,6 +775,20 @@
             <label>Starting Points <span class="hint">(optional)</span></label>
             <input type="number" id="new-points" min="0" max="9999" placeholder="Default">
           </div>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef1f6;">
+          <div style="font-size:0.82rem;font-weight:600;color:#374151;margin-bottom:2px;">
+            Referral Email Contacts <span class="hint">(optional)</span>
+          </div>
+          <p class="section-desc" style="margin-top:0;margin-bottom:10px;">
+            Add one or more parents, guardians, or other contacts for this student now — or skip this and add them later from the student's profile.
+          </p>
+          <div id="new-student-contacts"></div>
+          <button class="add-btn" onclick="addNewStudentContactRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>Add Contact
+          </button>
         </div>
         <div class="save-row">
           <span class="save-msg" id="msg-add-student"></span>
@@ -855,13 +874,13 @@
          TAB: YEAR-END
     ══════════════════════════════════════════════════════════ -->
     <div id="tab-yearend" class="tab-panel">
-      <!-- Reset Semester Points (mid-year reset — lighter than Start New Year) -->
+      <!-- Reset Term Points (mid-year reset — lighter than Start New Year) -->
       <div class="card danger-card" id="card-resetpoints">
-        <div class="section-title">Reset Semester Points</div>
-        <p class="section-desc">Resets all student point balances to the current Semester Start Points value. Referral history is not deleted. Use this for a mid-year or new-semester reset — for a full year-end reset with archiving, use "Start New Year" below.</p>
-        <div class="save-row">
+        <div class="section-title">Reset Term Points</div>
+        <p class="section-desc">Resets all student point balances to the current Term Start Points value. Referral history is not deleted. Use this for a mid-year or new-term reset — for a full year-end reset with archiving, use "Start New Year" below.</p>
+        <div class="save-row" style="justify-content:center;">
           <span class="save-msg" id="msg-reset"></span>
-          <button class="btn-danger" onclick="confirmReset()">Reset Semester Points</button>
+          <button class="btn-danger" onclick="confirmReset()">Reset Term Points</button>
         </div>
       </div>
 
@@ -952,6 +971,7 @@ var _staffLoaded   = false;
 var _studentsLoaded = false;
 var _archiveListLoaded = false;
 var _colorPalette  = {};   // {key: hex} — the constrained palette from the server
+var _bootstrapConfig = {}; // raw config from getSettingsBootstrap() — used by the Add Student form's Contact Type dropdown
 
 // Shared trash-can icon markup (same glyph used by the Point Balance
 // Colors tier editor) — used by every remove button in Settings so the
@@ -982,8 +1002,10 @@ function onBootstrap(data) {
   }
 
   _colorPalette = data.colorPalette || {};
+  _bootstrapConfig = data.config || {};
   document.getElementById('settings-body').style.display = 'block';
   populateGeneral(data.config);
+  populateAddStudentContactTypes();
 }
 
 // ── Tab switching ──────────────────────────────────────────────
@@ -1008,7 +1030,7 @@ function showTab(name) {
 // not a 1:1 mapping to cards.
 var SETTINGS_SEARCH_INDEX = [
   { label: 'School Name',                       tab: 'general',        target: 'card-school' },
-  { label: 'Semester Start Points',              tab: 'general',        target: 'card-school' },
+  { label: 'Term Start Points',              tab: 'general',        target: 'card-school' },
   { label: 'Positive Points Cap',                tab: 'general',        target: 'card-school' },
   { label: 'Email Notifications',                tab: 'general',        target: 'card-email' },
   { label: 'Parent Email Notifications',         tab: 'general',        target: 'card-email' },
@@ -1025,7 +1047,7 @@ var SETTINGS_SEARCH_INDEX = [
   { label: 'Add Student',                        tab: 'students',       target: 'card-addstudent' },
   { label: 'Bulk Import (CSV)',                  tab: 'students',       target: 'card-bulkimport' },
   { label: 'Student Roster',                     tab: 'students',       target: 'card-roster' },
-  { label: 'Reset Semester Points',              tab: 'yearend',        target: 'card-resetpoints' },
+  { label: 'Reset Term Points',              tab: 'yearend',        target: 'card-resetpoints' },
   { label: 'Start New Year',                     tab: 'yearend',        target: 'card-startnewyear' },
   { label: 'View a Previous Year\u2019s Referrals', tab: 'yearend',     target: 'card-viewarchive' }
 ];
@@ -1106,7 +1128,7 @@ document.addEventListener('click', function(e) {
 
 function populateGeneral(cfg) {
   setVal('cfg-schoolName',     (cfg.SchoolName          || [])[0] || '');
-  setVal('cfg-semesterPoints', (cfg.SemesterStartPoints || [])[0] || '100');
+  setVal('cfg-termPoints', (cfg.TermStartPoints || [])[0] || '100');
   setVal('cfg-positiveCap',    (cfg.PositiveCapPerTerm || [])[0] || '15');
 
   var emailOn = ((cfg.EmailNotificationsEnabled || [])[0] || 'Yes').toString().toLowerCase();
@@ -1225,7 +1247,7 @@ function saveSection(section) {
   var payload = {};
   if (section === 'school') {
     payload.SchoolName          = [document.getElementById('cfg-schoolName').value.trim()];
-    payload.SemesterStartPoints = [document.getElementById('cfg-semesterPoints').value.trim()];
+    payload.TermStartPoints = [document.getElementById('cfg-termPoints').value.trim()];
     payload.PositiveCapPerTerm = [document.getElementById('cfg-positiveCap').value.trim()];
   } else if (section === 'email') {
     payload.EmailNotificationsEnabled =
@@ -1372,18 +1394,18 @@ window.addEventListener('beforeunload', function(e) {
 
 var _tierDirty = false; // tracks unsaved changes for the sticky save row
 
-// Reads the live value of the Semester Start Points field. Tiers are
+// Reads the live value of the Term Start Points field. Tiers are
 // always stored/saved as percentages (so the same config still makes
 // sense if the point total changes later), but admins think in actual
 // points earned/lost, not percentages — this converts on the fly for
 // display only.
-function getSemesterPointsValue() {
-  var v = parseFloat(document.getElementById('cfg-semesterPoints').value);
+function getTermPointsValue() {
+  var v = parseFloat(document.getElementById('cfg-termPoints').value);
   return (!isNaN(v) && v > 0) ? v : 100;
 }
 
 // Tiers are stored on the server as PERCENTAGES (0-100) so a saved
-// configuration stays sensible even if Semester Start Points changes
+// configuration stays sensible even if Term Start Points changes
 // later — but the admin never sees a percent sign anywhere. This
 // section converts in both directions: percentages in from the server
 // become point ranges on screen, and point ranges typed by the admin
@@ -1411,9 +1433,9 @@ function buildTierEditor(thresholds, colors) {
   tierPcts.sort(function(a, b) { return b.pct - a.pct; });
 
   // Convert each tier's starting percentage into a point MIN/MAX pair.
-  // The top tier's max is the semester total; each lower tier's max is
+  // The top tier's max is the term total; each lower tier's max is
   // one point below the tier above it's min.
-  var sp = getSemesterPointsValue();
+  var sp = getTermPointsValue();
   for (var j = 0; j < tierPcts.length; j++) {
     var min = Math.round(tierPcts[j].pct / 100 * sp);
     var max = (j === 0) ? sp : Math.round(tierPcts[j - 1].pct / 100 * sp) - 1;
@@ -1541,7 +1563,7 @@ function refreshTierUI() {
   updateTierStickyBar();
 
   var rows = document.querySelectorAll('.tier-row');
-  var sp = getSemesterPointsValue();
+  var sp = getTermPointsValue();
 
   // ── Live, per-row validation ──────────────────────────────────
   // Surfaces overlapping ranges, gaps between ranges, inverted min/max,
@@ -1631,7 +1653,7 @@ function getTierValues() {
   if (rows.length < TIER_MIN) return { error: 'At least ' + TIER_MIN + ' tiers are required.' };
   if (rows.length > TIER_MAX) return { error: 'No more than ' + TIER_MAX + ' tiers are allowed.' };
 
-  var sp = getSemesterPointsValue();
+  var sp = getTermPointsValue();
   var ranges = [];
 
   for (var i = 0; i < rows.length; i++) {
@@ -1656,7 +1678,7 @@ function getTierValues() {
   }
 
   // Ranges must be contiguous and non-overlapping, covering every point
-  // from 0 to the semester total with no gaps.
+  // from 0 to the term total with no gaps.
   for (var j = 1; j < ranges.length; j++) {
     if (ranges[j].max >= ranges[j - 1].min) {
       return { error: 'Row ' + (j + 1) + ': overlaps the tier above it.' };
@@ -1666,7 +1688,7 @@ function getTierValues() {
     }
   }
   if (ranges[0].max !== sp) {
-    return { error: 'The top tier\'s maximum must equal the Semester Start Points value (' + sp + ').' };
+    return { error: 'The top tier\'s maximum must equal the Term Start Points value (' + sp + ').' };
   }
   if (ranges[ranges.length - 1].min > 0) {
     return { error: 'The bottom tier\'s minimum must be 0 or lower, so every possible balance is covered.' };
@@ -1674,7 +1696,7 @@ function getTierValues() {
 
   // Convert point ranges to the percentage thresholds the server stores.
   // Each tier's threshold is its MIN expressed as a percentage of the
-  // semester total — this is what parsePointTiers() in Code.gs expects.
+  // term total — this is what parsePointTiers() in Code.gs expects.
   var thresholds = ranges.map(function(r) { return sp > 0 ? (r.min / sp * 100) : 0; });
   var colors     = ranges.map(function(r) { return r.color; });
 
@@ -1684,7 +1706,7 @@ function getTierValues() {
 function confirmReset() {
   showConfirm({
     title: 'Reset all student points?',
-    message: 'Every student\u2019s point balance resets to the Semester Start Points value. Referral history is not deleted.',
+    message: 'Every student\u2019s point balance resets to the Term Start Points value. Referral history is not deleted.',
     confirmLabel: 'Reset Points',
     onConfirm: function() {
       google.script.run
@@ -1693,7 +1715,7 @@ function confirmReset() {
           else showToast(r.error || 'Reset failed.', true);
         })
         .withFailureHandler(function(err) { showToast(err.message || err, true); })
-        .resetSemesterPoints();
+        .resetTermPoints();
     }
   });
 }
@@ -2253,6 +2275,42 @@ function renderRoster(rows) {
   }).join('');
 }
 
+function newStudentContactTypeOptions() {
+  var html = '<option value="">— Select —</option>';
+  (_bootstrapConfig.ContactTypes || []).forEach(function(t) {
+    html += '<option value="'+esc(t)+'">'+esc(t)+'</option>';
+  });
+  return html;
+}
+
+function populateAddStudentContactTypes() {
+  // Starts empty — admins click "Add Contact" if they actually want
+  // one, rather than always having a row to fill in or ignore.
+  document.getElementById('new-student-contacts').innerHTML = '';
+}
+
+function addNewStudentContactRow() {
+  var wrap = document.createElement('div');
+  wrap.className = 'new-contact-row';
+  wrap.innerHTML =
+    '<div class="form-grid-3">' +
+      '<div class="form-row"><label>Type</label><select class="nc-type">'+newStudentContactTypeOptions()+'</select></div>' +
+      '<div class="form-row"><label>First Name</label><input type="text" class="nc-first" placeholder="First"></div>' +
+      '<div class="form-row"><label>Last Name</label><input type="text" class="nc-last" placeholder="Last"></div>' +
+      '<div class="form-row" style="grid-column:span 2;"><label>Email</label><input type="email" class="nc-email" placeholder="name@email.com"></div>' +
+    '</div>' +
+    '<button class="icon-remove-btn" onclick="removeNewStudentContactRow(this)" title="Remove">' + TRASH_SVG + '</button>';
+  document.getElementById('new-student-contacts').appendChild(wrap);
+}
+
+function removeNewStudentContactRow(btn) {
+  btn.closest('.new-contact-row').remove();
+}
+
+function clearNewStudentContactRows() {
+  document.getElementById('new-student-contacts').innerHTML = '';
+}
+
 function addSingleStudent() {
   var student = {
     studentId:     document.getElementById('new-studentId').value.trim(),
@@ -2266,18 +2324,70 @@ function addSingleStudent() {
     setMsg('add-student', 'ID, first name, last name, and grade are required.', 'err');
     return;
   }
+
+  // Collect every contact row — a row is either fully filled in (all
+  // four fields) or left completely blank (skipped). A row with only
+  // some fields filled in is treated as a mistake, not "close enough".
+  var contacts = [];
+  var rowError = false;
+  document.querySelectorAll('#new-student-contacts .new-contact-row').forEach(function(row) {
+    var c = {
+      type:      row.querySelector('.nc-type').value,
+      firstName: row.querySelector('.nc-first').value.trim(),
+      lastName:  row.querySelector('.nc-last').value.trim(),
+      email:     row.querySelector('.nc-email').value.trim()
+    };
+    var anyFilled = !!(c.type || c.firstName || c.lastName || c.email);
+    var allFilled = !!(c.type && c.firstName && c.lastName && c.email);
+    if (allFilled) contacts.push(c);
+    else if (anyFilled) rowError = true;
+  });
+  if (rowError) {
+    setMsg('add-student', 'Each contact needs type, first name, last name, and email — or leave that row entirely blank to skip it.', 'err');
+    return;
+  }
+
   setMsg('add-student', 'Saving...', 'ld');
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) {
-        setMsg('add-student', '✓ Student ' + r.action + '.', 'ok');
-        // Clear form
+      if (!r.success) { setMsg('add-student', 'Error: ' + (r.error || 'Unknown'), 'err'); return; }
+
+      function finishUp(contactMsg) {
+        setMsg('add-student', '✓ Student ' + r.action + '.' + contactMsg, 'ok');
         ['new-studentId','new-firstName','new-lastName','new-middleName','new-grade','new-points']
           .forEach(function(id){ document.getElementById(id).value = ''; });
-        // Reload roster
+        clearNewStudentContactRows();
         _studentsLoaded = false;
         loadStudents();
-      } else setMsg('add-student', 'Error: ' + (r.error || 'Unknown'), 'err');
+      }
+
+      if (contacts.length === 0) { finishUp(''); return; }
+
+      // Contacts save one at a time — they all depend on the student
+      // row that was just created, so there's nothing to gain from
+      // trying to fire them in parallel, and it keeps error reporting
+      // per-contact instead of muddled together.
+      var saved = 0, failed = [];
+      function saveNext(i) {
+        if (i >= contacts.length) {
+          var msg = ' ' + saved + ' contact' + (saved !== 1 ? 's' : '') + ' added.';
+          if (failed.length > 0) msg += ' (' + failed.length + ' failed: ' + failed.join('; ') + ')';
+          finishUp(msg);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(cr) {
+            if (cr.success) saved++;
+            else failed.push(contacts[i].firstName + ' ' + contacts[i].lastName + ' — ' + (cr.error || 'Unknown'));
+            saveNext(i + 1);
+          })
+          .withFailureHandler(function(err) {
+            failed.push(contacts[i].firstName + ' ' + contacts[i].lastName + ' — ' + (err.message || err));
+            saveNext(i + 1);
+          })
+          .saveContact(student.studentId, contacts[i], []);
+      }
+      saveNext(0);
     })
     .withFailureHandler(function(err) { setMsg('add-student', 'Error: ' + (err.message||err), 'err'); })
     .saveStudent(student);

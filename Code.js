@@ -5,7 +5,7 @@
 // CHANGES FROM v11:
 //   • New Config columns: PointTierThresholds, PointTierColors —
 //     parallel lists defining how many tiers exist, where each tier
-//     starts (percentage of semester points), and which color from the
+//     starts (percentage of term points), and which color from the
 //     constrained palette each tier uses.
 //   • POINT_COLOR_PALETTE constant — the fixed set of color keys/hex
 //     values admins can choose from (green, blue, purple, amber, orange,
@@ -38,7 +38,7 @@ var CONFIG_COL_LOCATIONS        = 'Locations';
 var CONFIG_COL_CONTACT_TYPES    = 'ContactTypes';
 // Redirections and Motivations intentionally removed — no longer used.
 var CONFIG_COL_SCHOOL_NAME      = 'SchoolName';
-var CONFIG_COL_SEMESTER_POINTS  = 'SemesterStartPoints';
+var CONFIG_COL_TERM_POINTS  = 'TermStartPoints';
 var CONFIG_COL_EMAIL_ENABLED    = 'EmailNotificationsEnabled';
 var CONFIG_COL_TEACHER_EMAIL_ENABLED = 'TeacherEmailNotificationsEnabled';
 var CONFIG_COL_EMAIL_FOOTER     = 'EmailFooterText';
@@ -519,7 +519,7 @@ function getConfig() {
     locations:        col(CONFIG_COL_LOCATIONS),
     contactTypes:     col(CONFIG_COL_CONTACT_TYPES).length > 0 ? col(CONFIG_COL_CONTACT_TYPES) : DEFAULT_CONTACT_TYPES,
     schoolName:       val(CONFIG_COL_SCHOOL_NAME,     'Our School'),
-    semesterPoints:   parseInt(val(CONFIG_COL_SEMESTER_POINTS, '100'), 10) || 100,
+    termPoints:   parseInt(val(CONFIG_COL_TERM_POINTS, '100'), 10) || 100,
     emailEnabled:     val(CONFIG_COL_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
     teacherEmailEnabled: val(CONFIG_COL_TEACHER_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
     emailFooter:      col(CONFIG_COL_EMAIL_FOOTER).join('\n') ||
@@ -796,7 +796,7 @@ function getSettingsBootstrap() {
     colorPalette: POINT_COLOR_PALETTE, // {key: hex} — drives the Settings color picker
     config: {
       SchoolName:                raw[CONFIG_COL_SCHOOL_NAME]       || [],
-      SemesterStartPoints:       raw[CONFIG_COL_SEMESTER_POINTS]   || [],
+      TermStartPoints:       raw[CONFIG_COL_TERM_POINTS]   || [],
       EmailNotificationsEnabled: raw[CONFIG_COL_EMAIL_ENABLED]     || [],
       TeacherEmailNotificationsEnabled: raw[CONFIG_COL_TEACHER_EMAIL_ENABLED] || [],
       DailyEmailSendTime:        raw[CONFIG_COL_EMAIL_SEND_TIME]   || [],
@@ -939,8 +939,8 @@ function getFormBootstrap() {
   var students = [];
   for (var i = 1; i < stuData.length; i++) {
     var pts = parseInt(stuData[i][STU_COL_POINTS], 10);
-    if (isNaN(pts)) pts = cfg.semesterPoints;
-    var pct = cfg.semesterPoints > 0 ? Math.round(pts / cfg.semesterPoints * 100) : 0;
+    if (isNaN(pts)) pts = cfg.termPoints;
+    var pct = cfg.termPoints > 0 ? Math.round(pts / cfg.termPoints * 100) : 0;
     students.push({
       studentId:     stuData[i][STU_COL_ID].toString(),
       studentName:   displayName(stuData[i][STU_COL_FIRST], stuData[i][STU_COL_LAST]),
@@ -955,7 +955,7 @@ function getFormBootstrap() {
   return {
     user:             user,
     schoolName:       cfg.schoolName,
-    semesterPoints:   cfg.semesterPoints,
+    termPoints:   cfg.termPoints,
     emailEnabled:     cfg.emailEnabled,
     locations:        cfg.locations,
     currentTerm: cfg.currentTerm,
@@ -1002,7 +1002,7 @@ function getStudentFormCard(studentId) {
         studentId:     stuData[i][STU_COL_ID].toString(),
         studentName:   displayName(stuData[i][STU_COL_FIRST], stuData[i][STU_COL_LAST]),
         grade:         stuData[i][STU_COL_GRADE].toString(),
-        currentPoints: isNaN(pts) ? cfg.semesterPoints : pts
+        currentPoints: isNaN(pts) ? cfg.termPoints : pts
       };
       break;
     }
@@ -1050,7 +1050,7 @@ function getStudentFormCard(studentId) {
     termLabel:        termLabel,
     termStart:        termStart,
     termEnd:          termEnd,
-    semesterPoints: cfg.semesterPoints
+    termPoints: cfg.termPoints
   };
 }
 
@@ -1111,7 +1111,7 @@ function submitReferrals(referrals) {
 
       var pointValue   = getPointValue(r.infractionType);
       var stuIdx       = findStudentRow(stuData, sidStr);
-      var pointsBefore = cfg.semesterPoints;
+      var pointsBefore = cfg.termPoints;
 
       if (stuIdx >= 0) {
         var ex = stuData[stuIdx][STU_COL_POINTS];
@@ -1326,7 +1326,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
 
       var id       = ++lastId;
       var stuIdx   = findStudentRow(stuData, sidStr);
-      var pointsBefore = cfg.semesterPoints;
+      var pointsBefore = cfg.termPoints;
 
       if (stuIdx >= 0) {
         var ex = stuData[stuIdx][STU_COL_POINTS];
@@ -1766,7 +1766,7 @@ function getDashboardData() {
 
   // ── Teacher dashboard: slimmer, self-scoped payload ─────────────
   if (user.role === 'teacher') {
-    var sp     = cfg.semesterPoints;
+    var sp     = cfg.termPoints;
     var atRisk = [];
     for (var s = 1; s < stuData.length; s++) {
       var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
@@ -1795,7 +1795,7 @@ function getDashboardData() {
     return {
       user:             user,
       schoolName:       cfg.schoolName,
-      semesterPoints:   sp,
+      termPoints:   sp,
       currentTerm: cfg.currentTerm,
       pointTiers:       cfg.pointTiers,
       stats: {
@@ -1843,7 +1843,7 @@ function getDashboardData() {
     })
     .slice(0, 10);
 
-  var sp     = cfg.semesterPoints;
+  var sp     = cfg.termPoints;
   var atRisk = [];
   for (var s = 1; s < stuData.length; s++) {
     var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
@@ -1878,7 +1878,7 @@ function getDashboardData() {
   return {
     user:                user,
     schoolName:          cfg.schoolName,
-    semesterPoints:      sp,
+    termPoints:      sp,
     currentTerm:    cfg.currentTerm,
     pointTiers:          cfg.pointTiers,
     stats: {
@@ -1931,7 +1931,7 @@ function getStudentProfile(studentId) {
       termSummary:           [],
       terms:           cfg.terms,
       currentTerm:    cfg.currentTerm,
-      semesterPoints:      cfg.semesterPoints,
+      termPoints:      cfg.termPoints,
       schoolName:          cfg.schoolName,
       pointTiers:          cfg.pointTiers,
       summary: { total: 0, negative: 0, positive: 0 }
@@ -1942,8 +1942,8 @@ function getStudentProfile(studentId) {
   for (var s = 1; s < stuData.length; s++) {
     if (stuData[s][STU_COL_ID].toString() === studentId.toString()) {
       var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
-      var curPts = isNaN(pts) ? cfg.semesterPoints : pts;
-      var curPct = cfg.semesterPoints > 0 ? Math.round(curPts / cfg.semesterPoints * 100) : 0;
+      var curPts = isNaN(pts) ? cfg.termPoints : pts;
+      var curPct = cfg.termPoints > 0 ? Math.round(curPts / cfg.termPoints * 100) : 0;
       student = {
         studentId:         stuData[s][STU_COL_ID].toString(),
         studentName:   displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]),
@@ -2055,7 +2055,7 @@ function getStudentProfile(studentId) {
     termSummary:           termSummary,
     terms:           cfg.terms,
     currentTerm:    cfg.currentTerm,
-    semesterPoints:      cfg.semesterPoints,
+    termPoints:      cfg.termPoints,
     schoolName:          cfg.schoolName,
     pointTiers:          cfg.pointTiers,
     user:                user,
@@ -2076,7 +2076,7 @@ function getAllStudents() {
   var ss      = SpreadsheetApp.getActiveSpreadsheet();
   var stuData = ss.getSheetByName(SHEET_STUDENTS).getDataRange().getValues();
   var cfg     = getConfig();
-  var sp      = cfg.semesterPoints;
+  var sp      = cfg.termPoints;
   var results = [];
 
   for (var i = 1; i < stuData.length; i++) {
@@ -2096,7 +2096,7 @@ function getAllStudents() {
 
   return {
     students:       results,
-    semesterPoints: sp,
+    termPoints: sp,
     schoolName:     cfg.schoolName,
     pointTiers:     cfg.pointTiers,
     user:           user
@@ -2127,7 +2127,7 @@ function buildReportRows_() {
   for (var s = 1; s < stuData.length; s++) {
     var sid = stuData[s][STU_COL_ID].toString();
     var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
-    ptsMap[sid] = isNaN(pts) ? cfg.semesterPoints : pts;
+    ptsMap[sid] = isNaN(pts) ? cfg.termPoints : pts;
   }
 
   var rows       = [];
@@ -2144,8 +2144,8 @@ function buildReportRows_() {
     if (tch) teacherSet[tch] = true;
     if (inf) infraSet[inf]   = true;
 
-    var curPts = ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.semesterPoints;
-    var curPct = cfg.semesterPoints > 0 ? Math.round(curPts / cfg.semesterPoints * 100) : 0;
+    var curPts = ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.termPoints;
+    var curPct = cfg.termPoints > 0 ? Math.round(curPts / cfg.termPoints * 100) : 0;
 
     rows.push({
       ID:                   row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
@@ -2195,7 +2195,7 @@ function getReportData(filters) {
     headers:           REFERRAL_HEADERS,
     teacherOptions:    built.teacherOptions,
     infractionOptions: built.infractionOptions,
-    semesterPoints:    cfg.semesterPoints,
+    termPoints:    cfg.termPoints,
     schoolName:        cfg.schoolName,
     pointTiers:        cfg.pointTiers,
     terms:             cfg.terms,
@@ -2235,7 +2235,7 @@ function getReportDataPage(page, pageSize) {
     headers:           REFERRAL_HEADERS,
     teacherOptions:    built.teacherOptions,
     infractionOptions: built.infractionOptions,
-    semesterPoints:    cfg.semesterPoints,
+    termPoints:    cfg.termPoints,
     schoolName:        cfg.schoolName,
     pointTiers:        cfg.pointTiers,
     terms:             cfg.terms,
@@ -2416,7 +2416,7 @@ function updateReferralDetails(referralId, updates) {
 // Balance correction approach: rather than simply subtracting the
 // deleted row's PointValue back out, this REPLAYS every remaining
 // referral for that student in original submission order (oldest ID
-// first), starting from Semester Start Points and re-applying the same
+// first), starting from Term Start Points and re-applying the same
 // floor-at-zero rule used at submission time (see submitReferrals). A
 // simple subtraction can be wrong if the deleted referral's actual
 // effect was different from its raw point value because the student
@@ -2505,7 +2505,7 @@ function deleteReferral(referralId, reason) {
     }
     remaining.sort(function(a, b) { return a.id - b.id; }); // original submission order
 
-    var balance = cfg.semesterPoints;
+    var balance = cfg.termPoints;
     remaining.forEach(function(ref) {
       balance = Math.max(0, balance + ref.pts);
     });
@@ -2614,7 +2614,7 @@ function getChangeLog() {
   return { success: true, rows: rows };
 }
 
-function resetSemesterPoints() {
+function resetTermPoints() {
   try {
     var user = getCurrentUser();
     if (!user || user.role !== 'admin') {
@@ -2625,11 +2625,14 @@ function resetSemesterPoints() {
     var data  = sheet.getDataRange().getValues();
     var cfg   = getConfig();
     var now   = new Date();
-    var count = 0;
-    for (var i = 1; i < data.length; i++) {
-      sheet.getRange(i + 1, STU_COL_POINTS + 1).setValue(cfg.semesterPoints);
-      sheet.getRange(i + 1, STU_COL_POINTS_DATE + 1).setValue(now);
-      count++;
+    var count = data.length - 1;
+    if (count > 0) {
+      // One bulk write for every student's balance + timestamp, instead
+      // of two separate API calls per row — matters a lot at real
+      // roster sizes (a 600-student reset was previously 1,200 calls).
+      var values = [];
+      for (var i = 0; i < count; i++) values.push([cfg.termPoints, now]);
+      sheet.getRange(2, STU_COL_POINTS + 1, count, 2).setValues(values);
     }
     SpreadsheetApp.flush();
     return { success: true, count: count };
@@ -3141,18 +3144,18 @@ function getStudentsList() {
       lastName:      data[i][STU_COL_LAST]   ? data[i][STU_COL_LAST].toString().trim()   : '',
       middleName:    data[i][STU_COL_MIDDLE] ? data[i][STU_COL_MIDDLE].toString().trim() : '',
       grade:         data[i][STU_COL_GRADE] ? data[i][STU_COL_GRADE].toString().trim() : '',
-      currentPoints: isNaN(pts) ? cfg.semesterPoints : pts
+      currentPoints: isNaN(pts) ? cfg.termPoints : pts
     });
   }
 
   rows.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
-  return { success: true, rows: rows, semesterPoints: cfg.semesterPoints };
+  return { success: true, rows: rows, termPoints: cfg.termPoints };
 }
 
 /**
  * Adds a new student or updates an existing one.
  * - New student: StudentID must not already exist; CurrentPoints
- *   defaults to SemesterStartPoints.
+ *   defaults to TermStartPoints.
  * - Existing student: finds the row by StudentID and updates name/grade.
  * Admin only.
  */
@@ -3193,11 +3196,11 @@ function saveStudent(student) {
       }
     }
 
-    // New student — use override points if provided, else semester default
+    // New student — use override points if provided, else term default
     var pts = (student.currentPoints !== undefined && student.currentPoints !== '')
       ? parseInt(student.currentPoints, 10)
-      : cfg.semesterPoints;
-    if (isNaN(pts) || pts < 0) pts = cfg.semesterPoints;
+      : cfg.termPoints;
+    if (isNaN(pts) || pts < 0) pts = cfg.termPoints;
 
     sheet.appendRow([id, first, last, middle, grade, pts, now]);
     SpreadsheetApp.flush();
@@ -3258,7 +3261,7 @@ function deleteStudent(studentId) {
  * Bulk imports students from a CSV-parsed array.
  * Each row: { studentId, studentName, grade }
  * - Skips rows with duplicate StudentIDs (existing or within import).
- * - CurrentPoints defaults to SemesterStartPoints for all new students.
+ * - CurrentPoints defaults to TermStartPoints for all new students.
  * - Returns counts of added, skipped, and any errors.
  * Admin only.
  */
@@ -3310,7 +3313,7 @@ function importStudents(rows) {
           continue;
         }
 
-        sheet.appendRow([id, first, last, middle, grade, cfg.semesterPoints, now]);
+        sheet.appendRow([id, first, last, middle, grade, cfg.termPoints, now]);
         existingIds[id]  = true;
         seenInImport[id] = true;
         added++;

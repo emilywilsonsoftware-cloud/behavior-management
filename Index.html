@@ -377,7 +377,7 @@ function onBootstrap(data) {
   state.teacherName  = data.user.name  || data.user.email;
   state.teacherEmail = data.user.email;
   state.allStudents  = data.students   || [];
-  state.semPts       = data.semesterPoints || 100;
+  state.semPts       = data.termPoints || 100;
   state.pointTiers   = data.pointTiers || [];
   state.termLabel      = data.currentTerm ? data.currentTerm.label : 'Current Term';
 

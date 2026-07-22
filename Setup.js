@@ -36,10 +36,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Clear All Staff Role Caches', 'clearAllUserCachesMenu')
     .addSeparator()
-    .addItem('Reset Semester Points (NEW SEMESTER)', 'resetSemesterPointsMenu')
-    .addSeparator()
-    .addItem('Clear Test Referral Data',       'clearTestReferralDataMenu')
-    .addItem('Generate Test Referral Data...', 'generateTestReferralDataMenu')
+    .addItem('Reset Term Points (NEW TERM)', 'resetTermPointsMenu')
     .addToUi();
 }
 
@@ -103,7 +100,7 @@ function _setupConfig(ss) {
   // editing them directly in the sheet risks producing mismatched rows
   // that getConfig() will reject and silently replace with this default.
   var headers = [
-    'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
+    'SchoolName', 'TermStartPoints', 'EmailNotificationsEnabled',
     'TeacherEmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
     'Locations', 'ContactTypes', 'TermStartDates',
@@ -349,85 +346,22 @@ function removeDailyTrigger() {
 }
 
 // =============================================================
-// SEMESTER RESET (menu entry point)
+// TERM RESET (menu entry point)
 // =============================================================
 
-function resetSemesterPointsMenu() {
+function resetTermPointsMenu() {
   var ui       = SpreadsheetApp.getUi();
   var response = ui.alert(
-    'Reset Semester Points',
+    'Reset Term Points',
     'This will reset ALL student point balances to the current ' +
-    'Semester Start Points value.\n\nReferral history will NOT be deleted.' +
+    'Term Start Points value.\n\nReferral history will NOT be deleted.' +
     '\n\nAre you sure?',
     ui.ButtonSet.YES_NO
   );
   if (response !== ui.Button.YES) return;
-  var result = resetSemesterPoints();
+  var result = resetTermPoints();
   if (result.success) {
     ui.alert('Done', 'Reset ' + result.count + ' student balances.', ui.ButtonSet.OK);
-  } else {
-    ui.alert('Error', result.error || 'Unknown error.', ui.ButtonSet.OK);
-  }
-}
-
-/**
- * Spreadsheet-menu wrapper for clearTestReferralData() (defined in
- * Code.gs). Wipes all referrals and the change log, and resets every
- * student's points — nothing is archived first, so this is only meant
- * for disposable test data, never real referral history.
- */
-function clearTestReferralDataMenu() {
-  var ui       = SpreadsheetApp.getUi();
-  var response = ui.alert(
-    'Clear Test Referral Data',
-    'This permanently deletes EVERY row in the Referrals and ' +
-    'ChangeLog sheets, and resets every student\u2019s point balance ' +
-    'back to Semester Start Points.\n\n' +
-    'Nothing is archived first \u2014 this cannot be undone. Only use this ' +
-    'on test/demo data, never on a live school\u2019s real referral history.' +
-    '\n\nAre you sure?',
-    ui.ButtonSet.YES_NO
-  );
-  if (response !== ui.Button.YES) return;
-  var result = clearTestReferralData();
-  if (result.success) {
-    ui.alert('Done',
-      'Cleared ' + result.referralsCleared + ' referral(s) and reset ' +
-      result.studentsReset + ' student balance(s).', ui.ButtonSet.OK);
-  } else {
-    ui.alert('Error', result.error || 'Unknown error.', ui.ButtonSet.OK);
-  }
-}
-
-/**
- * Spreadsheet-menu wrapper for generateTestReferralData() (defined in
- * Code.gs). Prompts for how many referrals to generate, then builds a
- * realistic school year's worth of data using your actual students,
- * staff, infractions, and locations.
- */
-function generateTestReferralDataMenu() {
-  var ui       = SpreadsheetApp.getUi();
-  var promptRes = ui.prompt(
-    'Generate Test Referral Data',
-    'How many referrals should be generated? A typical full school ' +
-    'year for a mid-size school is roughly 800\u20131200.\n\n' +
-    'Leave blank for the default (900).',
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (promptRes.getSelectedButton() !== ui.Button.OK) return;
-
-  var countText = promptRes.getResponseText().trim();
-  var count = countText ? parseInt(countText, 10) : 900;
-  if (isNaN(count) || count < 1) {
-    ui.alert('Error', 'Please enter a positive number.', ui.ButtonSet.OK);
-    return;
-  }
-
-  var result = generateTestReferralData(count);
-  if (result.success) {
-    ui.alert('Done',
-      'Generated ' + result.count + ' referral(s) across ' + result.studentsAffected +
-      ' student(s), dated ' + result.dateRange + '.', ui.ButtonSet.OK);
   } else {
     ui.alert('Error', result.error || 'Unknown error.', ui.ButtonSet.OK);
   }

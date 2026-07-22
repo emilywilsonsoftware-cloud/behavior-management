@@ -479,7 +479,7 @@ window.addEventListener('load', function() {
     .withSuccessHandler(function(data) {
       if (typeof updateNavUser === 'function') updateNavUser(data.user);
       allStudents = data.students || [];
-      semPts      = data.semesterPoints || 100;
+      semPts      = data.termPoints || 100;
       pointTiers  = data.pointTiers || [];
 
       // Build grade filter from actual student data
@@ -704,7 +704,7 @@ function renderProfile(data) {
 
   currentStudent = data;
   var s      = data.student;
-  var sp     = data.semesterPoints;
+  var sp     = data.termPoints;
   var isAdm  = data.user && data.user.role === 'admin';
   var pct    = sp > 0 ? Math.max(0,Math.min(100,Math.round(s.currentPoints/sp*100))) : 0;
   var ptColor = s.pointColor || getPointColor(pct, data.pointTiers);

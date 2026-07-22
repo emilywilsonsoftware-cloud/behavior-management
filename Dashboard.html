@@ -390,7 +390,7 @@ function renderAdmin(d) {
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
   setText('st-negative', s.negativeCount); setText('st-positive', s.positiveCount);
   setText('st-stus', s.totalStudents);
-  setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.semesterPoints + ' pts');
+  setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.termPoints + ' pts');
 
   var maxM = Math.max.apply(null, d.monthlyTrend.map(function(m){ return m.count; })) || 1;
   document.getElementById('monthly-chart').innerHTML = d.monthlyTrend.map(function(m) {
@@ -403,7 +403,7 @@ function renderAdmin(d) {
   renderHbars('inf-chart', d.infractionBreakdown, 'amber');
   renderHbars('loc-chart', d.locationBreakdown, '');
 
-  renderAtRiskTable('ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
+  renderAtRiskTable('ar-body', d.atRisk, d.termPoints, d.pointTiers);
 
   document.getElementById('act-list').innerHTML = d.recentReferrals.length === 0
     ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
@@ -471,7 +471,7 @@ function renderTeacher(d) {
   _myRefsToday   = d.today;
   _myRefsWeekAgo = d.day7ago;
 
-  renderAtRiskTable('t-ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
+  renderAtRiskTable('t-ar-body', d.atRisk, d.termPoints, d.pointTiers);
 
   // Default window is "Today" per the button already marked active in
   // the HTML — render that slice immediately.
