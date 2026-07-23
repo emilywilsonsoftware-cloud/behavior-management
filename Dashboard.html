@@ -52,7 +52,7 @@
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 
     /* Bar chart */
-    .bar-chart { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-top: 6px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 5px; height: 138px; padding-top: 6px; }
     .bar-col   { flex: 1; display: flex; flex-direction: column; align-items: center;
                  justify-content: flex-end; gap: 3px; }
     .bar       { width: 100%; border-radius: 3px 3px 0 0; background: #3b82f6; min-height: 2px; }
@@ -394,7 +394,7 @@ function renderAdmin(d) {
 
   var maxM = Math.max.apply(null, d.monthlyTrend.map(function(m){ return m.count; })) || 1;
   document.getElementById('monthly-chart').innerHTML = d.monthlyTrend.map(function(m) {
-    var h = Math.max(3, Math.round((m.count / maxM) * 100));
+    var h = Math.max(3, Math.round((m.count / maxM) * 80));
     return '<div class="bar-col"><div class="bar-val">'+(m.count||'')+'</div>' +
            '<div class="bar" style="height:'+h+'px" title="'+esc(m.label)+': '+m.count+'"></div>' +
            '<div class="bar-label">'+esc(m.label)+'</div></div>';
