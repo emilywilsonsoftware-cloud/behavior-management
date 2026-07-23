@@ -372,7 +372,7 @@ var URL_ID = "<?!= urlId ?>";
 
 <div class="page-body">
 
-  <div class="page-tabs">
+  <div class="page-tabs" id="page-tabs">
     <button class="page-tab active" id="tab-lookup" onclick="showPageTab('lookup')">Student Lookup</button>
     <button class="page-tab" id="tab-points" onclick="showPageTab('points')">Point Range</button>
   </div>
@@ -392,7 +392,7 @@ var URL_ID = "<?!= urlId ?>";
              oninput="onSearch(this.value)" autocomplete="off">
       <button class="btn btn-clear" onclick="clearSearch()">✕ Clear</button>
     </div>
-    <div id="search-results"></div>
+    <div id="search-results" style="display:block;"><div class="loading-msg">Loading students...</div></div>
   </div>
 
   <!-- Profile area (shown after selecting a student) -->
@@ -677,6 +677,7 @@ function downloadPointsTabList() {
 function loadProfile(studentId) {
   document.getElementById('search-panel').style.display = 'none';
   document.getElementById('profile-area').style.display = 'block';
+  document.getElementById('page-tabs').style.display = 'none';
   document.getElementById('profile-content').innerHTML = '<div class="loading-msg">Loading profile...</div>';
   activeTermIdx = -1;
 
@@ -692,6 +693,7 @@ function loadProfile(studentId) {
 function showSearch() {
   document.getElementById('profile-area').style.display = 'none';
   document.getElementById('search-panel').style.display = 'block';
+  document.getElementById('page-tabs').style.display = 'flex';
 }
 
 // ── Render Profile ────────────────────────────────────────────
