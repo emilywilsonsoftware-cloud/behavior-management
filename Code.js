@@ -2145,7 +2145,6 @@ function buildReportRows_() {
     if (inf) infraSet[inf]   = true;
 
     var curPts = ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.termPoints;
-    var curPct = cfg.termPoints > 0 ? Math.round(curPts / cfg.termPoints * 100) : 0;
 
     rows.push({
       ID:                   row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
@@ -2165,11 +2164,18 @@ function buildReportRows_() {
       ParentNotified:       row[ci['ParentNotified']]  ? row[ci['ParentNotified']].toString()  : '',
       TeacherNotified:      row[ci['TeacherNotified']] ? row[ci['TeacherNotified']].toString() : '',
       AdminNotes:           row[ci['AdminNotes']]  ? row[ci['AdminNotes']].toString()  : '',
-      TimestampFormatted:   (ts instanceof Date)
-        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
-        : '',
-      CurrentPoints:        curPts,
-      CurrentPointsColor:   getPointColor(curPct, cfg.pointTiers)
+      // Raw milliseconds, not a formatted string — Utilities.formatDate()
+      // is a real per-call cost in Apps Script, and doing it for every
+      // row regardless of whether that row ever reaches the screen was
+      // the actual bottleneck here. The client formats this trivially,
+      // and only ever for rows it's actually displaying.
+      TimestampMs:          (ts instanceof Date) ? ts.getTime() : null,
+      CurrentPoints:        curPts
+      // CurrentPointsColor intentionally omitted — same reasoning as
+      // TimestampMs above. The client already has a fallback that
+      // computes this from CurrentPoints + pointTiers (both of which
+      // it already receives), so the server doesn't need to do it for
+      // every one of 3,000+ rows just to have most of them discarded.
     });
   }
 

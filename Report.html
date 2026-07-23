@@ -499,7 +499,11 @@ function onFirstPageLoaded(data) {
 
 // Phase 2: the complete dataset has arrived — replace the page-1-only
 // data with everything, rebuild the student picker's full list, and
-// turn filtering/sorting/export/summary stats back on.
+// turn filtering/sorting/export/summary stats back on. This is a
+// single call rather than several chunked ones — the per-row server
+// work that used to make chunking worthwhile (Utilities.formatDate()
+// and point-color resolution for every row) was removed entirely, so
+// one full fetch is now cheap enough on its own.
 function onFullDataLoaded(data) {
   allRows = data.rows || [];
 
@@ -732,7 +736,6 @@ function renderPagination(totalPages) {
 function goToPage(n) {
   currentPage = n;
   renderTable();
-  document.querySelector('.tbl-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function updateSummary() {
@@ -767,7 +770,7 @@ function renderDetailView(row) {
     ['Student',     (row['StudentName']||'')+' (Grade '+(row['Grade']||'')+')'],
     ['Student ID',  row['StudentID']||''],
     ['Date / Time', formatDateMDY(row['IncidentDate']||'')+' at '+formatTime12h(row['IncidentTime']||'')],
-    ['Submitted',   row['TimestampFormatted']||''],
+    ['Submitted',   formatTimestampMs(row['TimestampMs'])],
     ['Location',    row['Location']||''],
     ['Infraction',  row['InfractionType']||''],
     ['Points',      '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span> &nbsp;('+
@@ -1123,6 +1126,23 @@ function formatTime12h(t) {
   return h12 + ':' + min + ' ' + period;
 }
 
+function pad2(n) { return n < 10 ? '0'+n : ''+n; }
+
+// Replaces the server-side Utilities.formatDate() call that used to run
+// for every referral row regardless of whether that row ever reached
+// the screen — this only ever runs for the handful of rows actually
+// being displayed. Matches the same "MM-dd-yyyy h:mm a" format.
+function formatTimestampMs(ms) {
+  if (!ms) return '';
+  var d = new Date(ms);
+  var h = d.getHours();
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  var min = d.getMinutes();
+  return pad2(d.getMonth()+1) + '-' + pad2(d.getDate()) + '-' + d.getFullYear() +
+    ' ' + h12 + ':' + (min < 10 ? '0'+min : min) + ' ' + period;
+}
+
 // Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
 // Returns the input unchanged if it doesn't match the expected pattern.
 // Sorting (sortBy) and the Date From/To filters intentionally keep
@@ -1135,9 +1155,10 @@ function formatDateMDY(d) {
 }
 
 // Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
-// admins can choose from in Settings. Used only as a fallback below;
-// each row from getReportData() already carries a resolved
-// CurrentPointsColor hex value, so this path should rarely run.
+// admins can choose from in Settings. Rows from getReportDataPage() no
+// longer carry a pre-resolved color (that used to be computed
+// server-side for every row regardless of whether it was ever
+// displayed) — this now runs for every row shown on screen instead.
 var POINT_COLOR_PALETTE = {
   green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
   amber: '#eab308', orange: '#f97316', red: '#ef4444'
