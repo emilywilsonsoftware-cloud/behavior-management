@@ -462,6 +462,7 @@ var URL_ID = "<?!= urlId ?>";
 
 <script>
 var allStudents   = [];
+var _studentsDataLoaded = false; // true once getAllStudents() actually resolves
 var semPts        = 100;
 var pointTiers    = []; // admin-configured point-balance color tiers
 var currentStudent = null;
@@ -479,6 +480,7 @@ window.addEventListener('load', function() {
     .withSuccessHandler(function(data) {
       if (typeof updateNavUser === 'function') updateNavUser(data.user);
       allStudents = data.students || [];
+      _studentsDataLoaded = true;
       semPts      = data.termPoints || 100;
       pointTiers  = data.pointTiers || [];
 
@@ -497,6 +499,14 @@ window.addEventListener('load', function() {
         ptsGradeSel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
       });
       document.getElementById('filter-count').textContent = allStudents.length + ' students';
+
+      // If someone already switched to the Point Range tab before this
+      // finished loading, it would have shown "0 of 0 students" — a
+      // real, misleading state, not just an empty result. Refresh it
+      // now that there's actually something to show.
+      if (document.getElementById('points-tab-content').style.display !== 'none') {
+        filterPointsTab();
+      }
 
       if (urlId) {
         loadProfile(urlId);
@@ -624,6 +634,10 @@ function getPointsTabHits() {
 }
 
 function filterPointsTab() {
+  if (!_studentsDataLoaded) {
+    document.getElementById('points-tab-body').innerHTML = '<div class="loading-msg">Loading students...</div>';
+    return;
+  }
   renderPointsTab(getPointsTabHits());
 }
 
