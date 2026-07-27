@@ -225,7 +225,7 @@
 
   <div class="filter-card">
     <div class="filter-title">Filters</div>
-    <div class="filter-grid" id="filter-grid">
+    <div class="filter-grid" id="filter-grid" style="grid-template-columns:repeat(3,1fr);">
       <div>
         <label class="fl">Student</label>
         <div style="position:relative;">
@@ -235,7 +235,7 @@
           <div id="f-stu-results"></div>
         </div>
       </div>
-      <div id="f-tch-wrap"><label class="fl">Teacher</label>
+      <div id="f-tch-wrap" style="display:none;"><label class="fl">Teacher</label>
            <select id="f-tch"><option value="">All Teachers</option></select></div>
       <div><label class="fl">Infraction</label>
            <select id="f-inf"><option value="">All Infractions</option></select></div>
@@ -453,10 +453,12 @@ function onFirstPageLoaded(data) {
 
   // Teacher filter is admin-only, per request — non-admin staff still
   // see every referral in the report, just without the ability to
-  // filter the list down to one specific teacher's submissions.
-  if (!isAdmin) {
-    document.getElementById('f-tch-wrap').style.display = 'none';
-    document.getElementById('filter-grid').style.gridTemplateColumns = 'repeat(3, 1fr)';
+  // filter the list down to one specific teacher's submissions. Hidden
+  // by default in the markup itself (not just hidden here after the
+  // fact) so non-admins never see it flash on screen before this runs.
+  if (isAdmin) {
+    document.getElementById('f-tch-wrap').style.display = '';
+    document.getElementById('filter-grid').style.gridTemplateColumns = 'repeat(4, 1fr)';
   }
 
   allRows    = data.rows || [];
