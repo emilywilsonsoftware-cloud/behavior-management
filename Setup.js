@@ -20,7 +20,7 @@ var SS_STAFF        = 'Staff';
 var SS_PARENT       = 'ParentContacts';
 var SS_CONFIG       = 'Config';
 var SS_INFRACTIONS  = 'Infractions';
-var SS_DELETION_LOG = 'DeletionLog';
+var SS_CHANGE_LOG   = 'ChangeLog';
 
 // =============================================================
 // SPREADSHEET MENU
@@ -36,7 +36,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Clear All Staff Role Caches', 'clearAllUserCachesMenu')
     .addSeparator()
-    .addItem('Reset Semester Points (NEW SEMESTER)', 'resetSemesterPointsMenu')
+    .addItem('Reset Term Points (NEW TERM)', 'resetTermPointsMenu')
     .addToUi();
 }
 
@@ -72,7 +72,7 @@ function setupSpreadsheet() {
   _setupStudents(ss);
   _setupStaff(ss);
   _setupParentContacts(ss);
-  _setupDeletionLog(ss);
+  _setupChangeLog(ss);
 
   SpreadsheetApp.flush();
   ui.alert(
@@ -100,11 +100,11 @@ function _setupConfig(ss) {
   // editing them directly in the sheet risks producing mismatched rows
   // that getConfig() will reject and silently replace with this default.
   var headers = [
-    'SchoolName', 'SemesterStartPoints', 'EmailNotificationsEnabled',
+    'SchoolName', 'TermStartPoints', 'EmailNotificationsEnabled',
     'TeacherEmailNotificationsEnabled',
     'DailyEmailSendTime', 'EmailFooterText',
-    'Locations', 'NineWeeksStartDates',
-    'PointTierThresholds', 'PointTierColors', 'PositiveCapPerNineWeeks'
+    'Locations', 'ContactTypes', 'TermStartDates',
+    'PointTierThresholds', 'PointTierColors', 'PositiveCapPerTerm'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -113,44 +113,46 @@ function _setupConfig(ss) {
     'Our School', '100', 'Yes', 'Yes', '15:30',
     'If you have questions, please contact the school office.\n\n' +
     'This is an automated message — please do not reply.',
-    'Classroom', '',
+    'Classroom', 'Parent/Guardian', '',
     '70', 'green', '15'
   ];
   sheet.getRange(2, 1, 1, row2.length).setValues([row2]);
 
-  var extraLocations    = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
-  var extraNineWeeks    = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
-  var extraThresholds   = ['40', '0'];
-  var extraColors       = ['amber', 'red'];
+  var extraLocations     = ['Hallway', 'Cafeteria', 'Gym', 'Bus', 'Restroom', 'Office'];
+  var extraContactTypes  = ['Administrator', 'Counselor', 'Case Manager'];
+  var extraTermStarts    = ['2024-08-01', '2024-10-15', '2025-01-08', '2025-03-18'];
+  var extraThresholds    = ['40', '0'];
+  var extraColors        = ['amber', 'red'];
   var maxExtra = Math.max(
-    extraLocations.length, extraNineWeeks.length,
+    extraLocations.length, extraContactTypes.length, extraTermStarts.length,
     extraThresholds.length, extraColors.length
   );
   for (var r = 0; r < maxExtra; r++) {
-    sheet.getRange(r + 3, 1, 1, 9).setValues([[
-      '', '', '', '', '',
-      extraLocations[r]  || '',
-      extraNineWeeks[r]  || '',
-      extraThresholds[r] || '',
-      extraColors[r]     || ''
+    sheet.getRange(r + 3, 1, 1, 11).setValues([[
+      '', '', '', '', '', '',
+      extraLocations[r]    || '',
+      extraContactTypes[r] || '',
+      extraTermStarts[r]   || '',
+      extraThresholds[r]   || '',
+      extraColors[r]       || ''
     ]]);
   }
-  sheet.setColumnWidth(5, 300);
-  sheet.autoResizeColumns(1, 4);
+  sheet.setColumnWidth(6, 300);
+  sheet.autoResizeColumns(1, 5);
 
-  sheet.getRange(1, 8).setNote(
+  sheet.getRange(1, 10).setNote(
     'Pairs row-by-row with PointTierColors.\n' +
     'Defines the percentage thresholds for point-balance color tiers.\n' +
     'Edit via Settings > General in the web app, not directly here.'
   );
-  sheet.getRange(1, 9).setNote(
+  sheet.getRange(1, 11).setNote(
     'Pairs row-by-row with PointTierThresholds.\n' +
     'Allowed values: green, blue, purple, amber, orange, red.\n' +
     'Edit via Settings > General in the web app, not directly here.'
   );
-  sheet.getRange(1, 10).setNote(
+  sheet.getRange(1, 12).setNote(
     'Maximum total positive points (Write Off, Saturday School, etc.) ' +
-    'a single student can be awarded per nine-weeks period, on the ' +
+    'a single student can be awarded per term, on the ' +
     'admin-only Positive Note page. Admins can still submit ' +
     'over this cap — it warns rather than blocks — but every override ' +
     'is noted on the referral for the record.'
@@ -212,13 +214,13 @@ function _setupReferrals(ss) {
 // deleted a referral, when, and why, without keeping the deleted
 // referral's full original content (location, description, etc.)
 // lingering anywhere.
-function _setupDeletionLog(ss) {
-  if (ss.getSheetByName(SS_DELETION_LOG)) return;
-  var sheet = ss.insertSheet(SS_DELETION_LOG);
+function _setupChangeLog(ss) {
+  if (ss.getSheetByName(SS_CHANGE_LOG)) return;
+  var sheet = ss.insertSheet(SS_CHANGE_LOG);
   var headers = [
-    'Timestamp', 'DeletedByName', 'DeletedByEmail',
+    'Timestamp', 'Action', 'ChangedByName', 'ChangedByEmail',
     'ReferralID', 'StudentID', 'StudentName',
-    'InfractionType', 'PointValue', 'IncidentDate', 'Reason'
+    'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Details'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -276,7 +278,7 @@ function _setupStaff(ss) {
 }
 
 // ── ParentContacts sheet ──────────────────────────────────────
-// Layout: StudentID | ContactGUID | Role | FirstName | LastName | Email
+// Layout: StudentID | ContactGUID | Type | FirstName | LastName | Email
 // A student can have MULTIPLE contact rows — Parent/Guardian,
 // Administrator, Counselor, Case Manager — all of whom receive the
 // same end-of-day referral email digest for that student. This list
@@ -288,7 +290,7 @@ function _setupParentContacts(ss) {
   var sheet = ss.insertSheet(SS_PARENT);
 
   var headers = [
-    'StudentID', 'ContactGUID', 'Role', 'FirstName', 'LastName', 'Email'
+    'StudentID', 'ContactGUID', 'Type', 'FirstName', 'LastName', 'Email'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -308,7 +310,7 @@ function _setupParentContacts(ss) {
   sheet.getRange(1, 2).setNote(
     'ContactGUID links rows that represent the SAME PERSON across\n' +
     'multiple students (e.g. one parent with two kids at the school).\n' +
-    'Unrelated to Role. Do not edit GUIDs manually — use the web app.'
+    'Unrelated to Type. Do not edit GUIDs manually — use the web app.'
   );
   sheet.getRange(1, 3).setNote(
     'Must be exactly one of: Parent/Guardian, Administrator,\n' +
@@ -344,20 +346,20 @@ function removeDailyTrigger() {
 }
 
 // =============================================================
-// SEMESTER RESET (menu entry point)
+// TERM RESET (menu entry point)
 // =============================================================
 
-function resetSemesterPointsMenu() {
+function resetTermPointsMenu() {
   var ui       = SpreadsheetApp.getUi();
   var response = ui.alert(
-    'Reset Semester Points',
+    'Reset Term Points',
     'This will reset ALL student point balances to the current ' +
-    'Semester Start Points value.\n\nReferral history will NOT be deleted.' +
+    'Term Start Points value.\n\nReferral history will NOT be deleted.' +
     '\n\nAre you sure?',
     ui.ButtonSet.YES_NO
   );
   if (response !== ui.Button.YES) return;
-  var result = resetSemesterPoints();
+  var result = resetTermPoints();
   if (result.success) {
     ui.alert('Done', 'Reset ' + result.count + ' student balances.', ui.ButtonSet.OK);
   } else {

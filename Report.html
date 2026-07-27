@@ -25,7 +25,22 @@
                    box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; }
     .filter-title { font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
                     letter-spacing: 0.07em; color: #1a56db; margin-bottom: 12px; }
-    .filter-grid  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .filter-grid  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+    #f-stu-results { position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+                     border: 1px solid #d1d5db; border-radius: 6px; margin-top: 4px;
+                     max-height: 240px; overflow-y: auto; background: white;
+                     box-shadow: 0 8px 20px rgba(0,0,0,0.12); display: none; }
+    .rstu-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+                cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+    .rstu-item:last-child { border-bottom: none; }
+    .rstu-item:hover { background: #f0f7ff; }
+    .rstu-name { font-weight: 600; font-size: 0.85rem; flex: 1; }
+    .rstu-id   { font-size: 0.74rem; color: #9ca3af; }
+    .rstu-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+                 background: none; border: none;
+                 color: #9ca3af; cursor: pointer; font-size: 1rem; padding: 2px 4px; display: none; }
+    .rstu-clear:hover { color: #4b5563; }
     .filter-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
     .filter-row   { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
 
@@ -46,8 +61,22 @@
     .btn-green:hover { background: #14532d; }
 
     /* Results */
-    .results-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .results-bar { display: flex; align-items: center; justify-content: space-between;
+                  gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
     .res-count   { font-size: 0.84rem; color: #64748b; }
+
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 6px;
+                 margin-top: 14px; flex-wrap: wrap; }
+    .pagination.pagination-top { margin-top: 0; }
+    .pg-btn { padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+             background: white; color: #1e293b; font-size: 0.82rem; font-weight: 600;
+             cursor: pointer; font-family: inherit; }
+    .pg-btn:hover:not(:disabled) { background: #f0f7ff; border-color: #93c5fd; }
+    .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pg-status { font-size: 0.82rem; color: #64748b; display: flex; align-items: center; gap: 6px;
+                margin: 0 6px; white-space: nowrap; }
+    .pg-jump { width: 52px; padding: 5px 6px; border: 1px solid #d1d5db; border-radius: 6px;
+              font-size: 0.82rem; text-align: center; }
 
     /* Table */
     .tbl-wrap { background: white; border-radius: 9px; overflow: hidden;
@@ -57,6 +86,7 @@
                font-weight: 600; font-size: 0.74rem; text-transform: uppercase;
                letter-spacing: 0.04em; white-space: nowrap; cursor: pointer; user-select: none; }
     thead th:hover { background: #1a3158; }
+    #sort-header-row.sort-disabled th { cursor: not-allowed; opacity: 0.55; pointer-events: none; }
     tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.08s; }
     tbody tr:hover { background: #f0f7ff; }
     td { padding: 9px 11px; vertical-align: middle; }
@@ -65,8 +95,6 @@
     .pts-pos { color:#166534; font-weight:700; }
 
     .bal-pill { display:inline-block; padding:2px 7px; border-radius:11px; font-size:0.78rem; font-weight:700; }
-    .stu-link { color: #1d4ed8; text-decoration: none; }
-    .stu-link:hover { text-decoration: underline; }
     .btn-sm { padding: 4px 10px; font-size: 0.76rem; }
 
     /* Detail panel */
@@ -76,7 +104,7 @@
                     box-shadow:-4px 0 20px rgba(0,0,0,0.15); z-index:101; overflow-y:auto;
                     padding:22px; transform:translateX(100%); transition:transform 0.22s ease; }
     .detail-panel.open { transform:translateX(0); }
-    #deletion-log-panel { width: 640px; }
+    #change-log-panel { width: 640px; }
     .d-close { float:right; background:none; border:none; font-size:1.3rem; cursor:pointer; color:#6b7280; }
     .d-title { font-size:1rem; font-weight:700; color:#1e3a5f; margin-bottom:14px; }
     .d-row   { display:flex; gap:8px; margin-bottom:9px; }
@@ -85,26 +113,37 @@
     .d-hr    { border:none; border-top:1px solid #e5e7eb; margin:14px 0; }
     textarea.d-notes { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:7px;
                        font-size:0.84rem; min-height:72px; resize:vertical; }
+    .d-edit-input { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 8px;
+                    font-size:0.84rem; font-family:inherit; }
+    .d-edit-row { display:flex; gap:8px; margin-bottom:9px; align-items:center; }
+    .d-edit-row .d-label { padding-top:0; }
 
     .btn-delete-referral { display: flex; align-items: center; justify-content: center; gap: 8px;
                            width: 100%; background: white; color: #dc2626; border: 1px solid #fca5a5;
                            border-radius: 7px; padding: 9px 14px; font-size: 0.86rem; font-weight: 700;
                            cursor: pointer; font-family: inherit; transition: background 0.12s; }
     .btn-delete-referral:hover { background: #fee2e2; }
+    .btn-delete-referral:disabled { color: #94a3b8; border-color: #e2e8f0; cursor: default; background: white; }
     .btn-delete-referral svg { width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ── Toast notification ── */
     #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-                  z-index: 300; display: flex; flex-direction: column; gap: 8px;
-                  pointer-events: none; width: 100%; max-width: 420px; padding: 0 16px; }
+                  z-index: 300; display: flex; flex-direction: column; align-items: center; gap: 8px;
+                  pointer-events: none; max-width: 420px; padding: 0 16px; }
     .toast { background: #166534; color: white; border-radius: 9px;
              padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
              box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
              align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
-             transition: opacity 0.22s ease, transform 0.22s ease; }
+             transition: opacity 0.22s ease, transform 0.22s ease; max-width: 100%; }
+    .toast span { overflow-wrap: break-word; }
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast.toast-err { background: #b91c1c; }
     .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
+    .toast.toast-loading { background: #1e3a5f; }
+    .toast-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.35);
+                     border-top-color: white; border-radius: 50%;
+                     animation: toast-spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes toast-spin { to { transform: rotate(360deg); } }
 
     /* ── Confirm popup (replaces native confirm() for destructive actions) ── */
     .confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45);
@@ -135,7 +174,7 @@
     @media (max-width:768px) {
       .sum-row { grid-template-columns: 1fr 1fr; }
       .filter-grid { grid-template-columns: 1fr; }
-      .detail-panel, #deletion-log-panel { width:100%; }
+      .detail-panel, #change-log-panel { width:100%; }
     }
   </style>
 </head>
@@ -186,35 +225,46 @@
 
   <div class="filter-card">
     <div class="filter-title">Filters</div>
-    <div class="filter-grid">
-      <div><label class="fl">Student Name</label><input type="text" id="f-stu" placeholder="Search..."></div>
-      <div><label class="fl">Teacher</label>
+    <div class="filter-grid" id="filter-grid" style="grid-template-columns:repeat(3,1fr);">
+      <div>
+        <label class="fl">Student</label>
+        <div style="position:relative;">
+          <input type="text" id="f-stu" placeholder="Type a name or ID..." autocomplete="off"
+                 oninput="searchReportStudents(this.value)" onfocus="searchReportStudents(this.value)">
+          <button type="button" class="rstu-clear" id="f-stu-clear" onclick="clearReportStudent()">×</button>
+          <div id="f-stu-results"></div>
+        </div>
+      </div>
+      <div id="f-tch-wrap" style="display:none;"><label class="fl">Teacher</label>
            <select id="f-tch"><option value="">All Teachers</option></select></div>
       <div><label class="fl">Infraction</label>
            <select id="f-inf"><option value="">All Infractions</option></select></div>
+      <div><label class="fl">Term</label>
+           <select id="f-term"><option value="">All Terms</option></select></div>
     </div>
     <div class="filter-dates">
       <div><label class="fl">Date From</label><input type="date" id="f-from"></div>
       <div><label class="fl">Date To</label><input type="date" id="f-to"></div>
     </div>
     <div class="filter-row">
-      <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
-      <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+      <button class="btn btn-primary" id="btn-apply-filters" onclick="applyFilters()">Apply</button>
+      <button class="btn btn-outline" id="btn-clear-filters" onclick="clearFilters()">Clear</button>
       <div style="flex:1;"></div>
-      <button class="btn btn-outline" id="btn-view-deletion-log" style="display:none;"
-              onclick="openDeletionLogPanel()">View Deletion Log</button>
-      <button class="btn btn-green" onclick="exportCsv()">Export CSV</button>
+      <button class="btn btn-outline" id="btn-view-change-log" style="display:none;"
+              onclick="openChangeLogPanel()">View Change Log</button>
+      <button class="btn btn-green" id="btn-export-csv" onclick="exportCsv()">Export CSV</button>
     </div>
   </div>
 
   <div class="results-bar">
     <span class="res-count" id="res-count">Loading...</span>
+    <div class="pagination pagination-top" id="pagination-top"></div>
   </div>
 
   <div class="tbl-wrap">
     <table>
       <thead>
-        <tr>
+        <tr id="sort-header-row">
           <th onclick="sortBy('ID')">#</th>
           <th onclick="sortBy('IncidentDate')">Date</th>
           <th onclick="sortBy('StudentName')">Student</th>
@@ -230,6 +280,8 @@
       <tbody id="tbl-body"><tr><td colspan="10" class="empty-msg">Loading...</td></tr></tbody>
     </table>
   </div>
+
+  <div class="pagination" id="pagination"></div>
 </div>
 
 <div class="overlay" id="overlay" onclick="closeDetail()"></div>
@@ -239,19 +291,26 @@
   <div id="d-content"></div>
 </div>
 
-<div class="overlay" id="log-overlay" onclick="closeDeletionLogPanel()"></div>
-<div class="detail-panel" id="deletion-log-panel">
-  <button class="d-close" onclick="closeDeletionLogPanel()">×</button>
-  <div class="d-title">Deletion Log</div>
+<div class="overlay" id="log-overlay" onclick="closeChangeLogPanel()"></div>
+<div class="detail-panel" id="change-log-panel">
+  <button class="d-close" onclick="closeChangeLogPanel()">×</button>
+  <div class="d-title">Change Log</div>
   <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:14px;">
     Every referral that's been deleted — who deleted it, when, and why.
   </div>
-  <div id="deletion-log-content"></div>
+  <div id="change-log-content"></div>
 </div>
 
 <script>
 var allRows = [], filteredRows = [], sortCol = 'IncidentDate', sortAsc = false, semPts = 100;
 var pointTiers = []; // admin-configured point-balance color tiers
+var terms = []; // term start/end date ranges, for the Term filter
+var reportStudents = []; // unique {studentId, studentName} pairs, derived from allRows
+var selectedStudentId = ''; // set when a student is picked from the Student search dropdown
+var PAGE_SIZE = 50;
+var currentPage = 1;
+var knownTotalCount = 0;
+var reportLocations = [];
 var detailIdx = null;
 var isAdmin = false;
 
@@ -281,6 +340,26 @@ function showToast(message, isError, durationMs) {
     toast.classList.remove('show');
     setTimeout(function() { toast.remove(); }, 220);
   }, durationMs || 3200);
+}
+
+// A persistent toast for an operation that's in progress — doesn't
+// auto-dismiss like showToast() does. The caller holds onto the
+// returned element and calls dismissToast() on it once the real
+// result (success or error) is ready to show its own toast.
+function showLoadingToast(message) {
+  var wrap = document.getElementById('toast-wrap');
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-loading';
+  toast.innerHTML = '<span class="toast-spinner"></span><span>' + esc(message) + '</span>';
+  wrap.appendChild(toast);
+  requestAnimationFrame(function() { toast.classList.add('show'); });
+  return toast;
+}
+
+function dismissToast(toastEl) {
+  if (!toastEl) return;
+  toastEl.classList.remove('show');
+  setTimeout(function() { toastEl.remove(); }, 220);
 }
 
 // ── Confirm popup (replaces native confirm() for destructive actions) ──
@@ -348,23 +427,45 @@ document.addEventListener('keydown', function(e) {
 window.addEventListener('load', function() {
   showLoading(true);
   google.script.run
-    .withSuccessHandler(onDataLoaded)
+    .withSuccessHandler(onFirstPageLoaded)
     .withFailureHandler(function(err) {
       showLoading(false);
       document.getElementById('tbl-body').innerHTML =
         '<tr><td colspan="10" class="empty-msg" style="color:#dc2626;">Error: '+esc(err.message||err)+'</td></tr>';
     })
-    .getReportData({});
+    .getReportDataPage(1, PAGE_SIZE);
 });
 
-function onDataLoaded(data) {
+// Phase 1: paint real data as fast as possible — just page 1, plus
+// enough metadata (dropdown options, total count) to make the page
+// look and behave normally. Filtering, sorting, export, and the
+// summary cards all need the complete dataset to be accurate, so
+// those stay disabled with a visible "loading everything" indicator
+// until the background fetch in phase 2 finishes.
+var fullDataLoaded = false;
+var _bgLoadingToast = null;
+
+function onFirstPageLoaded(data) {
   showLoading(false);
   if (typeof updateNavUser === 'function') updateNavUser(data.user);
   isAdmin = !!(data.user && data.user.role === 'admin');
-  if (isAdmin) document.getElementById('btn-view-deletion-log').style.display = '';
-  allRows = data.rows || [];
-  semPts  = data.semesterPoints || 100;
+  if (isAdmin) document.getElementById('btn-view-change-log').style.display = '';
+
+  // Teacher filter is admin-only, per request — non-admin staff still
+  // see every referral in the report, just without the ability to
+  // filter the list down to one specific teacher's submissions. Hidden
+  // by default in the markup itself (not just hidden here after the
+  // fact) so non-admins never see it flash on screen before this runs.
+  if (isAdmin) {
+    document.getElementById('f-tch-wrap').style.display = '';
+    document.getElementById('filter-grid').style.gridTemplateColumns = 'repeat(4, 1fr)';
+  }
+
+  allRows    = data.rows || [];
+  semPts     = data.termPoints || 100;
   pointTiers = data.pointTiers || [];
+  terms      = data.terms || [];
+  reportLocations = data.locations || [];
 
   var tchSel = document.getElementById('f-tch');
   (data.teacherOptions||[]).forEach(function(t) {
@@ -374,41 +475,179 @@ function onDataLoaded(data) {
   (data.infractionOptions||[]).forEach(function(t) {
     infSel.innerHTML += '<option value="'+esc(t)+'">'+esc(t)+'</option>';
   });
+  var termSel = document.getElementById('f-term');
+  terms.forEach(function(term, idx) {
+    var endLabel = term.end === '9999-12-31' ? 'present' : formatDateMDY(term.end);
+    termSel.innerHTML += '<option value="'+idx+'">'+esc(term.label)+
+      ' ('+esc(formatDateMDY(term.start))+' – '+esc(endLabel)+')</option>';
+  });
 
+  // Page 1 only — reportStudents and filteredRows get rebuilt properly
+  // once the full set arrives. This just gets something real on screen.
   filteredRows = allRows.slice();
+  knownTotalCount = data.totalCount || allRows.length;
   renderTable();
-  updateSummary();
+  setControlsEnabled(false);
+  _bgLoadingToast = showLoadingToast('Loading all ' + knownTotalCount + ' referrals\u2026');
+
+  google.script.run
+    .withSuccessHandler(onFullDataLoaded)
+    .withFailureHandler(function(err) {
+      dismissToast(_bgLoadingToast);
+      showToast('Could not load full results: ' + (err.message || err), true);
+    })
+    .getReportData({});
 }
 
+// Phase 2: the complete dataset has arrived — replace the page-1-only
+// data with everything, rebuild the student picker's full list, and
+// turn filtering/sorting/export/summary stats back on. This is a
+// single call rather than several chunked ones — the per-row server
+// work that used to make chunking worthwhile (Utilities.formatDate()
+// and point-color resolution for every row) was removed entirely, so
+// one full fetch is now cheap enough on its own.
+function onFullDataLoaded(data) {
+  allRows = data.rows || [];
+
+  var seenStu = {};
+  reportStudents = [];
+  allRows.forEach(function(row) {
+    var sid = (row['StudentID']||'').toString();
+    if (sid && !seenStu[sid]) {
+      seenStu[sid] = true;
+      reportStudents.push({ studentId: sid, studentName: row['StudentName']||'' });
+    }
+  });
+  reportStudents.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
+
+  filteredRows = allRows.slice();
+  currentPage = 1;
+  fullDataLoaded = true;
+  renderTable();
+  updateSummary();
+  setControlsEnabled(true);
+  dismissToast(_bgLoadingToast);
+  showToast('All ' + allRows.length + ' referrals loaded.');
+}
+
+function setControlsEnabled(enabled) {
+  document.querySelectorAll('#f-tch, #f-inf, #f-term, #f-from, #f-to, #f-stu, ' +
+    '#btn-apply-filters, #btn-clear-filters, #btn-export-csv').forEach(function(el) {
+    el.disabled = !enabled;
+  });
+  document.getElementById('sort-header-row').classList.toggle('sort-disabled', !enabled);
+}
+
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
+// ── Student search dropdown (mirrors the referral form's student picker,
+// adapted for single-select filtering rather than multi-select submission) ──
+function searchReportStudents(query) {
+  var q = (query || '').trim().toLowerCase();
+  var results = document.getElementById('f-stu-results');
+
+  // Typing anything (even matching the currently-selected student's own
+  // name) clears the active filter until a result is clicked again —
+  // same "must pick from the list" behavior as the referral form.
+  if (selectedStudentId) {
+    selectedStudentId = '';
+    document.getElementById('f-stu-clear').style.display = 'none';
+    applyFilters();
+  }
+
+  if (!q) { results.style.display = 'none'; return; }
+
+  var hits = reportStudents.filter(function(s) {
+    return matchesWordStart(s.studentName, q) ||
+           (/\d/.test(q) && s.studentId.toLowerCase().indexOf(q) >= 0);
+  }).slice(0, 40);
+
+  if (hits.length === 0) {
+    results.innerHTML = '<div style="padding:10px 12px;color:#9ca3af;font-size:0.82rem;">No students found.</div>';
+    results.style.display = 'block';
+    return;
+  }
+
+  results.innerHTML = hits.map(function(s) {
+    return '<div class="rstu-item" onmousedown="selectReportStudent(\''+esc(s.studentId)+'\',\''+esc(s.studentName)+'\')">' +
+      '<span class="rstu-name">'+esc(s.studentName)+'</span>' +
+      '<span class="rstu-id">'+esc(s.studentId)+'</span>' +
+    '</div>';
+  }).join('');
+  results.style.display = 'block';
+}
+
+function selectReportStudent(studentId, studentName) {
+  selectedStudentId = studentId;
+  document.getElementById('f-stu').value = studentName;
+  document.getElementById('f-stu-clear').style.display = 'block';
+  document.getElementById('f-stu-results').style.display = 'none';
+  applyFilters();
+}
+
+function clearReportStudent() {
+  selectedStudentId = '';
+  document.getElementById('f-stu').value = '';
+  document.getElementById('f-stu-clear').style.display = 'none';
+  document.getElementById('f-stu-results').style.display = 'none';
+  applyFilters();
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#f-stu') && !e.target.closest('#f-stu-results')) {
+    var r = document.getElementById('f-stu-results');
+    if (r) r.style.display = 'none';
+  }
+});
+
 function applyFilters() {
-  var stuName = document.getElementById('f-stu').value.trim().toLowerCase();
-  var tch     = document.getElementById('f-tch').value.toLowerCase();
-  var inf     = document.getElementById('f-inf').value;
-  var from    = document.getElementById('f-from').value;
-  var to      = document.getElementById('f-to').value;
+  if (!fullDataLoaded) { showToast('Still loading all referrals — one moment.', true); return; }
+  var tch      = document.getElementById('f-tch').value.toLowerCase();
+  var inf      = document.getElementById('f-inf').value;
+  var termIdx  = document.getElementById('f-term').value;
+  var term     = termIdx !== '' ? terms[parseInt(termIdx, 10)] : null;
+  var from     = document.getElementById('f-from').value;
+  var to       = document.getElementById('f-to').value;
 
   filteredRows = allRows.filter(function(row) {
-    if (stuName && (row['StudentName']||'').toLowerCase().indexOf(stuName) < 0) return false;
+    if (selectedStudentId && (row['StudentID']||'').toString() !== selectedStudentId) return false;
     if (tch     && (row['TeacherName']||'').toLowerCase().indexOf(tch) < 0)     return false;
     if (inf     && row['InfractionType'] !== inf)                                return false;
+    if (term    && (row['IncidentDate'] < term.start || row['IncidentDate'] > term.end)) return false;
     if (from && row['IncidentDate'] < from)                                      return false;
     if (to   && row['IncidentDate'] > to)                                        return false;
     return true;
   });
 
+  currentPage = 1;
   renderTable();
   updateSummary();
 }
 
 function clearFilters() {
   ['f-stu','f-from','f-to'].forEach(function(id){ document.getElementById(id).value=''; });
-  ['f-tch','f-inf'].forEach(function(id){ document.getElementById(id).selectedIndex=0; });
+  ['f-tch','f-inf','f-term'].forEach(function(id){ document.getElementById(id).selectedIndex=0; });
+  selectedStudentId = '';
+  document.getElementById('f-stu-clear').style.display = 'none';
+  document.getElementById('f-stu-results').style.display = 'none';
   filteredRows = allRows.slice();
+  currentPage = 1;
   renderTable();
   updateSummary();
 }
 
 function sortBy(col) {
+  if (!fullDataLoaded) return;
   if (sortCol === col) sortAsc = !sortAsc;
   else { sortCol = col; sortAsc = true; }
   var numCols = ['PointValue','CurrentPoints','ID','PointsBeforeReferral','PointsAfterReferral'];
@@ -419,20 +658,35 @@ function sortBy(col) {
     else { av = av.toString().toLowerCase(); bv = bv.toString().toLowerCase(); }
     return av < bv ? (sortAsc?-1:1) : av > bv ? (sortAsc?1:-1) : 0;
   });
+  currentPage = 1;
   renderTable();
 }
 
 function renderTable() {
-  document.getElementById('res-count').textContent =
-    filteredRows.length + ' referral' + (filteredRows.length!==1?'s':'') + ' shown';
+  var effectiveTotal = fullDataLoaded ? filteredRows.length : Math.max(filteredRows.length, knownTotalCount);
+  var totalPages = Math.max(1, Math.ceil(effectiveTotal / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  var startIdx = (currentPage - 1) * PAGE_SIZE;
+  var endIdx   = Math.min(startIdx + PAGE_SIZE, filteredRows.length);
+  var pageRows = filteredRows.slice(startIdx, endIdx);
+
+  document.getElementById('res-count').textContent = effectiveTotal === 0
+    ? '0 referrals shown'
+    : 'Showing ' + (startIdx + 1) + '\u2013' + endIdx + ' of ' + effectiveTotal +
+      ' referral' + (effectiveTotal !== 1 ? 's' : '') +
+      (fullDataLoaded ? '' : ' (loading all\u2026)');
 
   if (filteredRows.length === 0) {
     document.getElementById('tbl-body').innerHTML =
       '<tr><td colspan="10" class="empty-msg">No referrals match the filters.</td></tr>';
+    renderPagination(totalPages);
     return;
   }
 
-  document.getElementById('tbl-body').innerHTML = filteredRows.map(function(row, idx) {
+  document.getElementById('tbl-body').innerHTML = pageRows.map(function(row, localIdx) {
+    var idx      = startIdx + localIdx; // global index into filteredRows — openDetail() depends on this
     var pts      = parseFloat(row['PointValue'])||0;
     var ptsStr   = pts > 0 ? '+'+pts : pts.toString();
     var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : '';
@@ -440,11 +694,10 @@ function renderTable() {
     var bPct     = semPts > 0 ? Math.round(balance/semPts*100) : 0;
     var bColor   = row['CurrentPointsColor'] || getPointColor(bPct, pointTiers);
     var bBg      = hexToLightTint(bColor);
-    var studentId = (row['StudentID']||'').toString();
     return '<tr>' +
       '<td style="color:#94a3b8;">'+esc(row['ID']||'')+'</td>' +
       '<td style="white-space:nowrap;">'+esc(formatDateMDY(row['IncidentDate']||''))+'</td>' +
-      '<td><a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(studentId)+'">'+esc(row['StudentName']||'')+'</a></td>' +
+      '<td>'+esc(row['StudentName']||'')+'</td>' +
       '<td>'+esc(row['Grade']||'')+'</td>' +
       '<td>'+esc(row['InfractionType']||'')+'</td>' +
       '<td class="'+ptsCls+'">'+ptsStr+'</td>' +
@@ -454,6 +707,37 @@ function renderTable() {
       '<td><button class="btn btn-outline btn-sm" onclick="openDetail('+idx+')">View</button></td>' +
       '</tr>';
   }).join('');
+
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  var topEl = document.getElementById('pagination-top');
+  var botEl = document.getElementById('pagination');
+
+  if (totalPages <= 1) { topEl.innerHTML = ''; botEl.innerHTML = ''; return; }
+
+  var lockedByLoad = !fullDataLoaded;
+
+  function buildHtml(jumpInputId) {
+    return '<button class="pg-btn" onclick="goToPage(1)" '+(lockedByLoad||currentPage<=1?'disabled':'')+'>\u00ab First</button>' +
+      '<button class="pg-btn" onclick="goToPage(currentPage-1)" '+(lockedByLoad||currentPage<=1?'disabled':'')+'>\u2039 Prev</button>' +
+      '<span class="pg-status">Page ' +
+        '<input type="number" class="pg-jump" id="'+jumpInputId+'" value="'+currentPage+'" min="1" max="'+totalPages+'" '+(lockedByLoad?'disabled':'')+' ' +
+               'onchange="goToPage(parseInt(this.value,10)||1)" onkeydown="if(event.key===\'Enter\')this.blur()">' +
+        ' of ' + totalPages + (lockedByLoad ? ' <span style="color:#94a3b8;">(loading\u2026)</span>' : '') +
+      '</span>' +
+      '<button class="pg-btn" onclick="goToPage(currentPage+1)" '+(lockedByLoad||currentPage>=totalPages?'disabled':'')+'>Next \u203a</button>' +
+      '<button class="pg-btn" onclick="goToPage('+totalPages+')" '+(lockedByLoad||currentPage>=totalPages?'disabled':'')+'>Last \u00bb</button>';
+  }
+
+  topEl.innerHTML = buildHtml('pg-jump-input-top');
+  botEl.innerHTML = buildHtml('pg-jump-input-bottom');
+}
+
+function goToPage(n) {
+  currentPage = n;
+  renderTable();
 }
 
 function updateSummary() {
@@ -468,11 +752,18 @@ function updateSummary() {
   setText('s-pts',   total > 0 ? (totalDed/total).toFixed(1) : '0');
 }
 
+var _editInfractionsCache = null;
+
 function openDetail(idx) {
   detailIdx = idx;
-  var row   = filteredRows[idx];
+  var row = filteredRows[idx];
   document.getElementById('d-title').textContent = 'Referral #'+(row['ID']||'')+' — '+(row['StudentName']||'');
+  renderDetailView(row);
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+}
 
+function renderDetailView(row) {
   var pts    = parseFloat(row['PointValue'])||0;
   var ptsStr = pts > 0 ? '+'+pts : pts.toString();
   var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
@@ -481,7 +772,7 @@ function openDetail(idx) {
     ['Student',     (row['StudentName']||'')+' (Grade '+(row['Grade']||'')+')'],
     ['Student ID',  row['StudentID']||''],
     ['Date / Time', formatDateMDY(row['IncidentDate']||'')+' at '+formatTime12h(row['IncidentTime']||'')],
-    ['Submitted',   row['TimestampFormatted']||''],
+    ['Submitted',   formatTimestampMs(row['TimestampMs'])],
     ['Location',    row['Location']||''],
     ['Infraction',  row['InfractionType']||''],
     ['Points',      '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span> &nbsp;('+
@@ -506,6 +797,12 @@ function openDetail(idx) {
             '</div></div></div>';
   }
 
+  if (isAdmin) {
+    html += '<div style="margin-top:12px;">' +
+      '<button class="btn btn-outline btn-sm" onclick="enterReferralEditMode()">Edit Referral Details</button>' +
+      '</div>';
+  }
+
   html += '<hr class="d-hr">' +
     '<div style="margin-bottom:6px;font-weight:600;font-size:0.82rem;">Admin Notes</div>' +
     '<textarea class="d-notes" id="d-notes">'+esc(row['AdminNotes']||'')+'</textarea>' +
@@ -518,12 +815,132 @@ function openDetail(idx) {
       '<span>Delete Referral</span></button>' +
       '<div style="margin-top:6px;font-size:0.74rem;color:#94a3b8;">' +
       'Permanently removes this referral, corrects the student\'s point balance, and records a ' +
-      'reason in the deletion log.</div>';
+      'reason in the change log.</div>';
   }
 
   document.getElementById('d-content').innerHTML = html;
-  document.getElementById('overlay').classList.add('open');
-  document.getElementById('detail-panel').classList.add('open');
+}
+
+// ── Edit Referral Details (admin only) ───────────────────────────
+// Deliberately scoped to Date/Time/Location/Infraction/Description —
+// the fields a teacher actually filled in on the original form. The
+// student and teacher stay fixed; reassigning either is a different
+// kind of correction (better handled by deleting and resubmitting, so
+// the record of who actually submitted what stays honest).
+function enterReferralEditMode() {
+  if (_editInfractionsCache) { renderDetailEdit(); return; }
+  document.getElementById('d-content').innerHTML = '<div class="empty-msg">Loading infraction list…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) {
+        showToast(r.error || 'Could not load infraction list.', true);
+        renderDetailView(filteredRows[detailIdx]);
+        return;
+      }
+      _editInfractionsCache = r.rows || [];
+      renderDetailEdit();
+    })
+    .withFailureHandler(function(err) {
+      showToast(err.message || err, true);
+      renderDetailView(filteredRows[detailIdx]);
+    })
+    .getInfractionsList();
+}
+
+function renderDetailEdit() {
+  var row = filteredRows[detailIdx];
+
+  var locOptions = reportLocations.map(function(l) {
+    return '<option value="'+esc(l)+'"'+(l===row['Location']?' selected':'')+'>'+esc(l)+'</option>';
+  }).join('');
+  if (row['Location'] && reportLocations.indexOf(row['Location']) < 0) {
+    locOptions += '<option value="'+esc(row['Location'])+'" selected>'+esc(row['Location'])+' (not in list)</option>';
+  }
+
+  var infOptions = _editInfractionsCache.map(function(inf) {
+    var sign = inf.pointValue > 0 ? '+' : '';
+    return '<option value="'+esc(inf.name)+'"'+(inf.name===row['InfractionType']?' selected':'')+'>'+
+      esc(inf.name)+' ('+sign+inf.pointValue+' pts)</option>';
+  }).join('');
+
+  var html =
+    '<div class="d-edit-row"><div class="d-label">Date</div>' +
+      '<input type="date" class="d-edit-input" id="de-date" value="'+esc(row['IncidentDate']||'')+'"></div>' +
+    '<div class="d-edit-row"><div class="d-label">Time</div>' +
+      '<input type="time" class="d-edit-input" id="de-time" value="'+esc(row['IncidentTime']||'')+'"></div>' +
+    '<div class="d-edit-row"><div class="d-label">Location</div>' +
+      '<select class="d-edit-input" id="de-location">'+locOptions+'</select></div>' +
+    '<div class="d-edit-row"><div class="d-label">Infraction</div>' +
+      '<select class="d-edit-input" id="de-infraction">'+infOptions+'</select></div>' +
+    '<div class="d-edit-row" style="align-items:flex-start;">' +
+      '<div class="d-label" style="padding-top:6px;">Description</div>' +
+      '<textarea class="d-edit-input" id="de-description" style="min-height:60px;resize:vertical;">'+
+        esc(row['Description']||'')+'</textarea></div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+      '<button class="btn btn-outline" style="flex:1;" onclick="cancelReferralEdit()">Cancel</button>' +
+      '<button class="btn btn-primary" style="flex:1;" onclick="saveReferralEdit()">Save Changes</button>' +
+    '</div>' +
+    '<div id="de-save-msg" style="margin-top:7px;font-size:0.8rem;min-height:18px;"></div>';
+
+  document.getElementById('d-content').innerHTML = html;
+}
+
+function cancelReferralEdit() {
+  renderDetailView(filteredRows[detailIdx]);
+}
+
+function saveReferralEdit() {
+  var row = filteredRows[detailIdx];
+  var updates = {
+    incidentDate:   document.getElementById('de-date').value,
+    incidentTime:   document.getElementById('de-time').value,
+    location:       document.getElementById('de-location').value,
+    infractionType: document.getElementById('de-infraction').value,
+    description:    document.getElementById('de-description').value.trim()
+  };
+  var msgEl = document.getElementById('de-save-msg');
+  if (!updates.incidentDate || !updates.incidentTime || !updates.location || !updates.infractionType) {
+    msgEl.textContent = 'Date, time, location, and infraction are required.';
+    msgEl.style.color = '#dc2626';
+    return;
+  }
+
+  msgEl.textContent = 'Saving…';
+  msgEl.style.color = '#1a56db';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result.success) {
+        msgEl.textContent = result.error || 'Could not save changes.';
+        msgEl.style.color = '#dc2626';
+        return;
+      }
+      row['IncidentDate']        = updates.incidentDate;
+      row['IncidentTime']        = updates.incidentTime;
+      row['Location']            = updates.location;
+      row['InfractionType']      = updates.infractionType;
+      row['Description']         = updates.description;
+      row['PointValue']          = result.newPointValue;
+      row['PointsAfterReferral'] = result.newAfter;
+
+      // CurrentPoints (the student's live balance) is shown on every
+      // row belonging to them, not just this one — keep all of them
+      // in sync rather than just the row that was actually edited.
+      if (result.newBalance !== null && result.newBalance !== undefined) {
+        allRows.forEach(function(r) {
+          if (r['StudentID'] === row['StudentID']) r['CurrentPoints'] = result.newBalance;
+        });
+      }
+
+      showToast('Referral updated.');
+      renderDetailView(row);
+      renderTable();
+    })
+    .withFailureHandler(function(err) {
+      msgEl.textContent = err.message || err;
+      msgEl.style.color = '#dc2626';
+    })
+    .updateReferralDetails(row['ID'], updates);
 }
 
 function closeDetail() {
@@ -532,58 +949,68 @@ function closeDetail() {
   detailIdx = null;
 }
 
-// ── Deletion Log panel (admin only) ──────────────────────────────
-var _deletionLogLoaded = false;
+// ── Change Log panel (admin only) ──────────────────────────────
+var _changeLogLoaded = false;
 
-function openDeletionLogPanel() {
+function openChangeLogPanel() {
   document.getElementById('log-overlay').classList.add('open');
-  document.getElementById('deletion-log-panel').classList.add('open');
-  if (!_deletionLogLoaded) loadDeletionLog();
+  document.getElementById('change-log-panel').classList.add('open');
+  if (!_changeLogLoaded) loadChangeLog();
 }
 
-function closeDeletionLogPanel() {
+function closeChangeLogPanel() {
   document.getElementById('log-overlay').classList.remove('open');
-  document.getElementById('deletion-log-panel').classList.remove('open');
+  document.getElementById('change-log-panel').classList.remove('open');
 }
 
-function loadDeletionLog() {
-  var wrap = document.getElementById('deletion-log-content');
+
+function loadChangeLog() {
+  var wrap = document.getElementById('change-log-content');
   wrap.innerHTML = '<div class="empty-msg">Loading...</div>';
 
   google.script.run
     .withSuccessHandler(function(r) {
-      _deletionLogLoaded = true;
+      _changeLogLoaded = true;
       if (!r.success) {
-        wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the deletion log: ' + esc(r.error || 'Unknown error') + '</div>';
+        wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the change log: ' + esc(r.error || 'Unknown error') + '</div>';
         return;
       }
       if (r.rows.length === 0) {
-        wrap.innerHTML = '<div class="empty-msg">No referrals have been deleted yet.</div>';
+        wrap.innerHTML = '<div class="empty-msg">No referrals have been deleted or edited yet.</div>';
         return;
       }
       wrap.innerHTML = r.rows.map(function(row) {
         var pts    = row.pointValue || 0;
         var ptsStr = pts > 0 ? '+'+pts : pts.toString();
         var ptsCls = pts < 0 ? 'color:#dc2626' : 'color:#166534';
+        var incident = formatDateMDY(row.incidentDate) +
+          (row.incidentTime ? ' at ' + formatTime12h(row.incidentTime) : '');
+        var isDeleted = row.action !== 'Edited';
+        var badgeBg = isDeleted ? '#fee2e2' : '#dbeafe';
+        var badgeFg = isDeleted ? '#991b1b' : '#1e40af';
         return '<div class="d-row" style="flex-direction:column;align-items:stretch;' +
                'border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px;">' +
-          '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#94a3b8;margin-bottom:4px;">' +
-            '<span>'+esc(row.timestamp)+'</span><span>'+esc(row.deletedByName)+'</span>' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;">' +
+            '<span style="font-size:0.84rem;color:#1e293b;">' +
+              '<span style="background:'+badgeBg+';color:'+badgeFg+';font-size:0.7rem;font-weight:700;' +
+                'padding:2px 7px;border-radius:20px;margin-right:6px;text-transform:uppercase;">'+esc(row.action||'Deleted')+'</span>' +
+              'by <strong>'+esc(row.changedByName)+'</strong></span>' +
+            '<span style="font-size:0.76rem;color:#94a3b8;white-space:nowrap;">'+esc(row.timestamp)+'</span>' +
           '</div>' +
           '<div style="font-size:0.86rem;font-weight:600;">'+esc(row.studentName)+
             ' <span style="font-weight:400;color:#94a3b8;">('+esc(row.studentId)+')</span></div>' +
-          '<div style="font-size:0.82rem;">'+esc(row.infractionType)+
-            ' <span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span>' +
-            ' <span style="color:#94a3b8;">· incident '+esc(row.incidentDate)+'</span></div>' +
-          '<div style="font-size:0.82rem;margin-top:4px;"><strong>Reason:</strong> '+esc(row.reason)+'</div>' +
+          '<div style="font-size:0.82rem;margin-top:2px;">'+esc(row.infractionType)+
+            ' <span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span></div>' +
+          '<div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">Incident: '+esc(incident)+'</div>' +
+          '<div style="font-size:0.82rem;margin-top:8px;"><strong>Details:</strong> '+esc(row.details)+'</div>' +
         '</div>';
       }).join('');
     })
     .withFailureHandler(function(err) {
-      _deletionLogLoaded = true;
-      wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the deletion log: ' + esc(err.message || err) + '</div>';
+      _changeLogLoaded = true;
+      wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the change log: ' + esc(err.message || err) + '</div>';
     })
-    .getDeletionLog();
+    .getChangeLog();
 }
 
 function saveDetail() {
@@ -623,10 +1050,19 @@ function confirmDeleteReferral() {
     reasonLabel: 'Reason for deletion (required)',
     reasonPlaceholder: 'e.g., wrong student entered, IEP protection...',
     onConfirm: function(reason) {
+      var delBtn = document.querySelector('.btn-delete-referral');
+      if (delBtn) {
+        delBtn.disabled = true;
+        delBtn.innerHTML = '<span>Deleting...</span>';
+      }
+      var loadingToast = showLoadingToast('Deleting referral...');
+
       google.script.run
         .withSuccessHandler(function(result) {
+          dismissToast(loadingToast);
           if (!result.success) {
             showToast(result.error || 'Could not delete referral.', true);
+            if (delBtn) { delBtn.disabled = false; delBtn.innerHTML = TRASH_SVG + '<span>Delete Referral</span>'; }
             return;
           }
           // Remove from both the full and filtered row sets, then close
@@ -638,11 +1074,13 @@ function confirmDeleteReferral() {
           updateSummary();
 
           showToast(result.recalculated
-            ? '✓ Referral deleted. ' + result.studentName + '\u2019s balance is now ' + result.newBalance + ' pts.'
-            : '✓ Referral deleted.');
+            ? 'Referral deleted. ' + result.studentName + '\u2019s balance is now ' + result.newBalance + ' pts.'
+            : 'Referral deleted.');
         })
         .withFailureHandler(function(err) {
+          dismissToast(loadingToast);
           showToast(err.message || err, true);
+          if (delBtn) { delBtn.disabled = false; delBtn.innerHTML = TRASH_SVG + '<span>Delete Referral</span>'; }
         })
         .deleteReferral(row['ID'], reason);
     }
@@ -650,7 +1088,8 @@ function confirmDeleteReferral() {
 }
 
 function exportCsv() {
-  if (filteredRows.length === 0) { alert('No data to export.'); return; }
+  if (!fullDataLoaded) { showToast('Still loading all referrals — one moment.', true); return; }
+  if (filteredRows.length === 0) { showToast('No data to export.', true); return; }
   var cols = ['ID','IncidentDate','IncidentTime','StudentName','Grade','InfractionType',
               'PointValue','PointsBeforeReferral','PointsAfterReferral','CurrentPoints',
               'Location','Description','IncludeDescriptionInEmail','TeacherName',
@@ -689,6 +1128,23 @@ function formatTime12h(t) {
   return h12 + ':' + min + ' ' + period;
 }
 
+function pad2(n) { return n < 10 ? '0'+n : ''+n; }
+
+// Replaces the server-side Utilities.formatDate() call that used to run
+// for every referral row regardless of whether that row ever reached
+// the screen — this only ever runs for the handful of rows actually
+// being displayed. Matches the same "MM-dd-yyyy h:mm a" format.
+function formatTimestampMs(ms) {
+  if (!ms) return '';
+  var d = new Date(ms);
+  var h = d.getHours();
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  var min = d.getMinutes();
+  return pad2(d.getMonth()+1) + '-' + pad2(d.getDate()) + '-' + d.getFullYear() +
+    ' ' + h12 + ':' + (min < 10 ? '0'+min : min) + ' ' + period;
+}
+
 // Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
 // Returns the input unchanged if it doesn't match the expected pattern.
 // Sorting (sortBy) and the Date From/To filters intentionally keep
@@ -701,9 +1157,10 @@ function formatDateMDY(d) {
 }
 
 // Mirrors POINT_COLOR_PALETTE in Code.gs — the constrained set of colors
-// admins can choose from in Settings. Used only as a fallback below;
-// each row from getReportData() already carries a resolved
-// CurrentPointsColor hex value, so this path should rarely run.
+// admins can choose from in Settings. Rows from getReportDataPage() no
+// longer carry a pre-resolved color (that used to be computed
+// server-side for every row regardless of whether it was ever
+// displayed) — this now runs for every row shown on screen instead.
 var POINT_COLOR_PALETTE = {
   green: '#10b981', blue: '#3b82f6', purple: '#8b5cf6',
   amber: '#eab308', orange: '#f97316', red: '#ef4444'

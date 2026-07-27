@@ -5,7 +5,7 @@
 // CHANGES FROM v11:
 //   • New Config columns: PointTierThresholds, PointTierColors —
 //     parallel lists defining how many tiers exist, where each tier
-//     starts (percentage of semester points), and which color from the
+//     starts (percentage of term points), and which color from the
 //     constrained palette each tier uses.
 //   • POINT_COLOR_PALETTE constant — the fixed set of color keys/hex
 //     values admins can choose from (green, blue, purple, amber, orange,
@@ -31,21 +31,22 @@ var SHEET_STAFF        = 'Staff';
 var SHEET_PARENT       = 'ParentContacts';
 var SHEET_CONFIG       = 'Config';
 var SHEET_INFRACTIONS  = 'Infractions';
-var SHEET_DELETION_LOG = 'DeletionLog';
+var SHEET_CHANGE_LOG   = 'ChangeLog';
 
 // ── CONFIG COLUMN NAMES ───────────────────────────────────────
 var CONFIG_COL_LOCATIONS        = 'Locations';
+var CONFIG_COL_CONTACT_TYPES    = 'ContactTypes';
 // Redirections and Motivations intentionally removed — no longer used.
 var CONFIG_COL_SCHOOL_NAME      = 'SchoolName';
-var CONFIG_COL_SEMESTER_POINTS  = 'SemesterStartPoints';
+var CONFIG_COL_TERM_POINTS  = 'TermStartPoints';
 var CONFIG_COL_EMAIL_ENABLED    = 'EmailNotificationsEnabled';
 var CONFIG_COL_TEACHER_EMAIL_ENABLED = 'TeacherEmailNotificationsEnabled';
 var CONFIG_COL_EMAIL_FOOTER     = 'EmailFooterText';
 var CONFIG_COL_EMAIL_SEND_TIME  = 'DailyEmailSendTime';
-var CONFIG_COL_NINE_WEEKS       = 'NineWeeksStartDates';
+var CONFIG_COL_TERM_START_DATES = 'TermStartDates';
 var CONFIG_COL_POINT_THRESHOLDS = 'PointTierThresholds';
 var CONFIG_COL_POINT_COLORS     = 'PointTierColors';
-var CONFIG_COL_POSITIVE_CAP     = 'PositiveCapPerNineWeeks';
+var CONFIG_COL_POSITIVE_CAP     = 'PositiveCapPerTerm';
 // NOTE: CONFIG_COL_ADMIN_EMAILS intentionally removed.
 // Admin role is now determined by Role = 'admin' in the Staff sheet.
 
@@ -91,25 +92,28 @@ var STAFF_COL_EMAIL = 2;
 var STAFF_COL_ROLE  = 3;
 
 // ── PARENT CONTACTS SHEET COLUMN INDICES (0-based) ────────────
-// Layout: StudentID | ContactGUID | Role | FirstName | LastName | Email
+// Layout: StudentID | ContactGUID | Type | FirstName | LastName | Email
 // A student can now have multiple contact rows (Parent/Guardian,
 // Administrator, Counselor, Case Manager) — all of whom receive the
 // same end-of-day referral email for that student. ContactGUID links
 // rows that represent the SAME PERSON across multiple students (e.g.
-// one parent with two kids at the school) — it is unrelated to Role.
+// one parent with two kids at the school) — it is unrelated to Type.
 // Phone intentionally removed — this list exists only to drive referral
 // email delivery, not to be a general-purpose contact directory.
 var PARENT_COL_STUDENT_ID = 0;
 var PARENT_COL_GUID       = 1;
-var PARENT_COL_ROLE       = 2;
+var PARENT_COL_TYPE       = 2;
 var PARENT_COL_FIRST      = 3;
 var PARENT_COL_LAST       = 4;
 var PARENT_COL_EMAIL      = 5;
 
-// Constrained list of contact roles — mirrors the pattern used for the
-// point-tier color palette. Keeps role labels consistent across the
+// Constrained list of contact types — mirrors the pattern used for the
+// point-tier color palette. Keeps type labels consistent across the
 // school rather than allowing free text.
-var CONTACT_ROLES = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
+// Used only if the Config sheet's ContactTypes column is empty (e.g. a
+// brand-new install before Setup.gs seeds it) — the real, admin-editable
+// list lives in Config and is read via getConfig().contactTypes.
+var DEFAULT_CONTACT_TYPES = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
 
 // ── INFRACTIONS SHEET COLUMN NAMES ───────────────────────────
 var INF_COL_NAME     = 'InfractionName';
@@ -127,16 +131,17 @@ var REFERRAL_HEADERS = [
   'ParentNotified', 'TeacherNotified', 'AdminNotes'
 ];
 
-// Audit trail for deleteReferral() — a record of WHAT was deleted, WHO
-// deleted it, and WHY, kept separate from the Referrals sheet itself so
-// deleting a referral (e.g. wrong student entered, or a referral that
-// legally shouldn't have been given) doesn't leave the original
-// referral's full content lingering anywhere, just a short summary of
-// the deletion event.
-var DELETION_LOG_HEADERS = [
-  'Timestamp', 'DeletedByName', 'DeletedByEmail',
+// Audit trail for deleteReferral() and updateReferralDetails() — a
+// record of WHAT changed, WHO changed it, and (for deletions) WHY, kept
+// separate from the Referrals sheet itself so deleting a referral (e.g.
+// wrong student entered) doesn't leave the original content lingering
+// anywhere, just a short summary of the event. Column lookups are by
+// name, not position (see logChange_()), so new columns can be added
+// to this sheet in any order without breaking anything.
+var CHANGE_LOG_HEADERS = [
+  'Timestamp', 'Action', 'ChangedByName', 'ChangedByEmail',
   'ReferralID', 'StudentID', 'StudentName',
-  'InfractionType', 'PointValue', 'IncidentDate', 'Reason'
+  'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Details'
 ];
 
 // ── EXECUTION CACHES (per-execution only — not persistent) ────
@@ -196,6 +201,47 @@ function doGet(e) {
         '<div class="icon">🔒</div>' +
         '<h2>Access Denied</h2>' +
         '<p>The referral form is only available to registered teachers and administrators.<br>' +
+        'If you believe this is an error, please contact your school administrator.</p>' +
+        '<a href="' + base + '?page=dashboard">Go to Dashboard</a>' +
+        '</div></div></body></html>'
+      ).setTitle('Access Denied')
+       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+  }
+
+  // ── Role gate for the student profile page ─────────────────────
+  // Teachers legitimately need this (checking a student's history
+  // before writing up an incident), so this matches the referral
+  // form's gate — admin or teacher, not "viewer" or unrecognized users.
+  // getStudentProfile()/getAllStudents() already reject those roles at
+  // the data layer; this closes the matching gap at the page-shell
+  // layer, same as form/positive/settings.
+  if (page === 'student') {
+    var stuGateUser = getCurrentUser();
+    if (stuGateUser.role !== 'admin' && stuGateUser.role !== 'teacher') {
+      return HtmlService.createHtmlOutput(
+        '<!DOCTYPE html><html><head>' +
+        '<meta charset="UTF-8">' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+        '<base target="_top">' +
+        '<style>' +
+        'body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#f1f5f9;}' +
+        '.hdr{background:#1e3a5f;color:white;padding:0 20px;height:54px;' +
+             'display:flex;align-items:center;font-weight:700;font-size:1.05rem;}' +
+        '.wrap{max-width:500px;margin:60px auto;padding:0 16px;}' +
+        '.card{background:white;border-radius:10px;padding:36px 32px;' +
+              'box-shadow:0 1px 4px rgba(0,0,0,0.1);text-align:center;}' +
+        '.icon{font-size:2.5rem;margin-bottom:14px;}' +
+        'h2{color:#dc2626;font-size:1.1rem;margin-bottom:10px;}' +
+        'p{color:#64748b;font-size:0.88rem;line-height:1.6;margin-bottom:20px;}' +
+        'a{display:inline-block;padding:9px 22px;background:#1e3a5f;color:white;' +
+          'border-radius:7px;text-decoration:none;font-size:0.88rem;font-weight:600;}' +
+        '</style></head><body>' +
+        '<div class="hdr">Behavior Tracker</div>' +
+        '<div class="wrap"><div class="card">' +
+        '<div class="icon">🔒</div>' +
+        '<h2>Access Denied</h2>' +
+        '<p>Student profiles are only available to registered teachers and administrators.<br>' +
         'If you believe this is an error, please contact your school administrator.</p>' +
         '<a href="' + base + '?page=dashboard">Go to Dashboard</a>' +
         '</div></div></body></html>'
@@ -383,6 +429,18 @@ function displayName(first, last) {
   return (((first || '').trim()) + ' ' + ((last || '').trim())).trim().replace(/\s+/g, ' ');
 }
 
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toString().toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
 // =============================================================
 // CONFIG & INFRACTIONS READERS  (cached per execution)
 // =============================================================
@@ -431,23 +489,23 @@ function getConfig() {
   function col(n)      { return colMap[n] || []; }
   function val(n, def) { var c = col(n); return c.length ? c[0] : def; }
 
-  var nwStarts = col(CONFIG_COL_NINE_WEEKS)
+  var termStarts = col(CONFIG_COL_TERM_START_DATES)
     .map(function(d) { return d.trim(); })
     .filter(function(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); })
     .sort();
 
-  var nineWeeks = nwStarts.map(function(start, idx) {
-    var endDate = nwStarts[idx + 1]
-      ? subtractDay(nwStarts[idx + 1])
+  var terms = termStarts.map(function(start, idx) {
+    var endDate = termStarts[idx + 1]
+      ? subtractDay(termStarts[idx + 1])
       : '9999-12-31';
-    return { start: start, end: endDate, label: 'Nine Weeks ' + (idx + 1) };
+    return { start: start, end: endDate, label: 'Term ' + (idx + 1) };
   });
 
   var today = formatDate(new Date());
-  var curNW = null;
-  for (var i = 0; i < nineWeeks.length; i++) {
-    if (today >= nineWeeks[i].start && today <= nineWeeks[i].end) {
-      curNW = nineWeeks[i];
+  var curTerm = null;
+  for (var i = 0; i < terms.length; i++) {
+    if (today >= terms[i].start && today <= terms[i].end) {
+      curTerm = terms[i];
       break;
     }
   }
@@ -459,21 +517,22 @@ function getConfig() {
 
   _cfg = {
     locations:        col(CONFIG_COL_LOCATIONS),
+    contactTypes:     col(CONFIG_COL_CONTACT_TYPES).length > 0 ? col(CONFIG_COL_CONTACT_TYPES) : DEFAULT_CONTACT_TYPES,
     schoolName:       val(CONFIG_COL_SCHOOL_NAME,     'Our School'),
-    semesterPoints:   parseInt(val(CONFIG_COL_SEMESTER_POINTS, '100'), 10) || 100,
+    termPoints:   parseInt(val(CONFIG_COL_TERM_POINTS, '100'), 10) || 100,
     emailEnabled:     val(CONFIG_COL_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
     teacherEmailEnabled: val(CONFIG_COL_TEACHER_EMAIL_ENABLED, 'Yes').toLowerCase() === 'yes',
     emailFooter:      col(CONFIG_COL_EMAIL_FOOTER).join('\n') ||
                         'If you have questions, please contact the school office.\n\n' +
                         'This is an automated message — please do not reply.',
     emailSendTime:    val(CONFIG_COL_EMAIL_SEND_TIME, '15:30'),
-    nineWeeks:        nineWeeks,
-    currentNineWeeks: curNW,
+    terms:        terms,
+    currentTerm: curTerm,
     pointTiers:       pointTiers,
     // Admin-only positive notes (Write Off, Saturday School, etc.) are
-    // capped per student per nine-weeks period. Configurable because the
+    // capped per student per term. Configurable because the
     // school may change this number later — defaults to 15 if unset/invalid.
-    positiveCapPerNineWeeks: parseInt(val(CONFIG_COL_POSITIVE_CAP, '15'), 10) || 15,
+    positiveCapPerTerm: parseInt(val(CONFIG_COL_POSITIVE_CAP, '15'), 10) || 15,
     _raw:             colMap
     // NOTE: adminEmails intentionally absent — use getCurrentUser() for role checks.
   };
@@ -737,19 +796,20 @@ function getSettingsBootstrap() {
     colorPalette: POINT_COLOR_PALETTE, // {key: hex} — drives the Settings color picker
     config: {
       SchoolName:                raw[CONFIG_COL_SCHOOL_NAME]       || [],
-      SemesterStartPoints:       raw[CONFIG_COL_SEMESTER_POINTS]   || [],
+      TermStartPoints:       raw[CONFIG_COL_TERM_POINTS]   || [],
       EmailNotificationsEnabled: raw[CONFIG_COL_EMAIL_ENABLED]     || [],
       TeacherEmailNotificationsEnabled: raw[CONFIG_COL_TEACHER_EMAIL_ENABLED] || [],
       DailyEmailSendTime:        raw[CONFIG_COL_EMAIL_SEND_TIME]   || [],
       EmailFooterText:           raw[CONFIG_COL_EMAIL_FOOTER]      || [],
       Locations:                 raw[CONFIG_COL_LOCATIONS]         || [],
-      NineWeeksStartDates:       raw[CONFIG_COL_NINE_WEEKS]        || [],
+      ContactTypes:              raw[CONFIG_COL_CONTACT_TYPES]     || [],
+      TermStartDates:            raw[CONFIG_COL_TERM_START_DATES] || [],
       // Tier columns reflect the VALIDATED tiers, not raw sheet content —
       // so if the sheet had malformed data, the editor opens already
       // showing the safe 3-tier default rather than broken values.
       PointTierThresholds:       cfg.pointTiers.map(function(t) { return t.threshold; }),
       PointTierColors:           cfg.pointTiers.map(function(t) { return t.color; }),
-      PositiveCapPerNineWeeks:   raw[CONFIG_COL_POSITIVE_CAP] || []
+      PositiveCapPerTerm:        raw[CONFIG_COL_POSITIVE_CAP] || []
       // AdminEmails intentionally absent — managed via Staff manager
     }
   };
@@ -879,8 +939,8 @@ function getFormBootstrap() {
   var students = [];
   for (var i = 1; i < stuData.length; i++) {
     var pts = parseInt(stuData[i][STU_COL_POINTS], 10);
-    if (isNaN(pts)) pts = cfg.semesterPoints;
-    var pct = cfg.semesterPoints > 0 ? Math.round(pts / cfg.semesterPoints * 100) : 0;
+    if (isNaN(pts)) pts = cfg.termPoints;
+    var pct = cfg.termPoints > 0 ? Math.round(pts / cfg.termPoints * 100) : 0;
     students.push({
       studentId:     stuData[i][STU_COL_ID].toString(),
       studentName:   displayName(stuData[i][STU_COL_FIRST], stuData[i][STU_COL_LAST]),
@@ -895,11 +955,11 @@ function getFormBootstrap() {
   return {
     user:             user,
     schoolName:       cfg.schoolName,
-    semesterPoints:   cfg.semesterPoints,
+    termPoints:   cfg.termPoints,
     emailEnabled:     cfg.emailEnabled,
     locations:        cfg.locations,
-    currentNineWeeks: cfg.currentNineWeeks,
-    nineWeeks:        cfg.nineWeeks,
+    currentTerm: cfg.currentTerm,
+    terms:        cfg.terms,
     pointTiers:       cfg.pointTiers,
     // Split by PointValue's sign — Severity is no longer used anywhere
     // in the app (Major/Minor was redundant with the point value's
@@ -918,7 +978,7 @@ function getFormBootstrap() {
                return { name: inf.name, pointValue: inf.pointValue };
              })
       : [],
-    positiveCapPerNineWeeks: cfg.positiveCapPerNineWeeks,
+    positiveCapPerTerm: cfg.positiveCapPerTerm,
     students: students
   };
 }
@@ -942,17 +1002,17 @@ function getStudentFormCard(studentId) {
         studentId:     stuData[i][STU_COL_ID].toString(),
         studentName:   displayName(stuData[i][STU_COL_FIRST], stuData[i][STU_COL_LAST]),
         grade:         stuData[i][STU_COL_GRADE].toString(),
-        currentPoints: isNaN(pts) ? cfg.semesterPoints : pts
+        currentPoints: isNaN(pts) ? cfg.termPoints : pts
       };
       break;
     }
   }
   if (!student) return { error: 'Student not found: ' + studentId };
 
-  var nw      = cfg.currentNineWeeks;
-  var nwStart = nw ? nw.start : null;
-  var nwEnd   = nw ? nw.end   : null;
-  var nwLabel = nw ? nw.label : 'Current Nine Weeks';
+  var term      = cfg.currentTerm;
+  var termStart = term ? term.start : null;
+  var termEnd   = term ? term.end   : null;
+  var termLabel = term ? term.label : 'Current Term';
 
   var hdrs = (refData && refData.length > 0) ? refData[0] : [];
   var ci   = {};
@@ -960,16 +1020,16 @@ function getStudentFormCard(studentId) {
     if (hdrs[h]) ci[hdrs[h].toString().trim()] = h;
   }
 
-  var nwRefs = [];
+  var termRefs = [];
   for (var r = 1; r < refData.length; r++) {
     var row = refData[r];
     if ((row[ci['StudentID']] || '').toString() !== studentId.toString()) continue;
 
     var incDate = formatDateStr(row[ci['IncidentDate']]);
-    if (nwStart && incDate < nwStart) continue;
-    if (nwEnd   && incDate > nwEnd)   continue;
+    if (termStart && incDate < termStart) continue;
+    if (termEnd   && incDate > termEnd)   continue;
 
-    nwRefs.push({
+    termRefs.push({
       id:             row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
       incidentDate:   incDate,
       incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
@@ -980,17 +1040,17 @@ function getStudentFormCard(studentId) {
     });
   }
 
-  nwRefs.sort(function(a, b) {
+  termRefs.sort(function(a, b) {
     return b.incidentDate < a.incidentDate ? -1 : b.incidentDate > a.incidentDate ? 1 : 0;
   });
 
   return {
     student:        student,
-    nwRefs:         nwRefs,
-    nwLabel:        nwLabel,
-    nwStart:        nwStart,
-    nwEnd:          nwEnd,
-    semesterPoints: cfg.semesterPoints
+    termRefs:         termRefs,
+    termLabel:        termLabel,
+    termStart:        termStart,
+    termEnd:          termEnd,
+    termPoints: cfg.termPoints
   };
 }
 
@@ -1051,7 +1111,7 @@ function submitReferrals(referrals) {
 
       var pointValue   = getPointValue(r.infractionType);
       var stuIdx       = findStudentRow(stuData, sidStr);
-      var pointsBefore = cfg.semesterPoints;
+      var pointsBefore = cfg.termPoints;
 
       if (stuIdx >= 0) {
         var ex = stuData[stuIdx][STU_COL_POINTS];
@@ -1083,7 +1143,7 @@ function submitReferrals(referrals) {
       // value as a literal string. Without this, Google Sheets auto-detects
       // the "HH:MM" string as a time-of-day value and silently converts it
       // to a Date/time serial — which then reads back incorrectly anywhere
-      // the column is used (Report, Student profile, nine-weeks panel, etc).
+      // the column is used (Report, Student profile, term panel, etc).
       var timeCol = REFERRAL_HEADERS.indexOf('IncidentTime') + 1;
       var timeCell = refSheet.getRange(newRowNum, timeCol);
       timeCell.setNumberFormat('@STRING@');
@@ -1139,7 +1199,7 @@ function submitReferrals(referrals) {
 //     positive type (PointValue > 0, not Severity — see getFormBootstrap
 //     for why) rather than trusting whatever the client sent, since this
 //     endpoint is a privileged one.
-//   - Enforces the per-student, per-nine-weeks point cap — but as a soft
+//   - Enforces the per-student, per-term point cap — but as a soft
 //     warning the admin can override, not a hard block. First call
 //     (overrideConfirmed=false) does NOT write anything if any selected
 //     student would exceed the cap; it returns the details so the client
@@ -1159,8 +1219,8 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
   var refSheet = ss.getSheetByName(SHEET_REFERRALS);
   var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
   var cfg      = getConfig();
-  var cap      = cfg.positiveCapPerNineWeeks;
-  var nw       = cfg.currentNineWeeks;
+  var cap      = cfg.positiveCapPerTerm;
+  var term       = cfg.currentTerm;
 
   ensureHeaders(refSheet, REFERRAL_HEADERS);
 
@@ -1171,7 +1231,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
   }
 
   // Sum of positive PointValue already logged for a student within the
-  // current nine-weeks period, read fresh from the sheet each call.
+  // current term, read fresh from the sheet each call.
   var refData = refSheet.getDataRange().getValues();
   var rHdrs   = (refData && refData.length > 0) ? refData[0] : [];
   var rci     = {};
@@ -1185,9 +1245,9 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
       if ((row[rci['StudentID']] || '').toString() !== studentId.toString()) continue;
       var pv = parseFloat(row[rci['PointValue']]) || 0;
       if (pv <= 0) continue;
-      if (nw) {
+      if (term) {
         var incDate = formatDateStr(row[rci['IncidentDate']]);
-        if (incDate < nw.start || incDate > nw.end) continue;
+        if (incDate < term.start || incDate > term.end) continue;
       }
       total += pv;
     }
@@ -1266,7 +1326,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
 
       var id       = ++lastId;
       var stuIdx   = findStudentRow(stuData, sidStr);
-      var pointsBefore = cfg.semesterPoints;
+      var pointsBefore = cfg.termPoints;
 
       if (stuIdx >= 0) {
         var ex = stuData[stuIdx][STU_COL_POINTS];
@@ -1287,7 +1347,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         if (overCapDetails[od].studentId === sidStr) { matchDetail = overCapDetails[od]; break; }
       }
       adminNotes = item.overCap && matchDetail
-        ? 'Exceeds ' + matchDetail.cap + '-pt/9-weeks positive cap (admin override): ' +
+        ? 'Exceeds ' + matchDetail.cap + '-pt/term positive cap (admin override): ' +
           matchDetail.existing + ' already awarded + ' + matchDetail.adding +
           ' = ' + matchDetail.wouldBe + '.'
         : '';
@@ -1378,7 +1438,7 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       ? 'Points Deducted: ' + Math.abs(pointValue) + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')'
       : 'Points Added:    +' + pointValue + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')';
 
-    var subject = '✓ Referral Saved — ' + referral.studentName + ' — #' + referralId;
+    var subject = '✓ Referral Saved — ' + cfg.schoolName + ' — ' + referral.studentName + ' — #' + referralId;
     var body    =
       'Hello ' + referral.teacherName + ',\n\n' +
       'Your referral has been saved.\n\n' +
@@ -1517,7 +1577,7 @@ function sendDailyParentEmails() {
       var studentName = refs[0].studentName;
       var grade       = refs[0].grade;
 
-      var subject = 'Daily Behavior Summary — ' + studentName + ' — ' + today;
+      var subject = 'Daily Behavior Summary — ' + cfg.schoolName + ' — ' + studentName + ' — ' + today;
 
       var bodyIntro =
         'This is the daily behavior summary from ' + cfg.schoolName +
@@ -1623,7 +1683,7 @@ function getDashboardData() {
   var tchMap = {};
 
   var totalReferrals = 0;
-  var nineWeeksReferrals = 0;
+  var termReferrals = 0;
   var todayReferrals = 0;
   var weekReferrals  = 0;
   var negativeCount  = 0; // PointValue < 0 (point-losing referrals, regardless of severity)
@@ -1646,11 +1706,11 @@ function getDashboardData() {
     var ptVal = parseFloat(row[ci['PointValue']]) || 0;
 
     totalReferrals++;
-    if (cfg.currentNineWeeks && inc >= cfg.currentNineWeeks.start && inc <= cfg.currentNineWeeks.end) {
-      nineWeeksReferrals++;
+    if (cfg.currentTerm && inc >= cfg.currentTerm.start && inc <= cfg.currentTerm.end) {
+      termReferrals++;
     }
-    if (inc === today)       todayReferrals++;
-    if (inc >= day7ago)      weekReferrals++;
+    if (inc === today)                      todayReferrals++;
+    if (inc >= day7ago && inc <= today)      weekReferrals++;
     // Positive/negative are derived from PointValue's sign — every
     // infraction always has a point value, so this stays accurate
     // regardless. ptVal === 0 counts as neither (a logged incident with
@@ -1698,15 +1758,15 @@ function getDashboardData() {
     // the main loop rather than re-scanning the sheet a second time.
     if (user.role === 'teacher' && rowTeacherEmail === user.email.toLowerCase()) {
       myTotal++;
-      if (inc === today)  myToday++;
-      if (inc >= day7ago) myWeek++;
+      if (inc === today)                 myToday++;
+      if (inc >= day7ago && inc <= today) myWeek++;
       myRefs.push(refObj);
     }
   }
 
   // ── Teacher dashboard: slimmer, self-scoped payload ─────────────
   if (user.role === 'teacher') {
-    var sp     = cfg.semesterPoints;
+    var sp     = cfg.termPoints;
     var atRisk = [];
     for (var s = 1; s < stuData.length; s++) {
       var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
@@ -1735,8 +1795,8 @@ function getDashboardData() {
     return {
       user:             user,
       schoolName:       cfg.schoolName,
-      semesterPoints:   sp,
-      currentNineWeeks: cfg.currentNineWeeks,
+      termPoints:   sp,
+      currentTerm: cfg.currentTerm,
       pointTiers:       cfg.pointTiers,
       stats: {
         myTotal: myTotal,
@@ -1783,7 +1843,7 @@ function getDashboardData() {
     })
     .slice(0, 10);
 
-  var sp     = cfg.semesterPoints;
+  var sp     = cfg.termPoints;
   var atRisk = [];
   for (var s = 1; s < stuData.length; s++) {
     var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
@@ -1818,12 +1878,12 @@ function getDashboardData() {
   return {
     user:                user,
     schoolName:          cfg.schoolName,
-    semesterPoints:      sp,
-    currentNineWeeks:    cfg.currentNineWeeks,
+    termPoints:      sp,
+    currentTerm:    cfg.currentTerm,
     pointTiers:          cfg.pointTiers,
     stats: {
       totalReferrals:  totalReferrals,
-      nineWeeksReferrals: nineWeeksReferrals,
+      termReferrals: termReferrals,
       todayReferrals:  todayReferrals,
       weekReferrals:   weekReferrals,
       negativeCount:   negativeCount,
@@ -1868,10 +1928,10 @@ function getStudentProfile(studentId) {
       referrals:           [],
       pointTimeline:       [],
       infractionBreakdown: [],
-      nwSummary:           [],
-      nineWeeks:           cfg.nineWeeks,
-      currentNineWeeks:    cfg.currentNineWeeks,
-      semesterPoints:      cfg.semesterPoints,
+      termSummary:           [],
+      terms:           cfg.terms,
+      currentTerm:    cfg.currentTerm,
+      termPoints:      cfg.termPoints,
       schoolName:          cfg.schoolName,
       pointTiers:          cfg.pointTiers,
       summary: { total: 0, negative: 0, positive: 0 }
@@ -1882,11 +1942,14 @@ function getStudentProfile(studentId) {
   for (var s = 1; s < stuData.length; s++) {
     if (stuData[s][STU_COL_ID].toString() === studentId.toString()) {
       var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
-      var curPts = isNaN(pts) ? cfg.semesterPoints : pts;
-      var curPct = cfg.semesterPoints > 0 ? Math.round(curPts / cfg.semesterPoints * 100) : 0;
+      var curPts = isNaN(pts) ? cfg.termPoints : pts;
+      var curPct = cfg.termPoints > 0 ? Math.round(curPts / cfg.termPoints * 100) : 0;
       student = {
         studentId:         stuData[s][STU_COL_ID].toString(),
         studentName:   displayName(stuData[s][STU_COL_FIRST], stuData[s][STU_COL_LAST]),
+        firstName:         stuData[s][STU_COL_FIRST]  ? stuData[s][STU_COL_FIRST].toString()  : '',
+        lastName:          stuData[s][STU_COL_LAST]   ? stuData[s][STU_COL_LAST].toString()   : '',
+        middleName:        stuData[s][STU_COL_MIDDLE] ? stuData[s][STU_COL_MIDDLE].toString() : '',
         grade:             stuData[s][STU_COL_GRADE].toString(),
         currentPoints:     curPts,
         pct:               curPct,
@@ -1966,12 +2029,12 @@ function getStudentProfile(studentId) {
     .map(function(k) { return { name: k, count: infMap[k] }; })
     .sort(function(a, b) { return b.count - a.count; });
 
-  var nwSummary = cfg.nineWeeks.map(function(nw) {
+  var termSummary = cfg.terms.map(function(term) {
     var count = 0;
     referrals.forEach(function(r) {
-      if (r.IncidentDate >= nw.start && r.IncidentDate <= nw.end) count++;
+      if (r.IncidentDate >= term.start && r.IncidentDate <= term.end) count++;
     });
-    return { label: nw.label, start: nw.start, end: nw.end, count: count };
+    return { label: term.label, start: term.start, end: term.end, count: count };
   });
 
   var sumTotal = 0, sumNegative = 0, sumPos = 0;
@@ -1989,10 +2052,10 @@ function getStudentProfile(studentId) {
     referrals:           referrals,
     pointTimeline:       pointTimeline,
     infractionBreakdown: infractionBreakdown,
-    nwSummary:           nwSummary,
-    nineWeeks:           cfg.nineWeeks,
-    currentNineWeeks:    cfg.currentNineWeeks,
-    semesterPoints:      cfg.semesterPoints,
+    termSummary:           termSummary,
+    terms:           cfg.terms,
+    currentTerm:    cfg.currentTerm,
+    termPoints:      cfg.termPoints,
     schoolName:          cfg.schoolName,
     pointTiers:          cfg.pointTiers,
     user:                user,
@@ -2013,7 +2076,7 @@ function getAllStudents() {
   var ss      = SpreadsheetApp.getActiveSpreadsheet();
   var stuData = ss.getSheetByName(SHEET_STUDENTS).getDataRange().getValues();
   var cfg     = getConfig();
-  var sp      = cfg.semesterPoints;
+  var sp      = cfg.termPoints;
   var results = [];
 
   for (var i = 1; i < stuData.length; i++) {
@@ -2033,7 +2096,7 @@ function getAllStudents() {
 
   return {
     students:       results,
-    semesterPoints: sp,
+    termPoints: sp,
     schoolName:     cfg.schoolName,
     pointTiers:     cfg.pointTiers,
     user:           user
@@ -2044,12 +2107,11 @@ function getAllStudents() {
 // REPORT DATA
 // =============================================================
 
-function getReportData(filters) {
-  var user = getCurrentUser();
-  if (user.role !== 'admin' && user.role !== 'teacher') {
-    throw new Error('Access denied.');
-  }
-
+// Shared by getReportData() (returns everything, used for the
+// background full-fetch) and getReportDataPage() (returns just one
+// page, used for the fast initial paint) — both need the exact same
+// row-building and sort, so this exists once rather than twice.
+function buildReportRows_() {
   var ss      = SpreadsheetApp.getActiveSpreadsheet();
   var refData = ss.getSheetByName(SHEET_REFERRALS).getDataRange().getValues();
   var stuData = ss.getSheetByName(SHEET_STUDENTS).getDataRange().getValues();
@@ -2065,7 +2127,7 @@ function getReportData(filters) {
   for (var s = 1; s < stuData.length; s++) {
     var sid = stuData[s][STU_COL_ID].toString();
     var pts = parseInt(stuData[s][STU_COL_POINTS], 10);
-    ptsMap[sid] = isNaN(pts) ? cfg.semesterPoints : pts;
+    ptsMap[sid] = isNaN(pts) ? cfg.termPoints : pts;
   }
 
   var rows       = [];
@@ -2082,8 +2144,7 @@ function getReportData(filters) {
     if (tch) teacherSet[tch] = true;
     if (inf) infraSet[inf]   = true;
 
-    var curPts = ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.semesterPoints;
-    var curPct = cfg.semesterPoints > 0 ? Math.round(curPts / cfg.semesterPoints * 100) : 0;
+    var curPts = ptsMap[sid2] !== undefined ? ptsMap[sid2] : cfg.termPoints;
 
     rows.push({
       ID:                   row[ci['ID']] !== undefined ? row[ci['ID']].toString() : '',
@@ -2103,11 +2164,18 @@ function getReportData(filters) {
       ParentNotified:       row[ci['ParentNotified']]  ? row[ci['ParentNotified']].toString()  : '',
       TeacherNotified:      row[ci['TeacherNotified']] ? row[ci['TeacherNotified']].toString() : '',
       AdminNotes:           row[ci['AdminNotes']]  ? row[ci['AdminNotes']].toString()  : '',
-      TimestampFormatted:   (ts instanceof Date)
-        ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
-        : '',
-      CurrentPoints:        curPts,
-      CurrentPointsColor:   getPointColor(curPct, cfg.pointTiers)
+      // Raw milliseconds, not a formatted string — Utilities.formatDate()
+      // is a real per-call cost in Apps Script, and doing it for every
+      // row regardless of whether that row ever reaches the screen was
+      // the actual bottleneck here. The client formats this trivially,
+      // and only ever for rows it's actually displaying.
+      TimestampMs:          (ts instanceof Date) ? ts.getTime() : null,
+      CurrentPoints:        curPts
+      // CurrentPointsColor intentionally omitted — same reasoning as
+      // TimestampMs above. The client already has a fallback that
+      // computes this from CurrentPoints + pointTiers (both of which
+      // it already receives), so the server doesn't need to do it for
+      // every one of 3,000+ rows just to have most of them discarded.
     });
   }
 
@@ -2116,14 +2184,68 @@ function getReportData(filters) {
            a.IncidentDate < b.IncidentDate ?  1 : 0;
   });
 
+  return { rows: rows, teacherOptions: Object.keys(teacherSet).sort(), infractionOptions: Object.keys(infraSet).sort(), cfg: cfg };
+}
+
+function getReportData(filters) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin' && user.role !== 'teacher') {
+    throw new Error('Access denied.');
+  }
+
+  var built = buildReportRows_();
+  var cfg   = built.cfg;
+
   return {
-    rows:              rows,
+    rows:              built.rows,
     headers:           REFERRAL_HEADERS,
-    teacherOptions:    Object.keys(teacherSet).sort(),
-    infractionOptions: Object.keys(infraSet).sort(),
-    semesterPoints:    cfg.semesterPoints,
+    teacherOptions:    built.teacherOptions,
+    infractionOptions: built.infractionOptions,
+    termPoints:    cfg.termPoints,
     schoolName:        cfg.schoolName,
     pointTiers:        cfg.pointTiers,
+    terms:             cfg.terms,
+    locations:         cfg.locations,
+    user:              user
+  };
+}
+
+/**
+ * Fast initial paint for the Report page: returns just one page of
+ * rows (default sort, newest first — same as getReportData()'s sort),
+ * plus totalCount so the client can render correct-looking pagination
+ * immediately, without waiting for every referral to be read,
+ * transformed, and sent over the wire. The full set still needs to be
+ * fetched separately afterward (via getReportData()) for accurate
+ * summary stats, filtering, sorting, and CSV export — this call exists
+ * purely to get *something real* on screen as fast as possible.
+ */
+function getReportDataPage(page, pageSize) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin' && user.role !== 'teacher') {
+    throw new Error('Access denied.');
+  }
+
+  page     = parseInt(page, 10)     || 1;
+  pageSize = parseInt(pageSize, 10) || 50;
+
+  var built = buildReportRows_();
+  var cfg   = built.cfg;
+
+  var startIdx = (page - 1) * pageSize;
+  var pageRows = built.rows.slice(startIdx, startIdx + pageSize);
+
+  return {
+    rows:              pageRows,
+    totalCount:        built.rows.length,
+    headers:           REFERRAL_HEADERS,
+    teacherOptions:    built.teacherOptions,
+    infractionOptions: built.infractionOptions,
+    termPoints:    cfg.termPoints,
+    schoolName:        cfg.schoolName,
+    pointTiers:        cfg.pointTiers,
+    terms:             cfg.terms,
+    locations:         cfg.locations,
     user:              user
   };
 }
@@ -2150,19 +2272,157 @@ function updateReferralRow(referralId, newAdminNotes) {
   return { success: false, error: 'Referral #' + referralId + ' not found.' };
 }
 
-// Permanently deletes a single referral row (admin only) — for cases
+// Lets an admin correct a referral's incident details after the fact —
+// wrong location, wrong infraction selected, a typo in the date, etc.
+// Deliberately does NOT allow reassigning the student or teacher; that's
+// a different kind of mistake (better fixed by deleting and resubmitting,
+// so the audit trail stays honest about who actually submitted what).
+// Same philosophy as deleteReferral(): the student's final balance is
+// always kept accurate, but other referrals' historically-recorded
+// PointsBeforeReferral/PointsAfterReferral snapshots are left alone
+// rather than retroactively rewritten.
+function updateReferralDetails(referralId, updates) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  try {
+    var ss       = SpreadsheetApp.getActiveSpreadsheet();
+    var refSheet = ss.getSheetByName(SHEET_REFERRALS);
+    var refData  = refSheet.getDataRange().getValues();
+
+    var idCol   = REFERRAL_HEADERS.indexOf('ID');
+    var sidCol  = REFERRAL_HEADERS.indexOf('StudentID');
+    var snCol   = REFERRAL_HEADERS.indexOf('StudentName');
+    var dtCol   = REFERRAL_HEADERS.indexOf('IncidentDate');
+    var tmCol   = REFERRAL_HEADERS.indexOf('IncidentTime');
+    var locCol  = REFERRAL_HEADERS.indexOf('Location');
+    var infCol  = REFERRAL_HEADERS.indexOf('InfractionType');
+    var pvCol   = REFERRAL_HEADERS.indexOf('PointValue');
+    var pbCol   = REFERRAL_HEADERS.indexOf('PointsBeforeReferral');
+
+    var targetRowNum  = -1;
+    var oldPointValue = 0;
+    var studentId     = '';
+    var studentName   = '';
+    var oldBefore     = 0;
+    var oldDate = '', oldTime = '', oldLocation = '', oldInfraction = '';
+    for (var i = 1; i < refData.length; i++) {
+      if (refData[i][idCol] == referralId) {
+        targetRowNum  = i + 1;
+        oldPointValue = parseFloat(refData[i][pvCol]) || 0;
+        oldBefore     = parseFloat(refData[i][pbCol]) || 0;
+        studentId     = refData[i][sidCol] ? refData[i][sidCol].toString() : '';
+        studentName   = refData[i][snCol]  ? refData[i][snCol].toString()  : '';
+        oldDate       = formatDateStr(refData[i][dtCol]);
+        oldTime       = formatTimeStr(refData[i][tmCol]);
+        oldLocation   = refData[i][locCol] ? refData[i][locCol].toString() : '';
+        oldInfraction = refData[i][infCol] ? refData[i][infCol].toString() : '';
+        break;
+      }
+    }
+    if (targetRowNum < 0) {
+      return { success: false, error: 'Referral #' + referralId + ' not found.' };
+    }
+    if (!studentId) {
+      return { success: false, error: 'This referral has no associated student.' };
+    }
+
+    var incidentDate = (updates.incidentDate || '').toString().trim();
+    var incidentTime = (updates.incidentTime || '').toString().trim();
+    var location      = sanitizeText(updates.location || '');
+    var infractionType = (updates.infractionType || '').toString().trim();
+    var description    = sanitizeText(updates.description || '');
+    if (!incidentDate || !incidentTime || !location || !infractionType) {
+      return { success: false, error: 'Date, time, location, and infraction type are required.' };
+    }
+
+    var infractions = getInfractionsList().rows || [];
+    var infMatch = null;
+    for (var k = 0; k < infractions.length; k++) {
+      if (infractions[k].name === infractionType) { infMatch = infractions[k]; break; }
+    }
+    if (!infMatch) {
+      return { success: false, error: 'Unknown infraction type: ' + infractionType };
+    }
+    var newPointValue = parseFloat(infMatch.pointValue) || 0;
+    var newAfter = Math.max(0, oldBefore + newPointValue);
+
+    // IncidentDate through Description are contiguous columns — one
+    // write instead of eight. PointsBeforeReferral is written back
+    // unchanged, just to keep the range contiguous.
+    refSheet.getRange(targetRowNum, dtCol + 1, 1, 8).setValues([[
+      incidentDate, incidentTime, location, infractionType,
+      newPointValue, oldBefore, newAfter, description
+    ]]);
+
+    // Apply the net point-value change to the student's current
+    // balance — same net-delta approach deleteReferral() uses, so a
+    // student's live balance stays correct without needing to replay
+    // and rewrite every one of their other referrals.
+    var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
+    var stuData  = stuSheet.getDataRange().getValues();
+    var stuRowIdx = findStudentRow(stuData, studentId);
+    var newBalance = null;
+    if (stuRowIdx >= 0) {
+      var curBalance = parseFloat(stuData[stuRowIdx][STU_COL_POINTS]) || 0;
+      var delta = newPointValue - oldPointValue;
+      newBalance = Math.max(0, curBalance + delta);
+      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[newBalance, new Date()]]);
+    }
+
+    // Build a plain-language summary of what actually changed, for
+    // the Change Log — only the fields that differ get mentioned.
+    var changes = [];
+    if (oldDate !== incidentDate) changes.push('Date changed from ' + oldDate + ' to ' + incidentDate);
+    if (oldTime !== incidentTime) changes.push('Time changed from ' + oldTime + ' to ' + incidentTime);
+    if (oldLocation !== location) changes.push('Location changed from "' + oldLocation + '" to "' + location + '"');
+    if (oldInfraction !== infractionType) {
+      changes.push('Infraction changed from "' + oldInfraction + '" (' + oldPointValue + ' pts) to "' +
+                   infractionType + '" (' + newPointValue + ' pts)');
+    }
+    var details = changes.length > 0 ? changes.join('; ') : 'No fields were actually different.';
+
+    logChange_({
+      action:         'Edited',
+      changedByName:  user.name || user.email,
+      changedByEmail: user.email,
+      referralId:     referralId,
+      studentId:      studentId,
+      studentName:    studentName,
+      infractionType: infractionType,
+      pointValue:     newPointValue,
+      incidentDate:   incidentDate,
+      incidentTime:   incidentTime,
+      details:        details
+    });
+
+    SpreadsheetApp.flush();
+    return {
+      success: true,
+      newPointValue: newPointValue,
+      newAfter: newAfter,
+      newBalance: newBalance
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+
 // like the wrong student being entered, or a referral that legally
 // shouldn't have been given (e.g. an IEP protection). This is a real
 // delete, not a status change, so the affected student's point balance
 // must be corrected too, not just left as-is. A reason is required and
-// recorded in the DeletionLog sheet, along with who deleted it and
+// recorded in the ChangeLog sheet, along with who deleted it and
 // when — a paper trail for the deletion itself, without keeping the
 // original referral's full content lingering anywhere.
 //
 // Balance correction approach: rather than simply subtracting the
 // deleted row's PointValue back out, this REPLAYS every remaining
 // referral for that student in original submission order (oldest ID
-// first), starting from Semester Start Points and re-applying the same
+// first), starting from Term Start Points and re-applying the same
 // floor-at-zero rule used at submission time (see submitReferrals). A
 // simple subtraction can be wrong if the deleted referral's actual
 // effect was different from its raw point value because the student
@@ -2191,6 +2451,7 @@ function deleteReferral(referralId, reason) {
     var infCol  = REFERRAL_HEADERS.indexOf('InfractionType');
     var pvCol   = REFERRAL_HEADERS.indexOf('PointValue');
     var dtCol   = REFERRAL_HEADERS.indexOf('IncidentDate');
+    var tmCol   = REFERRAL_HEADERS.indexOf('IncidentTime');
 
     var targetRowNum = -1;
     var targetStudentId = null;
@@ -2212,16 +2473,18 @@ function deleteReferral(referralId, reason) {
     // Log the deletion regardless of whether a point recalculation
     // happens below — the audit trail matters even if, say, the
     // student record was itself since removed.
-    logDeletion_({
-      deletedByName:  user.name  || user.email,
-      deletedByEmail: user.email,
+    logChange_({
+      action:         'Deleted',
+      changedByName:  user.name  || user.email,
+      changedByEmail: user.email,
       referralId:     referralId,
       studentId:      targetStudentId,
       studentName:    deletedRow[snCol]  ? deletedRow[snCol].toString()  : '',
       infractionType: deletedRow[infCol] ? deletedRow[infCol].toString() : '',
       pointValue:     parseFloat(deletedRow[pvCol]) || 0,
       incidentDate:   formatDateStr(deletedRow[dtCol]),
-      reason:         reason
+      incidentTime:   formatTimeStr(deletedRow[tmCol]),
+      details:        reason
     });
 
     if (!targetStudentId) {
@@ -2229,20 +2492,26 @@ function deleteReferral(referralId, reason) {
     }
 
     // Recompute the student's balance from the remaining referrals.
+    // Reuses refData (already read above) rather than re-fetching the
+    // whole sheet again — the only thing that changed is the one row we
+    // just deleted, which we can just skip by ID while walking the data
+    // we already have in memory. Avoiding that second full-sheet read is
+    // the main thing keeping this fast even as the Referrals sheet grows
+    // over a school year.
     var cfg = getConfig();
     var remaining = [];
-    var freshRefData = refSheet.getDataRange().getValues(); // re-read post-delete
-    for (var r = 1; r < freshRefData.length; r++) {
-      if ((freshRefData[r][sidCol] || '').toString() === targetStudentId) {
+    for (var r = 1; r < refData.length; r++) {
+      if (refData[r][idCol] == referralId) continue; // the row we just deleted
+      if ((refData[r][sidCol] || '').toString() === targetStudentId) {
         remaining.push({
-          id:  parseInt(freshRefData[r][idCol], 10) || 0,
-          pts: parseFloat(freshRefData[r][pvCol]) || 0
+          id:  parseInt(refData[r][idCol], 10) || 0,
+          pts: parseFloat(refData[r][pvCol]) || 0
         });
       }
     }
     remaining.sort(function(a, b) { return a.id - b.id; }); // original submission order
 
-    var balance = cfg.semesterPoints;
+    var balance = cfg.termPoints;
     remaining.forEach(function(ref) {
       balance = Math.max(0, balance + ref.pts);
     });
@@ -2251,8 +2520,9 @@ function deleteReferral(referralId, reason) {
     var stuRowIdx = findStudentRow(stuData, targetStudentId);
     var studentName = '';
     if (stuRowIdx >= 0) {
-      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1).setValue(balance);
-      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS_DATE + 1).setValue(new Date());
+      // CurrentPoints and PointsLastUpdated are adjacent columns, so this
+      // writes both in one call instead of two separate round trips.
+      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[balance, new Date()]]);
       studentName = displayName(stuData[stuRowIdx][STU_COL_FIRST], stuData[stuRowIdx][STU_COL_LAST]);
     }
 
@@ -2269,41 +2539,53 @@ function deleteReferral(referralId, reason) {
   }
 }
 
-// Appends one row to the DeletionLog sheet, creating the sheet (with
-// headers) on first use if it doesn't exist yet. Intentionally does
-// NOT store Location/Description/etc. from the deleted referral — just
-// enough to answer "who deleted what, when, and why" without keeping
-// the full original content around indefinitely.
-function logDeletion_(entry) {
-  var ss  = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_DELETION_LOG);
-  if (!sheet) sheet = ss.insertSheet(SHEET_DELETION_LOG);
-  ensureHeaders(sheet, DELETION_LOG_HEADERS);
+// Appends one row to the ChangeLog sheet — deletions and referral
+// edits both funnel through here — creating the sheet (with headers)
+// on first use if it doesn't exist yet. Intentionally does NOT store
+// Location/Description/etc. — just enough to answer "who changed what,
+// when, and why" without keeping the full original content around
+// indefinitely. Writes by looking up each column's actual position in
+// the sheet's own header row (not a fixed array order), so the columns
+// can be arranged in any order on the sheet, including after a manual
+// header migration, without silently writing values into the wrong place.
+function logChange_(entry) {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_CHANGE_LOG);
+  if (!sheet) sheet = ss.insertSheet(SHEET_CHANGE_LOG);
+  ensureHeaders(sheet, CHANGE_LOG_HEADERS);
 
-  sheet.appendRow([
-    new Date(),
-    entry.deletedByName,
-    entry.deletedByEmail,
-    entry.referralId,
-    entry.studentId,
-    entry.studentName,
-    entry.infractionType,
-    entry.pointValue,
-    entry.incidentDate,
-    entry.reason
-  ]);
+  var hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(function(h) { return h.toString().trim(); });
+
+  var values = {
+    Timestamp:      new Date(),
+    Action:         entry.action,
+    ChangedByName:  entry.changedByName,
+    ChangedByEmail: entry.changedByEmail,
+    ReferralID:     entry.referralId,
+    StudentID:      entry.studentId,
+    StudentName:    entry.studentName,
+    InfractionType: entry.infractionType,
+    PointValue:     entry.pointValue,
+    IncidentDate:   entry.incidentDate,
+    IncidentTime:   entry.incidentTime,
+    Details:        entry.details
+  };
+
+  var row = hdrs.map(function(h) { return values[h] !== undefined ? values[h] : ''; });
+  sheet.appendRow(row);
 }
 
-// Read-only viewer data for the DeletionLog sheet (admin only) — used
+// Read-only viewer data for the ChangeLog sheet (admin only) — used
 // by the Reset & Archive tab in Settings.
-function getDeletionLog() {
+function getChangeLog() {
   var user = getCurrentUser();
   if (user.role !== 'admin') {
     return { success: false, error: 'Admin access required.' };
   }
 
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_DELETION_LOG);
+  var sheet = ss.getSheetByName(SHEET_CHANGE_LOG);
   if (!sheet) return { success: true, rows: [] };
 
   var data = sheet.getDataRange().getValues();
@@ -2321,22 +2603,24 @@ function getDeletionLog() {
       timestamp:      (ts instanceof Date)
         ? Utilities.formatDate(ts, Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a')
         : (ts || '').toString(),
-      deletedByName:  row[ci['DeletedByName']]  ? row[ci['DeletedByName']].toString()  : '',
-      deletedByEmail: row[ci['DeletedByEmail']] ? row[ci['DeletedByEmail']].toString() : '',
+      action:         row[ci['Action']]         ? row[ci['Action']].toString()         : 'Deleted',
+      changedByName:  row[ci['ChangedByName']]  ? row[ci['ChangedByName']].toString()  : '',
+      changedByEmail: row[ci['ChangedByEmail']] ? row[ci['ChangedByEmail']].toString() : '',
       referralId:     row[ci['ReferralID']]     !== undefined ? row[ci['ReferralID']].toString() : '',
       studentId:      row[ci['StudentID']]      ? row[ci['StudentID']].toString()      : '',
       studentName:    row[ci['StudentName']]    ? row[ci['StudentName']].toString()    : '',
       infractionType: row[ci['InfractionType']] ? row[ci['InfractionType']].toString() : '',
       pointValue:     parseFloat(row[ci['PointValue']]) || 0,
-      incidentDate:   row[ci['IncidentDate']] ? row[ci['IncidentDate']].toString() : '',
-      reason:         row[ci['Reason']] ? row[ci['Reason']].toString() : ''
+      incidentDate:   formatDateStr(row[ci['IncidentDate']]),
+      incidentTime:   formatTimeStr(row[ci['IncidentTime']]),
+      details:        row[ci['Details']] ? row[ci['Details']].toString() : ''
     });
   }
-  rows.reverse(); // most recent deletion first
+  rows.reverse(); // most recent change first
   return { success: true, rows: rows };
 }
 
-function resetSemesterPoints() {
+function resetTermPoints() {
   try {
     var user = getCurrentUser();
     if (!user || user.role !== 'admin') {
@@ -2347,11 +2631,14 @@ function resetSemesterPoints() {
     var data  = sheet.getDataRange().getValues();
     var cfg   = getConfig();
     var now   = new Date();
-    var count = 0;
-    for (var i = 1; i < data.length; i++) {
-      sheet.getRange(i + 1, STU_COL_POINTS + 1).setValue(cfg.semesterPoints);
-      sheet.getRange(i + 1, STU_COL_POINTS_DATE + 1).setValue(now);
-      count++;
+    var count = data.length - 1;
+    if (count > 0) {
+      // One bulk write for every student's balance + timestamp, instead
+      // of two separate API calls per row — matters a lot at real
+      // roster sizes (a 600-student reset was previously 1,200 calls).
+      var values = [];
+      for (var i = 0; i < count; i++) values.push([cfg.termPoints, now]);
+      sheet.getRange(2, STU_COL_POINTS + 1, count, 2).setValues(values);
     }
     SpreadsheetApp.flush();
     return { success: true, count: count };
@@ -2859,19 +3146,22 @@ function getStudentsList() {
         data[i][STU_COL_FIRST] ? data[i][STU_COL_FIRST].toString().trim() : '',
         data[i][STU_COL_LAST]  ? data[i][STU_COL_LAST].toString().trim()  : ''
       ),
+      firstName:     data[i][STU_COL_FIRST]  ? data[i][STU_COL_FIRST].toString().trim()  : '',
+      lastName:      data[i][STU_COL_LAST]   ? data[i][STU_COL_LAST].toString().trim()   : '',
+      middleName:    data[i][STU_COL_MIDDLE] ? data[i][STU_COL_MIDDLE].toString().trim() : '',
       grade:         data[i][STU_COL_GRADE] ? data[i][STU_COL_GRADE].toString().trim() : '',
-      currentPoints: isNaN(pts) ? cfg.semesterPoints : pts
+      currentPoints: isNaN(pts) ? cfg.termPoints : pts
     });
   }
 
   rows.sort(function(a, b) { return a.studentName.localeCompare(b.studentName); });
-  return { success: true, rows: rows, semesterPoints: cfg.semesterPoints };
+  return { success: true, rows: rows, termPoints: cfg.termPoints };
 }
 
 /**
  * Adds a new student or updates an existing one.
  * - New student: StudentID must not already exist; CurrentPoints
- *   defaults to SemesterStartPoints.
+ *   defaults to TermStartPoints.
  * - Existing student: finds the row by StudentID and updates name/grade.
  * Admin only.
  */
@@ -2912,11 +3202,11 @@ function saveStudent(student) {
       }
     }
 
-    // New student — use override points if provided, else semester default
+    // New student — use override points if provided, else term default
     var pts = (student.currentPoints !== undefined && student.currentPoints !== '')
       ? parseInt(student.currentPoints, 10)
-      : cfg.semesterPoints;
-    if (isNaN(pts) || pts < 0) pts = cfg.semesterPoints;
+      : cfg.termPoints;
+    if (isNaN(pts) || pts < 0) pts = cfg.termPoints;
 
     sheet.appendRow([id, first, last, middle, grade, pts, now]);
     SpreadsheetApp.flush();
@@ -2977,7 +3267,7 @@ function deleteStudent(studentId) {
  * Bulk imports students from a CSV-parsed array.
  * Each row: { studentId, studentName, grade }
  * - Skips rows with duplicate StudentIDs (existing or within import).
- * - CurrentPoints defaults to SemesterStartPoints for all new students.
+ * - CurrentPoints defaults to TermStartPoints for all new students.
  * - Returns counts of added, skipped, and any errors.
  * Admin only.
  */
@@ -3029,7 +3319,7 @@ function importStudents(rows) {
           continue;
         }
 
-        sheet.appendRow([id, first, last, middle, grade, cfg.semesterPoints, now]);
+        sheet.appendRow([id, first, last, middle, grade, cfg.termPoints, now]);
         existingIds[id]  = true;
         seenInImport[id] = true;
         added++;
@@ -3076,7 +3366,7 @@ function searchParentContacts(query) {
 
     for (var i = 1; i < data.length; i++) {
       var guid  = data[i][PARENT_COL_GUID]  ? data[i][PARENT_COL_GUID].toString().trim()  : '';
-      var role  = data[i][PARENT_COL_ROLE]  ? data[i][PARENT_COL_ROLE].toString().trim()  : '';
+      var type  = data[i][PARENT_COL_TYPE]  ? data[i][PARENT_COL_TYPE].toString().trim()  : '';
       var first = data[i][PARENT_COL_FIRST] ? data[i][PARENT_COL_FIRST].toString().trim() : '';
       var last  = data[i][PARENT_COL_LAST]  ? data[i][PARENT_COL_LAST].toString().trim()  : '';
       var email = data[i][PARENT_COL_EMAIL] ? data[i][PARENT_COL_EMAIL].toString().trim() : '';
@@ -3085,17 +3375,68 @@ function searchParentContacts(query) {
       if (!guid) continue;
       if (seen[guid]) continue;
 
-      var matches = name.toLowerCase().indexOf(q) >= 0 ||
-                    first.toLowerCase().indexOf(q) >= 0 ||
-                    last.toLowerCase().indexOf(q) >= 0 ||
+      var matches = matchesWordStart(name, q) ||
+                    matchesWordStart(first, q) ||
+                    matchesWordStart(last, q) ||
                     email.toLowerCase().indexOf(q) >= 0;
 
       if (matches) {
         seen[guid] = true;
         results.push({
-          guid: guid, role: role, firstName: first, lastName: last,
+          guid: guid, type: type, firstName: first, lastName: last,
           name: name, email: email
         });
+      }
+    }
+
+    results.sort(function(a, b) { return a.name.localeCompare(b.name); });
+    return { success: true, results: results };
+
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Same idea as searchParentContacts() above, but searches the Staff
+ * sheet instead — lets an admin add an existing teacher/admin (e.g. a
+ * counselor who's also in Staff) as a student's referral contact
+ * without retyping their name and email. Staff members have no
+ * inherent "contact type" the way parent contacts have a GUID-linked
+ * one, so the Type field is left for the admin to choose after picking
+ * a result, same as typing a brand-new contact in by hand.
+ */
+function searchStaffContacts(query) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  var q = (query || '').toString().trim().toLowerCase();
+  if (!q || q.length < 2) {
+    return { success: true, results: [] };
+  }
+
+  try {
+    var ss   = SpreadsheetApp.getActiveSpreadsheet();
+    var data = ss.getSheetByName(SHEET_STAFF).getDataRange().getValues();
+    var results = [];
+
+    for (var i = 1; i < data.length; i++) {
+      var first = data[i][STAFF_COL_FIRST] ? data[i][STAFF_COL_FIRST].toString().trim() : '';
+      var last  = data[i][STAFF_COL_LAST]  ? data[i][STAFF_COL_LAST].toString().trim()  : '';
+      var email = data[i][STAFF_COL_EMAIL] ? data[i][STAFF_COL_EMAIL].toString().trim() : '';
+      var role  = data[i][STAFF_COL_ROLE]  ? data[i][STAFF_COL_ROLE].toString().trim().toLowerCase() : '';
+      var name  = displayName(first, last);
+      if (!email) continue;
+
+      var matches = matchesWordStart(name, q) ||
+                    matchesWordStart(first, q) ||
+                    matchesWordStart(last, q) ||
+                    email.toLowerCase().indexOf(q) >= 0;
+
+      if (matches) {
+        results.push({ firstName: first, lastName: last, name: name, email: email, role: role });
       }
     }
 
@@ -3132,7 +3473,7 @@ function getStudentContacts(studentId) {
         contacts.push({
           rowIndex:  i + 1, // 1-based sheet row, used by saveContact/deleteContact
           guid:      pData[i][PARENT_COL_GUID]  ? pData[i][PARENT_COL_GUID].toString().trim()  : '',
-          role:      pData[i][PARENT_COL_ROLE]  ? pData[i][PARENT_COL_ROLE].toString().trim()  : '',
+          type:      pData[i][PARENT_COL_TYPE]  ? pData[i][PARENT_COL_TYPE].toString().trim()  : '',
           firstName: first,
           lastName:  last,
           name:      displayName(first, last),
@@ -3141,7 +3482,7 @@ function getStudentContacts(studentId) {
       }
     }
 
-    return { success: true, contacts: contacts, roles: CONTACT_ROLES };
+    return { success: true, contacts: contacts, types: getConfig().contactTypes };
 
   } catch (e) {
     return { success: false, error: e.message };
@@ -3195,7 +3536,7 @@ function findContactSiblings(guid, excludeStudentId) {
  * - contact.guid empty        → generates a new ContactGUID.
  * - contact.guid provided     → reuses it (from search-before-create,
  *   linking this contact to the same person already on file elsewhere).
- * - updateSiblingIds, if provided, also pushes the same name/email/role
+ * - updateSiblingIds, if provided, also pushes the same name/email/type
  *   to the matching contact row (same GUID) for those other students.
  *
  * Admin only.
@@ -3209,14 +3550,15 @@ function saveContact(studentId, contact, updateSiblingIds) {
   var id = studentId.toString().trim();
   if (!id) return { success: false, error: 'Student ID is required.' };
 
-  var role  = (contact.role || '').toString().trim();
+  var type  = (contact.type || '').toString().trim();
   var first = sanitizeText(contact.firstName || '');
   var last  = sanitizeText(contact.lastName  || '');
   var email = sanitizeText(contact.email     || '').toLowerCase();
   var guid  = contact.guid ? contact.guid.toString().trim() : generateGuid();
 
-  if (CONTACT_ROLES.indexOf(role) < 0) {
-    return { success: false, error: 'Role must be one of: ' + CONTACT_ROLES.join(', ') + '.' };
+  var contactTypes = getConfig().contactTypes;
+  if (contactTypes.indexOf(type) < 0) {
+    return { success: false, error: 'Type must be one of: ' + contactTypes.join(', ') + '.' };
   }
   if (!first) return { success: false, error: 'First name is required.' };
   if (!last)  return { success: false, error: 'Last name is required.' };
@@ -3230,17 +3572,17 @@ function saveContact(studentId, contact, updateSiblingIds) {
       // Editing an existing contact row.
       var rowNum = parseInt(contact.rowIndex, 10);
       sheet.getRange(rowNum, PARENT_COL_GUID  + 1).setValue(guid);
-      sheet.getRange(rowNum, PARENT_COL_ROLE  + 1).setValue(role);
+      sheet.getRange(rowNum, PARENT_COL_TYPE  + 1).setValue(type);
       sheet.getRange(rowNum, PARENT_COL_FIRST + 1).setValue(first);
       sheet.getRange(rowNum, PARENT_COL_LAST  + 1).setValue(last);
       sheet.getRange(rowNum, PARENT_COL_EMAIL + 1).setValue(email);
     } else {
       // New contact — always appended as a new row, since a student
       // can have several independent contacts at once.
-      sheet.appendRow([id, guid, role, first, last, email]);
+      sheet.appendRow([id, guid, type, first, last, email]);
     }
 
-    // Optionally push the same name/email/role to sibling rows sharing
+    // Optionally push the same name/email/type to sibling rows sharing
     // this GUID for other students (e.g. updating a parent's email for
     // all of their children at once).
     var updatedSiblings = 0;
@@ -3251,7 +3593,7 @@ function saveContact(studentId, contact, updateSiblingIds) {
         var rowSid  = data[i][PARENT_COL_STUDENT_ID].toString().trim();
         var rowGuid = data[i][PARENT_COL_GUID] ? data[i][PARENT_COL_GUID].toString().trim() : '';
         if (targetSids.indexOf(rowSid) >= 0 && rowGuid === guid) {
-          sheet.getRange(i + 1, PARENT_COL_ROLE  + 1).setValue(role);
+          sheet.getRange(i + 1, PARENT_COL_TYPE  + 1).setValue(type);
           sheet.getRange(i + 1, PARENT_COL_FIRST + 1).setValue(first);
           sheet.getRange(i + 1, PARENT_COL_LAST  + 1).setValue(last);
           sheet.getRange(i + 1, PARENT_COL_EMAIL + 1).setValue(email);

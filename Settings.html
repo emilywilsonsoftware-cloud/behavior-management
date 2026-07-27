@@ -56,10 +56,14 @@
     .stab { padding: 9px 16px; font-size: 0.85rem; font-weight: 600;
             cursor: pointer; border: none; background: none;
             color: #5a6a7e; border-bottom: 3px solid transparent;
-            margin-bottom: -2px; transition: color 0.12s; font-family: inherit; }
+            margin-bottom: -2px; transition: color 0.12s; font-family: inherit;
+            position: relative; }
     .stab:hover { color: #1e3a5f; }
     .stab.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
     .stab.stab-danger { color: #b91c1c; }
+    .stab-dot { display: none; width: 7px; height: 7px; border-radius: 50%;
+               background: #d97706; position: absolute; top: 6px; right: 2px; }
+    .stab-dot.show { display: inline-block; }
     .stab.stab-danger:hover { color: #991b1b; }
     .stab.stab-danger.active { color: #991b1b; border-bottom-color: #dc2626; }
 
@@ -118,6 +122,11 @@
     /* ── Grid layouts ── */
     .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .new-contact-row { display: flex; gap: 12px; align-items: flex-end;
+                       padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+    .new-contact-row:first-child { padding-top: 0; }
+    .new-contact-row .form-grid-3 { flex: 1; }
+    .new-contact-row .icon-remove-btn { margin-bottom: 1px; }
 
     /* ── Simple list editor (locations etc.) ── */
     .list-editor { border: 1px solid #c8d0e0; border-radius: 6px; overflow: hidden; }
@@ -164,7 +173,7 @@
     /* ── Point tier — global validation message ── */
     /* Shown for structural errors that aren't tied to one specific row
        (e.g. "at least 2 tiers required," "top tier must reach the
-       semester total") — per-row issues surface next to the row itself
+       term total") — per-row issues surface next to the row itself
        instead, via .tier-warning below. */
     .tier-global-msg { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
                        margin-bottom: 12px; background: #fef9c3; border: 1px solid #fde68a;
@@ -237,13 +246,14 @@
 
     /* ── Toast notification ── */
     #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-                  z-index: 300; display: flex; flex-direction: column; gap: 8px;
-                  pointer-events: none; width: 100%; max-width: 420px; padding: 0 16px; }
+                  z-index: 300; display: flex; flex-direction: column; align-items: center; gap: 8px;
+                  pointer-events: none; max-width: 420px; padding: 0 16px; }
     .toast { background: #166534; color: white; border-radius: 9px;
              padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
              box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
              align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
-             transition: opacity 0.22s ease, transform 0.22s ease; }
+             transition: opacity 0.22s ease, transform 0.22s ease; max-width: 100%; }
+    .toast span { overflow-wrap: break-word; }
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast.toast-err { background: #b91c1c; }
     .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
@@ -287,12 +297,16 @@
 
     /* ── Save row becomes sticky + highlighted only while there are
        unsaved tier changes — a single Save button, not a duplicate. ── */
-    .tier-save-row.dirty { position: sticky; bottom: 12px; z-index: 40;
-                           background: white; border: 1px solid #c8d0e0;
-                           border-radius: 8px; padding: 10px 14px;
-                           box-shadow: 0 4px 16px rgba(30,58,95,0.16);
-                           transition: box-shadow 0.2s ease; }
-    .tier-save-row.dirty .save-msg:empty::before { content: 'Unsaved changes'; color: #92400e; font-weight: 600; }
+    /* ── Save row becomes sticky + highlighted only while a section has
+       unsaved changes — a single Save button, not a duplicate. Originally
+       built for the Point Colors tier editor; now shared by every
+       section so switching away from unsaved work is hard to miss. ── */
+    .save-row.dirty { position: sticky; bottom: 12px; z-index: 40;
+                      background: white; border: 1px solid #c8d0e0;
+                      border-radius: 8px; padding: 10px 14px;
+                      box-shadow: 0 4px 16px rgba(30,58,95,0.16);
+                      transition: box-shadow 0.2s ease; }
+    .save-row.dirty .save-msg:empty::before { content: 'Unsaved changes'; color: #92400e; font-weight: 600; }
 
     /* ── Toggle ── */
     .toggle-row { display: flex; align-items: center; justify-content: space-between;
@@ -466,9 +480,9 @@
 
     <!-- ── Tab bar ── -->
     <div class="settings-tabs">
-      <button class="stab active" onclick="showTab('general')">General</button>
-      <button class="stab" onclick="showTab('behaviorpoints')">Behavior &amp; Points</button>
-      <button class="stab" onclick="showTab('staff')">Staff</button>
+      <button class="stab active" onclick="showTab('general')">General<span class="stab-dot" id="stab-dot-general"></span></button>
+      <button class="stab" onclick="showTab('behaviorpoints')">Behavior &amp; Points<span class="stab-dot" id="stab-dot-behaviorpoints"></span></button>
+      <button class="stab" onclick="showTab('staff')">Staff<span class="stab-dot" id="stab-dot-staff"></span></button>
       <button class="stab" onclick="showTab('students')">Students</button>
       <button class="stab stab-danger" onclick="showTab('yearend')">Reset &amp; Archive</button>
     </div>
@@ -485,15 +499,15 @@
             <input type="text" id="cfg-schoolName" placeholder="e.g. Calloway County Middle School">
           </div>
           <div class="form-row">
-            <label>Semester Start Points</label>
-            <input type="number" id="cfg-semesterPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
+            <label>Term Start Points</label>
+            <input type="number" id="cfg-termPoints" min="0" max="9999" placeholder="100" oninput="refreshTierUI()">
           </div>
           <div class="form-row">
-            <label>Positive Points Cap (per 9 Weeks)</label>
+            <label>Positive Points Cap (per term)</label>
             <input type="number" id="cfg-positiveCap" min="0" max="9999" placeholder="15">
           </div>
         </div>
-        <div class="save-row">
+        <div class="save-row" data-dirty-key="school">
           <span class="save-msg" id="msg-school"></span>
           <button class="btn-save" onclick="saveSection('school')">Save</button>
         </div>
@@ -538,7 +552,7 @@
           <label>Email Footer Text</label>
           <textarea id="cfg-emailFooter" rows="3"></textarea>
         </div>
-        <div class="save-row">
+        <div class="save-row" data-dirty-key="email">
           <span class="save-msg" id="msg-email"></span>
           <button class="btn-save" onclick="saveSection('email')">Save</button>
         </div>
@@ -554,25 +568,41 @@
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>Add location
         </button>
-        <div class="save-row" style="margin-top:12px;">
+        <div class="save-row" style="margin-top:12px;" data-dirty-key="locations">
           <span class="save-msg" id="msg-locations"></span>
           <button class="btn-save" onclick="saveSection('locations')">Save</button>
         </div>
       </div>
 
-      <!-- Nine Weeks -->
-      <div class="card" id="card-nineweeks">
-        <div class="section-title">Nine Weeks Start Dates</div>
-        <p class="section-desc">Pick the first day of each nine-weeks period using the calendar. The current period is determined by comparing today's date against this list.</p>
-        <div class="list-editor" id="list-nineWeeks"></div>
-        <button class="add-btn" onclick="addListItem('nineWeeks', '', 'date')">
+      <!-- Contact Types -->
+      <div class="card" id="card-contacttypes">
+        <div class="section-title">Contact Types</div>
+        <p class="section-desc">Types available when adding a referral email contact on a student's profile (e.g. Parent/Guardian, Administrator).</p>
+        <div class="list-editor" id="list-contactTypes"></div>
+        <button class="add-btn" onclick="addListItem('contactTypes', '')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add contact type
+        </button>
+        <div class="save-row" style="margin-top:12px;" data-dirty-key="contactTypes">
+          <span class="save-msg" id="msg-contactTypes"></span>
+          <button class="btn-save" onclick="saveSection('contactTypes')">Save</button>
+        </div>
+      </div>
+
+      <!-- Term -->
+      <div class="card" id="card-term">
+        <div class="section-title">Term Start Dates</div>
+        <p class="section-desc">Pick the first day of each term using the calendar. The current term is determined by comparing today's date against this list.</p>
+        <div class="list-editor" id="list-term"></div>
+        <button class="add-btn" onclick="addListItem('term', '', 'date')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>Add date
         </button>
-        <div class="save-row" style="margin-top:12px;">
-          <span class="save-msg" id="msg-nineWeeks"></span>
-          <button class="btn-save" onclick="saveSection('nineWeeks')">Save</button>
+        <div class="save-row" style="margin-top:12px;" data-dirty-key="term">
+          <span class="save-msg" id="msg-term"></span>
+          <button class="btn-save" onclick="saveSection('term')">Save</button>
         </div>
       </div>
     </div><!-- /tab-general -->
@@ -639,7 +669,7 @@
           </button>
         </div>
 
-        <div class="save-row" style="margin-top:14px;">
+        <div class="save-row" style="margin-top:14px;" data-dirty-key="infractions">
           <span class="save-msg" id="msg-infractions"></span>
           <button class="btn-save" onclick="saveInfractions()">Save All</button>
         </div>
@@ -669,7 +699,7 @@
           </button>
         </div>
 
-        <div class="save-row" style="margin-top:14px;">
+        <div class="save-row" style="margin-top:14px;" data-dirty-key="infractions">
           <span class="save-msg" id="msg-pos-infractions"></span>
           <button class="btn-save" onclick="saveInfractions()">Save All</button>
         </div>
@@ -704,7 +734,7 @@
           </button>
         </div>
 
-        <div class="save-row" style="margin-top:14px;">
+        <div class="save-row" style="margin-top:14px;" data-dirty-key="staff">
           <span class="save-msg" id="msg-staff"></span>
           <button class="btn-save" onclick="saveStaff()">Save All</button>
         </div>
@@ -719,7 +749,7 @@
       <!-- Add single student -->
       <div class="card" id="card-addstudent">
         <div class="section-title">Add Student</div>
-        <p class="section-desc">Add a single student — for mid-year enrollments. Points default to the current Semester Start Points value.</p>
+        <p class="section-desc">Add a single student — for mid-year enrollments. Points default to the current Term Start Points value.</p>
         <div class="form-grid-3">
           <div class="form-row">
             <label>Student ID</label>
@@ -745,6 +775,20 @@
             <label>Starting Points <span class="hint">(optional)</span></label>
             <input type="number" id="new-points" min="0" max="9999" placeholder="Default">
           </div>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef1f6;">
+          <div style="font-size:0.82rem;font-weight:600;color:#374151;margin-bottom:2px;">
+            Referral Email Contacts <span class="hint">(optional)</span>
+          </div>
+          <p class="section-desc" style="margin-top:0;margin-bottom:10px;">
+            Add one or more parents, guardians, or other contacts for this student now — or skip this and add them later from the student's profile.
+          </p>
+          <div id="new-student-contacts"></div>
+          <button class="add-btn" onclick="addNewStudentContactRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>Add Contact
+          </button>
         </div>
         <div class="save-row">
           <span class="save-msg" id="msg-add-student"></span>
@@ -830,13 +874,13 @@
          TAB: YEAR-END
     ══════════════════════════════════════════════════════════ -->
     <div id="tab-yearend" class="tab-panel">
-      <!-- Reset Semester Points (mid-year reset — lighter than Start New Year) -->
+      <!-- Reset Term Points (mid-year reset — lighter than Start New Year) -->
       <div class="card danger-card" id="card-resetpoints">
-        <div class="section-title">Reset Semester Points</div>
-        <p class="section-desc">Resets all student point balances to the current Semester Start Points value. Referral history is not deleted. Use this for a mid-year or new-semester reset — for a full year-end reset with archiving, use "Start New Year" below.</p>
-        <div class="save-row">
+        <div class="section-title">Reset Term Points</div>
+        <p class="section-desc">Resets all student point balances to the current Term Start Points value. Referral history is not deleted. Use this for a mid-year or new-term reset — for a full year-end reset with archiving, use "Start New Year" below.</p>
+        <div class="save-row" style="justify-content:center;">
           <span class="save-msg" id="msg-reset"></span>
-          <button class="btn-danger" onclick="confirmReset()">Reset Semester Points</button>
+          <button class="btn-danger" onclick="confirmReset()">Reset Term Points</button>
         </div>
       </div>
 
@@ -848,7 +892,7 @@
           Drive and downloaded to this computer), then permanently clears those three sheets so
           the school can start fresh. This does <strong>not</strong> touch Config, Infractions,
           or Staff — those aren't annual data. After resetting, re-import next year's roster from
-          the Students tab above, and set new Nine Weeks dates on the General tab.
+          the Students tab above, and set new Term dates on the General tab.
         </p>
 
         <div id="yearend-idle">
@@ -927,6 +971,7 @@ var _staffLoaded   = false;
 var _studentsLoaded = false;
 var _archiveListLoaded = false;
 var _colorPalette  = {};   // {key: hex} — the constrained palette from the server
+var _bootstrapConfig = {}; // raw config from getSettingsBootstrap() — used by the Add Student form's Contact Type dropdown
 
 // Shared trash-can icon markup (same glyph used by the Point Balance
 // Colors tier editor) — used by every remove button in Settings so the
@@ -957,8 +1002,10 @@ function onBootstrap(data) {
   }
 
   _colorPalette = data.colorPalette || {};
+  _bootstrapConfig = data.config || {};
   document.getElementById('settings-body').style.display = 'block';
   populateGeneral(data.config);
+  populateAddStudentContactTypes();
 }
 
 // ── Tab switching ──────────────────────────────────────────────
@@ -983,7 +1030,7 @@ function showTab(name) {
 // not a 1:1 mapping to cards.
 var SETTINGS_SEARCH_INDEX = [
   { label: 'School Name',                       tab: 'general',        target: 'card-school' },
-  { label: 'Semester Start Points',              tab: 'general',        target: 'card-school' },
+  { label: 'Term Start Points',              tab: 'general',        target: 'card-school' },
   { label: 'Positive Points Cap',                tab: 'general',        target: 'card-school' },
   { label: 'Email Notifications',                tab: 'general',        target: 'card-email' },
   { label: 'Parent Email Notifications',         tab: 'general',        target: 'card-email' },
@@ -991,7 +1038,8 @@ var SETTINGS_SEARCH_INDEX = [
   { label: 'Daily Parent Email Send Time',       tab: 'general',        target: 'card-email' },
   { label: 'Email Footer Text',                  tab: 'general',        target: 'card-email' },
   { label: 'Locations',                          tab: 'general',        target: 'card-locations' },
-  { label: 'Nine Weeks Start Dates',             tab: 'general',        target: 'card-nineweeks' },
+  { label: 'Contact Types',                      tab: 'general',        target: 'card-contacttypes' },
+  { label: 'Term Start Dates',                   tab: 'general',        target: 'card-term' },
   { label: 'Point Balance Colors',               tab: 'behaviorpoints', target: 'card-pointcolors' },
   { label: 'Infraction Types',                   tab: 'behaviorpoints', target: 'card-behaviorinfractions' },
   { label: 'Positive Note Types',                tab: 'behaviorpoints', target: 'card-positivetypes' },
@@ -999,7 +1047,7 @@ var SETTINGS_SEARCH_INDEX = [
   { label: 'Add Student',                        tab: 'students',       target: 'card-addstudent' },
   { label: 'Bulk Import (CSV)',                  tab: 'students',       target: 'card-bulkimport' },
   { label: 'Student Roster',                     tab: 'students',       target: 'card-roster' },
-  { label: 'Reset Semester Points',              tab: 'yearend',        target: 'card-resetpoints' },
+  { label: 'Reset Term Points',              tab: 'yearend',        target: 'card-resetpoints' },
   { label: 'Start New Year',                     tab: 'yearend',        target: 'card-startnewyear' },
   { label: 'View a Previous Year\u2019s Referrals', tab: 'yearend',     target: 'card-viewarchive' }
 ];
@@ -1025,7 +1073,7 @@ function onSettingsSearch(query) {
   }
 
   _searchMatches = SETTINGS_SEARCH_INDEX.filter(function(item) {
-    return item.label.toLowerCase().indexOf(q) >= 0;
+    return matchesWordStart(item.label, q);
   });
 
   resultsEl.innerHTML = _searchMatches.length === 0
@@ -1080,8 +1128,8 @@ document.addEventListener('click', function(e) {
 
 function populateGeneral(cfg) {
   setVal('cfg-schoolName',     (cfg.SchoolName          || [])[0] || '');
-  setVal('cfg-semesterPoints', (cfg.SemesterStartPoints || [])[0] || '100');
-  setVal('cfg-positiveCap',    (cfg.PositiveCapPerNineWeeks || [])[0] || '15');
+  setVal('cfg-termPoints', (cfg.TermStartPoints || [])[0] || '100');
+  setVal('cfg-positiveCap',    (cfg.PositiveCapPerTerm || [])[0] || '15');
 
   var emailOn = ((cfg.EmailNotificationsEnabled || [])[0] || 'Yes').toString().toLowerCase();
   document.getElementById('cfg-emailEnabled').checked = (emailOn !== 'no');
@@ -1093,7 +1141,8 @@ function populateGeneral(cfg) {
   setVal('cfg-emailFooter',    (cfg.EmailFooterText    || [])[0] || '');
 
   buildList('locations',    cfg.Locations           || []);
-  buildList('nineWeeks',    cfg.NineWeeksStartDates || [], 'date');
+  buildList('contactTypes', cfg.ContactTypes        || []);
+  buildList('term',    cfg.TermStartDates || [], 'date');
 
   buildTierEditor(cfg.PointTierThresholds || [], cfg.PointTierColors || []);
 }
@@ -1155,11 +1204,11 @@ function getTimePickerValue() {
 function buildList(key, items, inputType) {
   var container = document.getElementById('list-' + key);
   container.innerHTML = '';
-  if (items.length === 0) { addListItem(key, '', inputType); return; }
-  items.forEach(function(v) { addListItem(key, v, inputType); });
+  if (items.length === 0) { addListItem(key, '', inputType, true); return; }
+  items.forEach(function(v) { addListItem(key, v, inputType, true); });
 }
 
-function addListItem(key, value, inputType) {
+function addListItem(key, value, inputType, isInitialLoad) {
   var container = document.getElementById('list-' + key);
   var div = document.createElement('div');
   div.className = 'list-item';
@@ -1170,15 +1219,19 @@ function addListItem(key, value, inputType) {
     '<button class="rm-btn" onclick="removeListItem(this)">×</button>';
   container.appendChild(div);
   if (!value && type !== 'date') div.querySelector('input').focus();
+  if (!isInitialLoad) markDirty(key);
 }
 
 function removeListItem(btn) {
   var container = btn.closest('.list-editor');
+  var key = container.id.replace('list-', '');
   if (container.querySelectorAll('.list-item').length <= 1) {
     btn.closest('.list-item').querySelector('input').value = '';
+    markDirty(key);
     return;
   }
   btn.closest('.list-item').remove();
+  markDirty(key);
 }
 
 function getListValues(key) {
@@ -1194,8 +1247,8 @@ function saveSection(section) {
   var payload = {};
   if (section === 'school') {
     payload.SchoolName          = [document.getElementById('cfg-schoolName').value.trim()];
-    payload.SemesterStartPoints = [document.getElementById('cfg-semesterPoints').value.trim()];
-    payload.PositiveCapPerNineWeeks = [document.getElementById('cfg-positiveCap').value.trim()];
+    payload.TermStartPoints = [document.getElementById('cfg-termPoints').value.trim()];
+    payload.PositiveCapPerTerm = [document.getElementById('cfg-positiveCap').value.trim()];
   } else if (section === 'email') {
     payload.EmailNotificationsEnabled =
       [document.getElementById('cfg-emailEnabled').checked ? 'Yes' : 'No'];
@@ -1204,7 +1257,8 @@ function saveSection(section) {
     payload.DailyEmailSendTime = [getTimePickerValue()];
     payload.EmailFooterText    = [document.getElementById('cfg-emailFooter').value.trim()];
   } else if (section === 'locations')    { payload.Locations           = getListValues('locations'); }
-  else if (section === 'nineWeeks')      { payload.NineWeeksStartDates = getListValues('nineWeeks'); }
+  else if (section === 'contactTypes')   { payload.ContactTypes        = getListValues('contactTypes'); }
+  else if (section === 'term')      { payload.TermStartDates = getListValues('term'); }
   else if (section === 'pointTiers')     {
     var tierData = getTierValues();
     if (tierData.error) { setMsg('pointTiers', tierData.error, 'err'); return; }
@@ -1221,6 +1275,8 @@ function saveSection(section) {
         if (section === 'pointTiers') {
           _tierDirty = false;
           updateTierStickyBar();
+        } else {
+          clearDirty(section);
         }
       } else {
         setMsg(section, 'Error: ' + (r.error || 'Unknown'), 'err');
@@ -1235,20 +1291,121 @@ function saveSection(section) {
 // ══════════════════════════════════════════════════════════
 var TIER_MIN = 2;
 var TIER_MAX = 6;
+// ── Generic unsaved-changes tracking ───────────────────────────
+// Extends the same sticky/highlighted save-row pattern originally
+// built for the Point Colors tier editor (see _tierDirty below) to
+// every other section, so switching tabs or closing the browser with
+// unsaved work is hard to miss rather than silently losing it.
+var _dirtySections = {};
+
+function markDirty(key) {
+  if (_dirtySections[key]) return;
+  _dirtySections[key] = true;
+  updateStickyBar(key);
+}
+
+function clearDirty(key) {
+  if (!_dirtySections[key]) return;
+  _dirtySections[key] = false;
+  updateStickyBar(key);
+}
+
+// Which tab each dirty key lives on, so the tab button itself can show
+// a dot when a key on it is dirty — needed because switching tabs hides
+// the sticky save-row along with the rest of that tab's content.
+var DIRTY_KEY_TAB = {
+  school: 'general', email: 'general', locations: 'general',
+  contactTypes: 'general', term: 'general',
+  infractions: 'behaviorpoints', pointTiers: 'behaviorpoints',
+  staff: 'staff'
+};
+
+function updateStickyBar(key) {
+  document.querySelectorAll('[data-dirty-key="' + key + '"]').forEach(function(row) {
+    row.classList.toggle('dirty', !!_dirtySections[key]);
+  });
+  updateTabDot(DIRTY_KEY_TAB[key]);
+}
+
+function updateTabDot(tabName) {
+  var dot = document.getElementById('stab-dot-' + tabName);
+  if (!dot) return;
+  var dirty = Object.keys(DIRTY_KEY_TAB).some(function(k) {
+    if (DIRTY_KEY_TAB[k] !== tabName) return false;
+    return k === 'pointTiers' ? _tierDirty : !!_dirtySections[k];
+  });
+  dot.classList.toggle('show', dirty);
+}
+
+function anyUnsavedChanges() {
+  if (_tierDirty) return true;
+  return Object.keys(_dirtySections).some(function(k) { return _dirtySections[k]; });
+}
+
+window.addEventListener('beforeunload', function(e) {
+  if (anyUnsavedChanges()) {
+    e.preventDefault();
+    e.returnValue = ''; // required for the browser's native "leave site?" prompt
+  }
+});
+
+// School and Email are plain form fields (no add/remove rows), so a
+// single delegated listener per card catches every change — typing,
+// toggling a switch, picking a time, all of it.
+['card-school', 'card-email'].forEach(function(cardId) {
+  var key = cardId.replace('card-', '');
+  var card = document.getElementById(cardId);
+  if (card) {
+    card.addEventListener('input',  function() { markDirty(key); });
+    card.addEventListener('change', function() { markDirty(key); });
+  }
+});
+
+// List-editor cards (add/remove already marks dirty inside
+// addListItem()/removeListItem() — this delegated listener additionally
+// catches editing the VALUE of an already-existing item).
+[['card-locations', 'locations'], ['card-contacttypes', 'contactTypes'], ['card-term', 'term']]
+  .forEach(function(pair) {
+    var card = document.getElementById(pair[0]);
+    if (card) card.addEventListener('input', function(e) {
+      if (e.target.matches('.list-item input')) markDirty(pair[1]);
+    });
+  });
+
+// Infractions tables (add/remove already marks dirty inside
+// appendInfractionRow()/appendPositiveInfractionRow()/removeInfractionRow()
+// — this catches editing an existing row's name/points/notes).
+['card-behaviorinfractions', 'card-positivetypes'].forEach(function(cardId) {
+  var card = document.getElementById(cardId);
+  if (card) card.addEventListener('input', function(e) {
+    if (e.target.closest('tbody tr')) markDirty('infractions');
+  });
+});
+
+// Staff table: same pattern, its own dirty key. Also listens for
+// 'change' specifically because the role <select> fires change, not input.
+(function() {
+  var card = document.getElementById('card-staff');
+  if (card) {
+    card.addEventListener('input',  function(e) { if (e.target.closest('tbody tr')) markDirty('staff'); });
+    card.addEventListener('change', function(e) { if (e.target.closest('tbody tr')) markDirty('staff'); });
+  }
+})();
+
 var _tierDirty = false; // tracks unsaved changes for the sticky save row
 
-// Reads the live value of the Semester Start Points field. Tiers are
+// Reads the live value of the Term Start Points field. Tiers are
 // always stored/saved as percentages (so the same config still makes
 // sense if the point total changes later), but admins think in actual
 // points earned/lost, not percentages — this converts on the fly for
 // display only.
-function getSemesterPointsValue() {
-  var v = parseFloat(document.getElementById('cfg-semesterPoints').value);
+function getTermPointsValue() {
+  var v = parseFloat(document.getElementById('cfg-termPoints').value);
   return (!isNaN(v) && v > 0) ? v : 100;
 }
 
 // Tiers are stored on the server as PERCENTAGES (0-100) so a saved
-// configuration stays sensible even if Semester Start Points changes
+// configuration stays sensible even if Term Start Points changes
 // later — but the admin never sees a percent sign anywhere. This
 // section converts in both directions: percentages in from the server
 // become point ranges on screen, and point ranges typed by the admin
@@ -1276,9 +1433,9 @@ function buildTierEditor(thresholds, colors) {
   tierPcts.sort(function(a, b) { return b.pct - a.pct; });
 
   // Convert each tier's starting percentage into a point MIN/MAX pair.
-  // The top tier's max is the semester total; each lower tier's max is
+  // The top tier's max is the term total; each lower tier's max is
   // one point below the tier above it's min.
-  var sp = getSemesterPointsValue();
+  var sp = getTermPointsValue();
   for (var j = 0; j < tierPcts.length; j++) {
     var min = Math.round(tierPcts[j].pct / 100 * sp);
     var max = (j === 0) ? sp : Math.round(tierPcts[j - 1].pct / 100 * sp) - 1;
@@ -1406,7 +1563,7 @@ function refreshTierUI() {
   updateTierStickyBar();
 
   var rows = document.querySelectorAll('.tier-row');
-  var sp = getSemesterPointsValue();
+  var sp = getTermPointsValue();
 
   // ── Live, per-row validation ──────────────────────────────────
   // Surfaces overlapping ranges, gaps between ranges, inverted min/max,
@@ -1483,6 +1640,7 @@ function computeTierWarnings(rows, sp) {
 // without showing a second, separate Save button.
 function updateTierStickyBar() {
   document.getElementById('tier-inline-save').classList.toggle('dirty', _tierDirty);
+  updateTabDot('behaviorpoints');
 }
 
 // Reads the tier rows into a list of {min, max, color} point ranges,
@@ -1495,7 +1653,7 @@ function getTierValues() {
   if (rows.length < TIER_MIN) return { error: 'At least ' + TIER_MIN + ' tiers are required.' };
   if (rows.length > TIER_MAX) return { error: 'No more than ' + TIER_MAX + ' tiers are allowed.' };
 
-  var sp = getSemesterPointsValue();
+  var sp = getTermPointsValue();
   var ranges = [];
 
   for (var i = 0; i < rows.length; i++) {
@@ -1520,7 +1678,7 @@ function getTierValues() {
   }
 
   // Ranges must be contiguous and non-overlapping, covering every point
-  // from 0 to the semester total with no gaps.
+  // from 0 to the term total with no gaps.
   for (var j = 1; j < ranges.length; j++) {
     if (ranges[j].max >= ranges[j - 1].min) {
       return { error: 'Row ' + (j + 1) + ': overlaps the tier above it.' };
@@ -1530,7 +1688,7 @@ function getTierValues() {
     }
   }
   if (ranges[0].max !== sp) {
-    return { error: 'The top tier\'s maximum must equal the Semester Start Points value (' + sp + ').' };
+    return { error: 'The top tier\'s maximum must equal the Term Start Points value (' + sp + ').' };
   }
   if (ranges[ranges.length - 1].min > 0) {
     return { error: 'The bottom tier\'s minimum must be 0 or lower, so every possible balance is covered.' };
@@ -1538,7 +1696,7 @@ function getTierValues() {
 
   // Convert point ranges to the percentage thresholds the server stores.
   // Each tier's threshold is its MIN expressed as a percentage of the
-  // semester total — this is what parsePointTiers() in Code.gs expects.
+  // term total — this is what parsePointTiers() in Code.gs expects.
   var thresholds = ranges.map(function(r) { return sp > 0 ? (r.min / sp * 100) : 0; });
   var colors     = ranges.map(function(r) { return r.color; });
 
@@ -1548,16 +1706,16 @@ function getTierValues() {
 function confirmReset() {
   showConfirm({
     title: 'Reset all student points?',
-    message: 'Every student\u2019s point balance resets to the Semester Start Points value. Referral history is not deleted.',
+    message: 'Every student\u2019s point balance resets to the Term Start Points value. Referral history is not deleted.',
     confirmLabel: 'Reset Points',
     onConfirm: function() {
       google.script.run
         .withSuccessHandler(function(r) {
-          if (r.success) showToast('✓ Reset ' + r.count + ' students.');
+          if (r.success) showToast('Reset ' + r.count + ' students.');
           else showToast(r.error || 'Reset failed.', true);
         })
         .withFailureHandler(function(err) { showToast(err.message || err, true); })
-        .resetSemesterPoints();
+        .resetTermPoints();
     }
   });
 }
@@ -1611,7 +1769,7 @@ function startNewYearFlow() {
         '</div>';
 
       triggerZipDownload(r.zipBase64, r.zipFilename);
-      showToast('✓ New year started — archive downloaded.');
+      showToast('New year started — archive downloaded.');
     })
     .withFailureHandler(function(err) {
       document.getElementById('yearend-loading').style.display = 'none';
@@ -1702,7 +1860,7 @@ function loadArchivedYear(fileId, yearLabel, btn) {
         document.getElementById('archive-viewer').style.display = 'block';
         document.getElementById('archive-search').value = '';
         renderArchiveTable();
-        showToast('✓ Loaded ' + yearLabel + ' (' + _archiveRows.length + ' rows).');
+        showToast('Loaded ' + yearLabel + ' (' + _archiveRows.length + ' rows).');
         document.getElementById('archive-viewer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } catch (err) {
         showToast(err.message, true);
@@ -1862,8 +2020,8 @@ function renderInfractionsTable(rows) {
   negTbody.innerHTML = '';
   posTbody.innerHTML = '';
   rows.forEach(function(r) {
-    if ((parseInt(r.pointValue, 10) || 0) > 0) appendPositiveInfractionRow(r);
-    else appendInfractionRow(r);
+    if ((parseInt(r.pointValue, 10) || 0) > 0) appendPositiveInfractionRow(r, true);
+    else appendInfractionRow(r, true);
   });
 }
 
@@ -1873,14 +2031,15 @@ function addInfractionRow() {
   tbody.lastElementChild.querySelector('input').focus();
 }
 
-function appendInfractionRow(r) {
+function appendInfractionRow(r, isInitialLoad) {
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input type="text" value="'+esc(r.name)+'" placeholder="Infraction name"></td>' +
     '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
     '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
-    '<td class="td-del"><button class="icon-remove-btn" onclick="this.closest(\'tr\').remove()" title="Remove">' + TRASH_SVG + '</button></td>';
+    '<td class="td-del"><button class="icon-remove-btn" onclick="removeInfractionRow(this)" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('inf-tbody').appendChild(tr);
+  if (!isInitialLoad) markDirty('infractions');
 }
 
 function addPositiveInfractionRow() {
@@ -1889,14 +2048,23 @@ function addPositiveInfractionRow() {
   tbody.lastElementChild.querySelector('input').focus();
 }
 
-function appendPositiveInfractionRow(r) {
+function appendPositiveInfractionRow(r, isInitialLoad) {
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input type="text" value="'+esc(r.name)+'" placeholder="Type name"></td>' +
     '<td><input type="number" value="'+esc(r.pointValue)+'" style="width:90px;"></td>' +
     '<td><input type="text" value="'+esc(r.notes||'')+'" placeholder="Optional notes"></td>' +
-    '<td class="td-del"><button class="icon-remove-btn" onclick="this.closest(\'tr\').remove()" title="Remove">' + TRASH_SVG + '</button></td>';
+    '<td class="td-del"><button class="icon-remove-btn" onclick="removeInfractionRow(this)" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('pos-inf-tbody').appendChild(tr);
+  if (!isInitialLoad) markDirty('infractions');
+}
+
+// Shared by both the Behavior Infractions and Positive Note Types
+// tables — both save together via saveInfractions(), so they share one
+// dirty flag (both save-rows glow together, matching that behavior).
+function removeInfractionRow(btn) {
+  btn.closest('tr').remove();
+  markDirty('infractions');
 }
 
 function saveInfractions() {
@@ -1926,6 +2094,7 @@ function saveInfractions() {
         setMsg('infractions', '✓ Saved ' + r.count + ' total.', 'ok');
         setMsg('pos-infractions', '✓ Saved ' + r.count + ' total.', 'ok');
         setTimeout(function(){ setMsg('infractions','',''); setMsg('pos-infractions','',''); }, 3000);
+        clearDirty('infractions');
       } else {
         setMsg('infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
         setMsg('pos-infractions', 'Error: ' + (r.error || 'Unknown'), 'err');
@@ -1958,7 +2127,7 @@ function loadStaff() {
 function renderStaffTable(rows) {
   var tbody = document.getElementById('staff-tbody');
   tbody.innerHTML = '';
-  rows.forEach(function(r) { appendStaffRow(r); });
+  rows.forEach(function(r) { appendStaffRow(r, true); });
 }
 
 function addStaffRow() {
@@ -1967,7 +2136,7 @@ function addStaffRow() {
   tbody.lastElementChild.querySelector('input').focus();
 }
 
-function appendStaffRow(r) {
+function appendStaffRow(r, isInitialLoad) {
   var tr = document.createElement('tr');
   tr.innerHTML =
     '<td><input type="text"  value="'+esc(r.firstName||'')+'" placeholder="First"></td>' +
@@ -1979,6 +2148,7 @@ function appendStaffRow(r) {
     '</select></td>' +
     '<td class="td-del"><button class="icon-remove-btn" onclick="confirmRemoveStaffRow(this)" title="Remove">' + TRASH_SVG + '</button></td>';
   document.getElementById('staff-tbody').appendChild(tr);
+  if (!isInitialLoad) markDirty('staff');
 }
 
 // Row removal here is client-side only (pending until "Save All" is
@@ -1998,6 +2168,7 @@ function confirmRemoveStaffRow(btn) {
     confirmLabel: 'Remove',
     onConfirm: function() {
       tr.remove();
+      markDirty('staff');
       showToast('Removed — click "Save All" to apply.');
     }
   });
@@ -2020,6 +2191,7 @@ function saveStaff() {
       if (r.success) {
         setMsg('staff', '✓ Saved ' + r.count + ' staff members.', 'ok');
         setTimeout(function(){ setMsg('staff','',''); }, 3000);
+        clearDirty('staff');
         // Clear nav cache so Settings visibility updates for role-changed users
         try { sessionStorage.removeItem('bt_nav_user'); } catch(e) {}
       } else setMsg('staff', 'Error: ' + (r.error || 'Unknown'), 'err');
@@ -2058,14 +2230,26 @@ function loadStudents() {
     .getStudentsList();
 }
 
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
 function filterRoster(query) {
   var q        = (query || '').trim().toLowerCase();
   var gradeVal = document.getElementById('stu-roster-grade').value;
   var hits     = _allStudents.filter(function(s) {
     if (gradeVal && s.grade !== gradeVal) return false;
     if (q) {
-      var name = (s.firstName + ' ' + s.lastName).toLowerCase();
-      return name.indexOf(q) >= 0 || s.studentId.toLowerCase().indexOf(q) >= 0;
+      var name = (s.firstName + ' ' + s.lastName);
+      return matchesWordStart(name, q) || (/\d/.test(q) && s.studentId.toLowerCase().indexOf(q) >= 0);
     }
     return true;
   });
@@ -2091,6 +2275,42 @@ function renderRoster(rows) {
   }).join('');
 }
 
+function newStudentContactTypeOptions() {
+  var html = '<option value="">— Select —</option>';
+  (_bootstrapConfig.ContactTypes || []).forEach(function(t) {
+    html += '<option value="'+esc(t)+'">'+esc(t)+'</option>';
+  });
+  return html;
+}
+
+function populateAddStudentContactTypes() {
+  // Starts empty — admins click "Add Contact" if they actually want
+  // one, rather than always having a row to fill in or ignore.
+  document.getElementById('new-student-contacts').innerHTML = '';
+}
+
+function addNewStudentContactRow() {
+  var wrap = document.createElement('div');
+  wrap.className = 'new-contact-row';
+  wrap.innerHTML =
+    '<div class="form-grid-3">' +
+      '<div class="form-row"><label>Type</label><select class="nc-type">'+newStudentContactTypeOptions()+'</select></div>' +
+      '<div class="form-row"><label>First Name</label><input type="text" class="nc-first" placeholder="First"></div>' +
+      '<div class="form-row"><label>Last Name</label><input type="text" class="nc-last" placeholder="Last"></div>' +
+      '<div class="form-row" style="grid-column:span 2;"><label>Email</label><input type="email" class="nc-email" placeholder="name@email.com"></div>' +
+    '</div>' +
+    '<button class="icon-remove-btn" onclick="removeNewStudentContactRow(this)" title="Remove">' + TRASH_SVG + '</button>';
+  document.getElementById('new-student-contacts').appendChild(wrap);
+}
+
+function removeNewStudentContactRow(btn) {
+  btn.closest('.new-contact-row').remove();
+}
+
+function clearNewStudentContactRows() {
+  document.getElementById('new-student-contacts').innerHTML = '';
+}
+
 function addSingleStudent() {
   var student = {
     studentId:     document.getElementById('new-studentId').value.trim(),
@@ -2104,18 +2324,70 @@ function addSingleStudent() {
     setMsg('add-student', 'ID, first name, last name, and grade are required.', 'err');
     return;
   }
+
+  // Collect every contact row — a row is either fully filled in (all
+  // four fields) or left completely blank (skipped). A row with only
+  // some fields filled in is treated as a mistake, not "close enough".
+  var contacts = [];
+  var rowError = false;
+  document.querySelectorAll('#new-student-contacts .new-contact-row').forEach(function(row) {
+    var c = {
+      type:      row.querySelector('.nc-type').value,
+      firstName: row.querySelector('.nc-first').value.trim(),
+      lastName:  row.querySelector('.nc-last').value.trim(),
+      email:     row.querySelector('.nc-email').value.trim()
+    };
+    var anyFilled = !!(c.type || c.firstName || c.lastName || c.email);
+    var allFilled = !!(c.type && c.firstName && c.lastName && c.email);
+    if (allFilled) contacts.push(c);
+    else if (anyFilled) rowError = true;
+  });
+  if (rowError) {
+    setMsg('add-student', 'Each contact needs type, first name, last name, and email — or leave that row entirely blank to skip it.', 'err');
+    return;
+  }
+
   setMsg('add-student', 'Saving...', 'ld');
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) {
-        setMsg('add-student', '✓ Student ' + r.action + '.', 'ok');
-        // Clear form
+      if (!r.success) { setMsg('add-student', 'Error: ' + (r.error || 'Unknown'), 'err'); return; }
+
+      function finishUp(contactMsg) {
+        setMsg('add-student', '✓ Student ' + r.action + '.' + contactMsg, 'ok');
         ['new-studentId','new-firstName','new-lastName','new-middleName','new-grade','new-points']
           .forEach(function(id){ document.getElementById(id).value = ''; });
-        // Reload roster
+        clearNewStudentContactRows();
         _studentsLoaded = false;
         loadStudents();
-      } else setMsg('add-student', 'Error: ' + (r.error || 'Unknown'), 'err');
+      }
+
+      if (contacts.length === 0) { finishUp(''); return; }
+
+      // Contacts save one at a time — they all depend on the student
+      // row that was just created, so there's nothing to gain from
+      // trying to fire them in parallel, and it keeps error reporting
+      // per-contact instead of muddled together.
+      var saved = 0, failed = [];
+      function saveNext(i) {
+        if (i >= contacts.length) {
+          var msg = ' ' + saved + ' contact' + (saved !== 1 ? 's' : '') + ' added.';
+          if (failed.length > 0) msg += ' (' + failed.length + ' failed: ' + failed.join('; ') + ')';
+          finishUp(msg);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(cr) {
+            if (cr.success) saved++;
+            else failed.push(contacts[i].firstName + ' ' + contacts[i].lastName + ' — ' + (cr.error || 'Unknown'));
+            saveNext(i + 1);
+          })
+          .withFailureHandler(function(err) {
+            failed.push(contacts[i].firstName + ' ' + contacts[i].lastName + ' — ' + (err.message || err));
+            saveNext(i + 1);
+          })
+          .saveContact(student.studentId, contacts[i], []);
+      }
+      saveNext(0);
     })
     .withFailureHandler(function(err) { setMsg('add-student', 'Error: ' + (err.message||err), 'err'); })
     .saveStudent(student);
@@ -2130,7 +2402,7 @@ function deleteStudent(studentId) {
       google.script.run
         .withSuccessHandler(function(r) {
           if (r.success) {
-            showToast('✓ Student deleted.');
+            showToast('Student deleted.');
             _studentsLoaded = false;
             loadStudents();
           } else {

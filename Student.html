@@ -11,7 +11,70 @@
            background: #f1f5f9; color: #1e293b; min-height: 100vh; }
     .page-body { max-width: 1100px; margin: 0 auto; padding: 22px 16px 48px; }
 
+    /* ── Toast notification ── */
+    #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+                  z-index: 300; display: flex; flex-direction: column; align-items: center; gap: 8px;
+                  pointer-events: none; max-width: 420px; padding: 0 16px; }
+    .toast { background: #166534; color: white; border-radius: 9px;
+             padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
+             box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
+             align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
+             transition: opacity 0.22s ease, transform 0.22s ease; max-width: 100%; }
+    .toast span { overflow-wrap: break-word; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.toast-err { background: #b91c1c; }
+    .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
+
+    /* ── Confirm popup (replaces native confirm() for destructive actions) ── */
+    .confirm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+                       z-index: 310; display: none; align-items: center; justify-content: center;
+                       padding: 16px; }
+    .confirm-overlay.open { display: flex; }
+    .confirm-card { background: white; border-radius: 12px; max-width: 380px; width: 100%;
+                    padding: 22px 24px; box-shadow: 0 14px 40px rgba(0,0,0,0.25); text-align: center; }
+    .confirm-icon { width: 44px; height: 44px; border-radius: 50%; background: #fee2e2;
+                    color: #dc2626; display: flex; align-items: center; justify-content: center;
+                    margin: 0 auto 14px; }
+    .confirm-icon svg { width: 22px; height: 22px; }
+    .confirm-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+    .confirm-msg { font-size: 0.86rem; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+    .confirm-btn-row { display: flex; gap: 10px; }
+    .confirm-btn { flex: 1; padding: 9px 14px; border-radius: 7px; font-size: 0.86rem;
+                  font-weight: 700; cursor: pointer; font-family: inherit; border: none; }
+    .confirm-btn.cancel { background: #f1f5f9; color: #475569; }
+    .confirm-btn.cancel:hover { background: #e2e8f0; }
+    .confirm-btn.danger { background: #dc2626; color: white; }
+    .confirm-btn.danger:hover { background: #b91c1c; }
+
     /* Search panel */
+    .page-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .page-tab { padding: 9px 18px; border: 1px solid #d1d5db; background: white; color: #64748b;
+               border-radius: 8px; font-size: 0.86rem; font-weight: 600; cursor: pointer;
+               font-family: inherit; }
+    .page-tab:hover { background: #f8fafc; }
+    .page-tab.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+    .pts-tab-filters { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+    .pts-tab-filters label { font-size: 0.8rem; font-weight: 600; color: #374151; display: block; margin-bottom: 4px; }
+    .pts-tab-filters input[type="number"] { width: 110px; padding: 8px 10px; border: 1px solid #d1d5db;
+                                            border-radius: 6px; font-size: 0.9rem; }
+    .pts-tab-filters input[type="number"]:focus { outline: none; border-color: #1d4ed8;
+                                                  box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .pts-tab-filters select { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+                             font-size: 0.9rem; color: #374151; background: white; cursor: pointer;
+                             min-width: 150px; }
+    .pts-tab-filters select:focus { outline: none; border-color: #1d4ed8;
+                                    box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .pts-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px;
+              border-bottom: 1px solid #f1f5f9; }
+    .pts-row:last-child { border-bottom: none; }
+    .pts-row .pts-name { flex: 1; font-weight: 600; font-size: 0.88rem; }
+    .pts-row .pts-sub  { font-size: 0.76rem; color: #94a3b8; }
+    .pts-row .pts-val  { font-weight: 700; font-size: 0.92rem; }
+    .btn-download { padding: 8px 14px; border: 1px solid #86efac; background: #f0fdf4; color: #166534;
+                    border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+                    font-family: inherit; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .btn-download:hover { background: #dcfce7; }
+    .btn-download:disabled { opacity: 0.5; cursor: not-allowed; }
     .search-card { background: white; border-radius: 10px; padding: 22px 24px;
                    box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 18px; }
     .search-card h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; }
@@ -67,10 +130,11 @@
     .p-info   { flex: 1; min-width: 180px; }
     .p-name   { font-size: 1.3rem; font-weight: 800; }
     .p-meta   { font-size: 0.83rem; color: #64748b; margin-top: 3px; }
-    .p-contact{ font-size: 0.8rem; color: #475569; margin-top: 7px;
-                display: flex; flex-wrap: wrap; gap: 10px; }
-    .p-contact a { color: #2563eb; text-decoration: none; }
-    .p-contact a:hover { text-decoration: underline; }
+    .edit-info-btn { margin-top: 10px; background: white; color: #1d4ed8;
+                          border: 1px solid #bfdbfe; border-radius: 7px; padding: 6px 14px;
+                          font-size: 0.8rem; font-weight: 600; cursor: pointer;
+                          font-family: inherit; transition: background 0.12s; }
+    .edit-info-btn:hover { background: #eff6ff; }
     .pts-display { text-align: center; padding: 10px 20px; border-radius: 9px;
                    border: 2px solid #e2e8f0; flex-shrink: 0; min-width: 110px; }
     .pts-big   { font-size: 2rem; font-weight: 900; line-height: 1; }
@@ -88,14 +152,14 @@
     .sum-b.pos  { border-color: #10b981; }
     .sum-v { font-size: 1.4rem; font-weight: 800; } .sum-l { font-size: 0.7rem; color: #64748b; }
 
-    /* Nine-weeks tabs */
-    .nw-tabs { display: flex; gap: 0; margin-bottom: 0; overflow-x: auto; }
-    .nw-tab  { padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    /* Term tabs */
+    .term-tabs { display: flex; gap: 0; margin-bottom: 0; overflow-x: auto; }
+    .term-tab  { padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
                border: 1px solid #e2e8f0; border-bottom: none; border-radius: 6px 6px 0 0;
                background: #f8fafc; color: #64748b; white-space: nowrap; margin-right: 2px;
                transition: background 0.1s; }
-    .nw-tab.active { background: white; color: #1d4ed8; border-color: #bfdbfe; }
-    .nw-tab:hover:not(.active) { background: #f1f5f9; }
+    .term-tab.active { background: white; color: #1d4ed8; border-color: #bfdbfe; }
+    .term-tab:hover:not(.active) { background: #f1f5f9; }
 
     /* Cards */
     .card { background: white; border-radius: 10px;
@@ -117,12 +181,12 @@
     .pts-neg { color:#dc2626; font-weight:700; } .pts-pos { color:#166534; font-weight:700; }
 
     /* NW summary mini-cards */
-    .nw-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
-    .nw-mini { background: #f8fafc; border-radius: 7px; padding: 9px 12px; text-align: center;
+    .term-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
+    .term-mini { background: #f8fafc; border-radius: 7px; padding: 9px 12px; text-align: center;
                border: 1px solid #e2e8f0; min-width: 80px; }
-    .nw-mini.current { border-color: #bfdbfe; background: #eff6ff; }
-    .nw-mini-v { font-size: 1.3rem; font-weight: 800; color: #1e293b; }
-    .nw-mini-l { font-size: 0.7rem; color: #64748b; margin-top: 1px; }
+    .term-mini.current { border-color: #bfdbfe; background: #eff6ff; }
+    .term-mini-v { font-size: 1.3rem; font-weight: 800; color: #1e293b; }
+    .term-mini-l { font-size: 0.7rem; color: #64748b; margin-top: 1px; }
 
     .empty-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
     .loading-msg { color: #94a3b8; padding: 24px; text-align: center; }
@@ -145,6 +209,12 @@
     .ce-grid input:focus { outline: none; border-color: #1d4ed8;
                            box-shadow: 0 0 0 2px rgba(29,78,216,0.1); }
     .ce-search { margin-bottom: 10px; position: relative; }
+    .ce-search-toggle { display: flex; gap: 4px; margin-bottom: 6px; }
+    .ce-search-toggle-btn { padding: 3px 10px; border-radius: 20px; border: 1px solid #d1d5db;
+                            background: white; color: #64748b; font-size: 0.74rem; font-weight: 600;
+                            cursor: pointer; font-family: inherit; }
+    .ce-search-toggle-btn:hover { background: #f8fafc; }
+    .ce-search-toggle-btn.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
     .ce-search input { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
                        border-radius: 5px; font-size: 0.86rem; font-family: inherit; }
     .ce-search input:focus { outline: none; border-color: #1d4ed8; }
@@ -192,7 +262,7 @@
                     border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;
                     background: white; }
     .contact-card:last-child { margin-bottom: 0; }
-    .contact-role-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    .contact-type-badge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
                           letter-spacing: 0.04em; padding: 3px 9px; border-radius: 20px;
                           background: #eef2ff; color: #3730a3; flex-shrink: 0; white-space: nowrap; }
     .contact-card-info { flex: 1; min-width: 0; }
@@ -211,10 +281,10 @@
                        font-weight: 600; background: #fafbfc; width: 100%; font-family: inherit;
                        transition: background 0.12s, border-color 0.12s, color 0.12s; }
     .add-contact-btn:hover { background: #f0f4fa; border-color: #1e3a5f; color: #1e3a5f; }
-    .ce-grid select#ce-role { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
+    .ce-grid select#ce-type { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
                               border-radius: 5px; font-size: 0.86rem; font-family: inherit;
                               background: white; }
-    .ce-grid select#ce-role:focus { outline: none; border-color: #1d4ed8; }
+    .ce-grid select#ce-type:focus { outline: none; border-color: #1d4ed8; }
 
     /* ── Referral detail modal (View button on each referral row) ── */
     .ref-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
@@ -240,12 +310,56 @@
                        font-weight: 600; cursor: pointer; font-family: inherit; }
     .view-detail-btn:hover { background: #f8fafc; border-color: #94a3b8; }
 
+    /* ── Edit Info modal (Student Info + Contacts, admin only) ── */
+    .edit-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+                      z-index: 200; display: none; align-items: center; justify-content: center;
+                      padding: 16px; }
+    .edit-info-overlay.open { display: flex; }
+    .edit-info-modal { background: white; border-radius: 10px; max-width: 640px; width: 100%;
+                    box-shadow: 0 10px 32px rgba(0,0,0,0.2); max-height: 88vh;
+                    display: flex; flex-direction: column; overflow: hidden; }
+    .edit-info-hdr { display: flex; justify-content: space-between; align-items: center;
+                  padding: 18px 22px 0; }
+    .edit-info-title { font-size: 0.98rem; font-weight: 700; color: #1e293b; }
+    .edit-info-close { background: none; border: none; font-size: 1.3rem; cursor: pointer;
+                    color: #9ca3af; line-height: 1; padding: 0 4px; }
+    .edit-info-close:hover { color: #4b5563; }
+    .edit-info-switcher { display: flex; gap: 4px; padding: 14px 22px 0; border-bottom: 1px solid #e5e7eb; }
+    .edit-info-switch-btn { padding: 8px 16px; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+                         background: none; border: none; border-bottom: 2px solid transparent;
+                         color: #64748b; font-family: inherit; }
+    .edit-info-switch-btn.active { color: #1d4ed8; border-bottom-color: #1d4ed8; }
+    .edit-info-switch-btn:hover:not(.active) { color: #1e293b; }
+    .edit-info-content { overflow-y: auto; flex: 1; padding-bottom: 20px; }
+
     @media (max-width:680px) { .two-col { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
 <script>var navCurrentPage = 'student';</script>
 <?!= navHtml ?>
+
+<div id="toast-wrap" aria-live="polite"></div>
+
+<div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this) _confirmCancel()">
+  <div class="confirm-card">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/>
+        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+      </svg>
+    </div>
+    <div class="confirm-title" id="confirm-title"></div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btn-row">
+      <button class="confirm-btn cancel" onclick="_confirmCancel()">Cancel</button>
+      <button class="confirm-btn danger" id="confirm-danger-btn" onclick="_confirmAccept()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var BASE_URL = "<?!= baseUrl ?>";
 // Read server-side via doGet()'s e.parameter.id rather than
@@ -258,6 +372,12 @@ var URL_ID = "<?!= urlId ?>";
 
 <div class="page-body">
 
+  <div class="page-tabs" id="page-tabs">
+    <button class="page-tab active" id="tab-lookup" onclick="showPageTab('lookup')">Student Lookup</button>
+    <button class="page-tab" id="tab-points" onclick="showPageTab('points')">Point Range</button>
+  </div>
+
+  <div id="lookup-tab-content">
   <!-- Search panel -->
   <div class="search-card" id="search-panel">
     <h2>Student Lookup</h2>
@@ -272,7 +392,7 @@ var URL_ID = "<?!= urlId ?>";
              oninput="onSearch(this.value)" autocomplete="off">
       <button class="btn btn-clear" onclick="clearSearch()">✕ Clear</button>
     </div>
-    <div id="search-results"></div>
+    <div id="search-results" style="display:block;"><div class="loading-msg">Loading students...</div></div>
   </div>
 
   <!-- Profile area (shown after selecting a student) -->
@@ -280,8 +400,36 @@ var URL_ID = "<?!= urlId ?>";
     <button class="back-btn" onclick="showSearch()">← Back to Search</button>
     <div id="profile-content"><div class="loading-msg">Loading...</div></div>
   </div>
+  </div>
+
+  <!-- Point Range tab (hidden until selected — this page is primarily for
+       looking up one specific student, so this stays out of the way
+       unless someone deliberately wants it) -->
+  <div class="search-card" id="points-tab-content" style="display:none;">
+    <h2>Find Students by Point Range</h2>
+    <p style="font-size:0.84rem;color:#64748b;margin-bottom:16px;">
+      Searches every student's current balance — including students with no referral history at all.
+    </p>
+    <div class="pts-tab-filters">
+      <div><label>Min Points</label><input type="number" id="pts-tab-min" placeholder="e.g. 80" oninput="filterPointsTab()"></div>
+      <div><label>Max Points</label><input type="number" id="pts-tab-max" placeholder="e.g. 100" oninput="filterPointsTab()"></div>
+      <div><label>Grade</label>
+        <select id="pts-tab-grade" onchange="filterPointsTab()"><option value="">All Grades</option></select>
+      </div>
+      <div><label>Sort By</label>
+        <select id="pts-tab-sort" onchange="filterPointsTab()">
+          <option value="pts-asc">Points (Low to High)</option>
+          <option value="pts-desc">Points (High to Low)</option>
+          <option value="name">Name (A–Z)</option>
+          <option value="grade">Grade</option>
+        </select>
+      </div>
+    </div>
+    <div id="points-tab-body"></div>
+  </div>
 
 </div>
+
 
 <!-- Referral detail modal — opened by the View button on each referral row -->
 <div class="ref-detail-overlay" id="ref-detail-overlay" onclick="if(event.target===this) closeRefDetailModal()">
@@ -297,12 +445,28 @@ var URL_ID = "<?!= urlId ?>";
   </div>
 </div>
 
+<!-- Edit Info modal — Student Info + Contacts (admin only) -->
+<div class="edit-info-overlay" id="edit-info-overlay" onclick="if(event.target===this) closeEditInfoModal()">
+  <div class="edit-info-modal">
+    <div class="edit-info-hdr">
+      <div class="edit-info-title">Edit Info</div>
+      <button class="edit-info-close" onclick="closeEditInfoModal()">×</button>
+    </div>
+    <div class="edit-info-switcher">
+      <button class="edit-info-switch-btn active" id="edit-info-tab-student" onclick="showEditInfoStudent()">Student</button>
+      <button class="edit-info-switch-btn" id="edit-info-tab-contacts" onclick="showEditInfoContacts()">Contacts</button>
+    </div>
+    <div class="edit-info-content" id="edit-info-content"></div>
+  </div>
+</div>
+
 <script>
 var allStudents   = [];
+var _studentsDataLoaded = false; // true once getAllStudents() actually resolves
 var semPts        = 100;
 var pointTiers    = []; // admin-configured point-balance color tiers
 var currentStudent = null;
-var activeNwIdx   = -1; // index into nineWeeks array; -1 = all
+var activeTermIdx   = -1; // index into term array; -1 = all
 var _refDetailLookup = {}; // referral ID → full referral object, for the View Details modal
 
 // ── Load all students once ────────────────────────────────────
@@ -316,7 +480,8 @@ window.addEventListener('load', function() {
     .withSuccessHandler(function(data) {
       if (typeof updateNavUser === 'function') updateNavUser(data.user);
       allStudents = data.students || [];
-      semPts      = data.semesterPoints || 100;
+      _studentsDataLoaded = true;
+      semPts      = data.termPoints || 100;
       pointTiers  = data.pointTiers || [];
 
       // Build grade filter from actual student data
@@ -328,10 +493,20 @@ window.addEventListener('load', function() {
         return (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b);
       });
       var gradeSel = document.getElementById('filter-grade');
+      var ptsGradeSel = document.getElementById('pts-tab-grade');
       grades.forEach(function(g) {
         gradeSel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
+        ptsGradeSel.innerHTML += '<option value="'+esc(g)+'">Grade '+esc(g)+'</option>';
       });
       document.getElementById('filter-count').textContent = allStudents.length + ' students';
+
+      // If someone already switched to the Point Range tab before this
+      // finished loading, it would have shown "0 of 0 students" — a
+      // real, misleading state, not just an empty result. Refresh it
+      // now that there's actually something to show.
+      if (document.getElementById('points-tab-content').style.display !== 'none') {
+        filterPointsTab();
+      }
 
       if (urlId) {
         loadProfile(urlId);
@@ -350,6 +525,18 @@ window.addEventListener('load', function() {
 });
 
 // ── Search (client-side — instant) ───────────────────────────
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
 function onSearch(query) {
   var q        = (query || '').trim().toLowerCase();
   var gradeVal = document.getElementById('filter-grade').value;
@@ -365,8 +552,8 @@ function onSearch(query) {
 
   var hits = allStudents.filter(function(s) {
     if (gradeVal && s.grade !== gradeVal) return false;
-    if (q && s.studentName.toLowerCase().indexOf(q) < 0 &&
-             s.studentId.toLowerCase().indexOf(q)   < 0) return false;
+    if (q && !matchesWordStart(s.studentName, q) &&
+             !(/\d/.test(q) && s.studentId.toLowerCase().indexOf(q) >= 0)) return false;
     return true;
   }).slice(0, 40);
 
@@ -404,12 +591,109 @@ function clearSearch() {
   document.getElementById('filter-count').textContent = allStudents.length + ' students';
 }
 
+// ── Page tabs ───────────────────────────────────────────────────
+function showPageTab(tab) {
+  document.getElementById('tab-lookup').classList.toggle('active', tab === 'lookup');
+  document.getElementById('tab-points').classList.toggle('active', tab === 'points');
+  document.getElementById('lookup-tab-content').style.display = tab === 'lookup' ? '' : 'none';
+  document.getElementById('points-tab-content').style.display = tab === 'points' ? '' : 'none';
+  if (tab === 'points') filterPointsTab();
+}
+
+// ── Find Students by Point Range ──────────────────────────────
+// Reuses allStudents — already loaded on page init for the search tab
+// above — so switching to this tab is instant, no extra server call.
+// Unlike a referral-based filter, this always includes every student,
+// including anyone with a completely clean record and zero referrals.
+function getPointsTabHits() {
+  var minVal   = document.getElementById('pts-tab-min').value.trim();
+  var maxVal   = document.getElementById('pts-tab-max').value.trim();
+  var gradeVal = document.getElementById('pts-tab-grade').value;
+  var sortVal  = document.getElementById('pts-tab-sort').value;
+  var ptsMin   = minVal !== '' ? parseFloat(minVal) : null;
+  var ptsMax   = maxVal !== '' ? parseFloat(maxVal) : null;
+
+  var hits = allStudents.filter(function(s) {
+    if (ptsMin !== null && s.currentPoints < ptsMin) return false;
+    if (ptsMax !== null && s.currentPoints > ptsMax) return false;
+    if (gradeVal && s.grade !== gradeVal) return false;
+    return true;
+  });
+
+  hits.sort(function(a, b) {
+    switch (sortVal) {
+      case 'pts-desc': return b.currentPoints - a.currentPoints;
+      case 'name':     return a.studentName.localeCompare(b.studentName);
+      case 'grade':    return (parseInt(a.grade,10)||0) - (parseInt(b.grade,10)||0) ||
+                              a.studentName.localeCompare(b.studentName);
+      default:         return a.currentPoints - b.currentPoints; // pts-asc
+    }
+  });
+
+  return hits;
+}
+
+function filterPointsTab() {
+  if (!_studentsDataLoaded) {
+    document.getElementById('points-tab-body').innerHTML = '<div class="loading-msg">Loading students...</div>';
+    return;
+  }
+  renderPointsTab(getPointsTabHits());
+}
+
+function renderPointsTab(hits) {
+  var wrap = document.getElementById('points-tab-body');
+
+  var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+    '<span class="filter-count">' + hits.length + ' of ' + allStudents.length + ' students</span>' +
+    '<button class="btn-download" onclick="downloadPointsTabList()" ' + (hits.length===0?'disabled':'') + '>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">' +
+        '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' +
+      '</svg>Download CSV</button>' +
+    '</div>';
+
+  if (hits.length === 0) {
+    wrap.innerHTML = header + '<div class="empty-msg">No students match this range.</div>';
+    return;
+  }
+
+  var rows = hits.map(function(s) {
+    var pct   = semPts > 0 ? Math.round(s.currentPoints / semPts * 100) : 0;
+    var color = s.pointColor || getPointColor(pct, pointTiers);
+    return '<div class="pts-row">' +
+      '<div style="flex:1;"><div class="pts-name">' + esc(s.studentName) + '</div>' +
+      '<div class="pts-sub">Grade ' + esc(s.grade) + ' · ID: ' + esc(s.studentId) + '</div></div>' +
+      '<div class="pts-val" style="color:' + color + ';">' + s.currentPoints + '</div>' +
+      '</div>';
+  }).join('');
+
+  wrap.innerHTML = header + rows;
+}
+
+function downloadPointsTabList() {
+  var list = getPointsTabHits();
+  if (list.length === 0) { showToast('No students match this range.', true); return; }
+
+  var cols = ['StudentID', 'StudentName', 'Grade', 'CurrentPoints'];
+  var csv = cols.join(',') + '\n' + list.map(function(s) {
+    return [s.studentId, s.studentName, s.grade, s.currentPoints]
+      .map(function(v) { return '"' + v.toString().replace(/"/g, '""') + '"'; })
+      .join(',');
+  }).join('\n');
+
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'students_by_points_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+}
+
 // ── Load Student Profile ──────────────────────────────────────
 function loadProfile(studentId) {
   document.getElementById('search-panel').style.display = 'none';
   document.getElementById('profile-area').style.display = 'block';
+  document.getElementById('page-tabs').style.display = 'none';
   document.getElementById('profile-content').innerHTML = '<div class="loading-msg">Loading profile...</div>';
-  activeNwIdx = -1;
+  activeTermIdx = -1;
 
   google.script.run
     .withSuccessHandler(renderProfile)
@@ -423,6 +707,7 @@ function loadProfile(studentId) {
 function showSearch() {
   document.getElementById('profile-area').style.display = 'none';
   document.getElementById('search-panel').style.display = 'block';
+  document.getElementById('page-tabs').style.display = 'flex';
 }
 
 // ── Render Profile ────────────────────────────────────────────
@@ -435,7 +720,7 @@ function renderProfile(data) {
 
   currentStudent = data;
   var s      = data.student;
-  var sp     = data.semesterPoints;
+  var sp     = data.termPoints;
   var isAdm  = data.user && data.user.role === 'admin';
   var pct    = sp > 0 ? Math.max(0,Math.min(100,Math.round(s.currentPoints/sp*100))) : 0;
   var ptColor = s.pointColor || getPointColor(pct, data.pointTiers);
@@ -453,13 +738,7 @@ function renderProfile(data) {
       '<div class="p-info">' +
         '<div class="p-name">'+esc(s.studentName)+'</div>' +
         '<div class="p-meta">Grade '+esc(s.grade)+' · ID: '+esc(s.studentId)+'</div>' +
-        '<div class="p-contact">' +
-          '<span style="color:#94a3b8;">' +
-            (s.contactCount > 0
-              ? s.contactCount + ' referral email contact' + (s.contactCount > 1 ? 's' : '') + ' on file'
-              : 'No referral email contacts on file') +
-          '</span>' +
-        '</div>' +
+        (isAdm ? '<button class="edit-info-btn" onclick="openEditInfoModal()">Edit Info</button>' : '') +
       '</div>' +
       '<div class="pts-display" style="border-color:'+ptColor+';background:'+ptBg+';">' +
         '<div class="pts-big" style="color:'+ptColor+';">'+s.currentPoints+'</div>' +
@@ -476,32 +755,28 @@ function renderProfile(data) {
       badge2(sum.positive, 'Positive', 'pos')  +
     '</div>';
 
-  // Nine-weeks summary mini-cards
-  if (data.nwSummary && data.nwSummary.length > 0) {
-    var curNw = data.currentNineWeeks;
-    html += '<div class="nw-summary" style="margin-bottom:16px;">';
-    data.nwSummary.forEach(function(nw) {
-      var isCur = curNw && nw.start === curNw.start;
-      html += '<div class="nw-mini'+(isCur?' current':'')+'"><div class="nw-mini-v">'+nw.count+'</div>' +
-              '<div class="nw-mini-l">'+esc(nw.label)+(isCur?' ★':'')+'</div></div>';
+  // Term summary mini-cards
+  if (data.termSummary && data.termSummary.length > 0) {
+    var curTerm = data.currentTerm;
+    html += '<div class="term-summary" style="margin-bottom:16px;">';
+    data.termSummary.forEach(function(term) {
+      var isCur = curTerm && term.start === curTerm.start;
+      html += '<div class="term-mini'+(isCur?' current':'')+'"><div class="term-mini-v">'+term.count+'</div>' +
+              '<div class="term-mini-l">'+esc(term.label)+(isCur?' ★':'')+'</div></div>';
     });
     html += '</div>';
   }
 
-  // Filter tabs — Nine Weeks periods, plus an admin-only Contacts tab
+  // Filter tabs — Term periods
   // in the same row.
-  var tabs = '<div class="nw-tabs">' +
-    '<div class="nw-tab active" id="tab-all" onclick="filterByNW(-1)">All Referrals</div>';
-  if (data.nineWeeks) {
-    data.nineWeeks.forEach(function(nw, idx) {
-      var isCur = data.currentNineWeeks && nw.start === data.currentNineWeeks.start;
-      tabs += '<div class="nw-tab" id="tab-'+idx+'" onclick="filterByNW('+idx+')">' +
-              esc(nw.label) + (isCur ? ' ★' : '') + '</div>';
+  var tabs = '<div class="term-tabs">' +
+    '<div class="term-tab active" id="tab-all" onclick="filterByTerm(-1)">All Referrals</div>';
+  if (data.terms) {
+    data.terms.forEach(function(term, idx) {
+      var isCur = data.currentTerm && term.start === data.currentTerm.start;
+      tabs += '<div class="term-tab" id="tab-'+idx+'" onclick="filterByTerm('+idx+')">' +
+              esc(term.label) + (isCur ? ' ★' : '') + '</div>';
     });
-  }
-  if (isAdm) {
-    tabs += '<div class="nw-tab" id="tab-info" onclick="showInfoTab()">Student Info</div>';
-    tabs += '<div class="nw-tab" id="tab-contacts" onclick="showContactsTab()">Contacts</div>';
   }
   tabs += '</div>';
 
@@ -512,7 +787,7 @@ function renderProfile(data) {
   html += '<div>' + tabs +
     '<div class="card" style="border-radius:0 10px 10px 10px;">' +
     '<div class="card-bdy" style="padding:0;overflow-x:auto;" id="left-panel-wrap">' +
-    '<div id="ref-table-wrap">' + buildRefTable(data.referrals, -1, data.nineWeeks) + '</div>' +
+    '<div id="ref-table-wrap">' + buildRefTable(data.referrals, -1, data.terms) + '</div>' +
     '</div></div></div>';
 
   // Right column: timeline + breakdown
@@ -548,26 +823,18 @@ function renderProfile(data) {
   document.getElementById('profile-content').innerHTML = html;
 }
 
-// ── Nine-weeks filter ─────────────────────────────────────────
-function filterByNW(idx) {
-  activeNwIdx = idx;
+// ── Term filter ─────────────────────────────────────────
+function filterByTerm(idx) {
+  activeTermIdx = idx;
   // Update tab styles
   var allTab = document.getElementById('tab-all');
-  if (allTab) allTab.className = 'nw-tab' + (idx === -1 ? ' active' : '');
-  if (currentStudent && currentStudent.nineWeeks) {
-    currentStudent.nineWeeks.forEach(function(_, i) {
+  if (allTab) allTab.className = 'term-tab' + (idx === -1 ? ' active' : '');
+  if (currentStudent && currentStudent.terms) {
+    currentStudent.terms.forEach(function(_, i) {
       var t = document.getElementById('tab-' + i);
-      if (t) t.className = 'nw-tab' + (i === idx ? ' active' : '');
+      if (t) t.className = 'term-tab' + (i === idx ? ' active' : '');
     });
   }
-  var contactsTab = document.getElementById('tab-contacts');
-  if (contactsTab) contactsTab.className = 'nw-tab';
-  var infoTab = document.getElementById('tab-info');
-  if (infoTab) infoTab.className = 'nw-tab';
-
-  // Swap the left panel back to the referral table if Contacts was showing
-  var wrapOuter = document.getElementById('left-panel-wrap');
-  if (wrapOuter) wrapOuter.style.overflowX = 'auto';
 
   var wrap = document.getElementById('ref-table-wrap');
   if (!wrap) {
@@ -577,17 +844,17 @@ function filterByNW(idx) {
     wrap = document.getElementById('ref-table-wrap');
   }
   if (wrap && currentStudent) {
-    wrap.innerHTML = buildRefTable(currentStudent.referrals, idx, currentStudent.nineWeeks);
+    wrap.innerHTML = buildRefTable(currentStudent.referrals, idx, currentStudent.terms);
   }
 }
 
-function buildRefTable(referrals, nwIdx, nineWeeks) {
+function buildRefTable(referrals, termIdx, terms) {
   var filtered = referrals;
-  if (nwIdx >= 0 && nineWeeks && nineWeeks[nwIdx]) {
-    var nw = nineWeeks[nwIdx];
+  if (termIdx >= 0 && terms && terms[termIdx]) {
+    var term = terms[termIdx];
     filtered = referrals.filter(function(r) {
       var d = (r['IncidentDate'] || '').toString();
-      return d >= nw.start && d <= nw.end;
+      return d >= term.start && d <= term.end;
     });
   }
 
@@ -624,7 +891,7 @@ function buildRefTable(referrals, nwIdx, nineWeeks) {
 }
 
 // ── Referral Detail Modal ──────────────────────────────────────
-// Mirrors the "View" pattern used for the nine-weeks history on the
+// Mirrors the "View" pattern used for the term history on the
 // referral form (Index.html) — a centered modal with full referral
 // details, opened from a button on each row rather than navigating away.
 function openRefDetailModal(refId) {
@@ -761,9 +1028,60 @@ function initials(name) {
   if (words.length >= 2) return (words[0][0] + words[words.length-1][0]).toUpperCase();
   return name.slice(0,2).toUpperCase();
 }
+
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── Toast notification ──────────────────────────────────────────
+function showToast(message, isError, durationMs) {
+  var wrap = document.getElementById('toast-wrap');
+  var toast = document.createElement('div');
+  toast.className = 'toast' + (isError ? ' toast-err' : '');
+  toast.innerHTML = (isError
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' +
+      '</svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<path d="M20 6L9 17l-5-5"/>' +
+      '</svg>') +
+    '<span>' + esc(message) + '</span>';
+  wrap.appendChild(toast);
+
+  requestAnimationFrame(function() { toast.classList.add('show'); });
+
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { toast.remove(); }, 220);
+  }, durationMs || 3200);
+}
+
+// ── Confirm popup (replaces native confirm() for destructive actions) ──
+var _confirmOnAccept = null;
+
+function showConfirm(opts) {
+  document.getElementById('confirm-title').textContent = opts.title || 'Are you sure?';
+  document.getElementById('confirm-msg').textContent   = opts.message || '';
+  document.getElementById('confirm-danger-btn').textContent = opts.confirmLabel || 'Delete';
+  _confirmOnAccept = opts.onConfirm || null;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function _confirmCancel() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+}
+
+function _confirmAccept() {
+  var fn = _confirmOnAccept;
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmOnAccept = null;
+  if (fn) fn();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') _confirmCancel();
+});
 
 // Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
 // Returns the input unchanged if it doesn't match the expected pattern.
@@ -843,50 +1161,44 @@ var _ceRowIndex     = null;   // sheet row of the contact being edited (null = n
 var _ceSiblings     = [];
 var _ceSearchTimer  = null;
 
-// Switches the left panel from the referral table to the Contacts list.
-// Lives in the same tab row as "All Referrals" / "Nine Weeks N".
-function showContactsTab() {
-  document.getElementById('tab-all').className = 'nw-tab';
-  if (currentStudent && currentStudent.nineWeeks) {
-    currentStudent.nineWeeks.forEach(function(_, i) {
-      var t = document.getElementById('tab-' + i);
-      if (t) t.className = 'nw-tab';
-    });
-  }
-  var infoTab = document.getElementById('tab-info');
-  if (infoTab) infoTab.className = 'nw-tab';
-  document.getElementById('tab-contacts').className = 'nw-tab active';
+// ── Edit Info modal (Student Info + Contacts, admin only) ──────
+// Both live in one modal, switched internally, rather than competing
+// for space in the referral-history tab row above (All Referrals /
+// Term N) — that row is a pure date-range filter, this is
+// student-record management, and the two don't mix well as one strip
+// of tabs.
+function openEditInfoModal() {
+  document.getElementById('edit-info-overlay').classList.add('open');
+  showEditInfoStudent();
+}
 
-  // Contacts panel needs overflow visible so the search-results dropdown
-  // (in the add/edit form) isn't clipped by the card's scroll container.
-  document.getElementById('left-panel-wrap').style.overflowX = 'visible';
-  document.getElementById('left-panel-wrap').innerHTML =
+function closeEditInfoModal() {
+  document.getElementById('edit-info-overlay').classList.remove('open');
+}
+
+function showEditInfoStudent() {
+  document.getElementById('edit-info-tab-student').className = 'edit-info-switch-btn active';
+  document.getElementById('edit-info-tab-contacts').className = 'edit-info-switch-btn';
+  renderStudentInfoForm();
+}
+
+// Switches the modal from Student Info to the Contacts list.
+function showEditInfoContacts() {
+  document.getElementById('edit-info-tab-student').className = 'edit-info-switch-btn';
+  document.getElementById('edit-info-tab-contacts').className = 'edit-info-switch-btn active';
+
+  document.getElementById('edit-info-content').innerHTML =
     '<div id="contacts-panel"><div class="loading-msg"><span class="spin"></span>Loading contacts...</div></div>';
 
   loadContactsList();
 }
 
-// ── Student Info tab (admin only) ────────────────────────────────
+// ── Student Info section (admin only) ────────────────────────────
 // Edits FirstName/LastName/MiddleName/Grade in place, right alongside
 // Contacts, so an admin doesn't have to leave this page to fix either
 // one. Reuses saveStudent() — the same admin-gated server function
 // Settings' bulk roster editor used to call before that capability
 // moved here.
-function showInfoTab() {
-  document.getElementById('tab-all').className = 'nw-tab';
-  if (currentStudent && currentStudent.nineWeeks) {
-    currentStudent.nineWeeks.forEach(function(_, i) {
-      var t = document.getElementById('tab-' + i);
-      if (t) t.className = 'nw-tab';
-    });
-  }
-  var contactsTab = document.getElementById('tab-contacts');
-  if (contactsTab) contactsTab.className = 'nw-tab';
-  document.getElementById('tab-info').className = 'nw-tab active';
-
-  document.getElementById('left-panel-wrap').style.overflowX = 'visible';
-  renderStudentInfoForm();
-}
 
 function renderStudentInfoForm() {
   var s = currentStudent.student;
@@ -920,7 +1232,7 @@ function renderStudentInfoForm() {
       '<div class="ce-msg" id="info-msg"></div>' +
     '</div>';
 
-  document.getElementById('left-panel-wrap').innerHTML = html;
+  document.getElementById('edit-info-content').innerHTML = html;
 }
 
 function saveStudentInfoEdit() {
@@ -986,6 +1298,7 @@ function loadContactsList() {
         return;
       }
       _contactsForStudent = r.contacts || [];
+      _contactTypes = r.types && r.types.length > 0 ? r.types : _contactTypes;
       renderContactsList();
     })
     .withFailureHandler(function(err) {
@@ -1014,7 +1327,7 @@ function renderContactsList() {
   } else {
     html += _contactsForStudent.map(function(c) {
       return '<div class="contact-card">' +
-        '<span class="contact-role-badge">'+esc(c.role || 'Unspecified')+'</span>' +
+        '<span class="contact-type-badge">'+esc(c.type || 'Unspecified')+'</span>' +
         '<div class="contact-card-info">' +
           '<div class="contact-card-name">'+esc(c.name)+'</div>' +
           '<div class="contact-card-email">'+esc(c.email)+'</div>' +
@@ -1040,18 +1353,24 @@ function buildContactFormHtml() {
   return (
     '<div class="ce-search" id="ce-search-wrap" style="display:none;">' +
       '<label style="font-size:0.76rem;font-weight:600;color:#374151;margin-bottom:4px;display:block;">' +
-        'Search existing contacts' +
+        'Search existing contacts or staff' +
         '<span style="font-weight:400;color:#94a3b8;margin-left:6px;">— or fill in new below</span>' +
       '</label>' +
+      '<div class="ce-search-toggle">' +
+        '<button type="button" class="ce-search-toggle-btn active" id="ce-toggle-contacts" ' +
+                'onclick="setContactSearchMode(\'contacts\')">Existing Contacts</button>' +
+        '<button type="button" class="ce-search-toggle-btn" id="ce-toggle-staff" ' +
+                'onclick="setContactSearchMode(\'staff\')">Staff</button>' +
+      '</div>' +
       '<input type="text" id="ce-search-input" placeholder="Type a name or email..."' +
              ' oninput="onContactSearch(this.value)">' +
       '<div class="ce-search-results" id="ce-search-results"></div>' +
     '</div>' +
     '<div class="ce-grid">' +
-      '<div class="full" style="grid-column:1/-1;"><label>Role</label>' +
-        '<select id="ce-role">' +
+      '<div class="full" style="grid-column:1/-1;"><label>Type</label>' +
+        '<select id="ce-type">' +
           '<option value="">— Select —</option>' +
-          CONTACT_ROLES_JS.map(function(r) { return '<option value="'+esc(r)+'">'+esc(r)+'</option>'; }).join('') +
+          _contactTypes.map(function(r) { return '<option value="'+esc(r)+'">'+esc(r)+'</option>'; }).join('') +
         '</select>' +
       '</div>' +
       '<div><label>First Name</label><input type="text" id="ce-first" placeholder="First"></div>' +
@@ -1070,10 +1389,11 @@ function buildContactFormHtml() {
   );
 }
 
-// Role list is mirrored from CONTACT_ROLES in Code.gs (kept in sync
-// manually since this is a small fixed list, same approach as the
-// point-tier color palette).
-var CONTACT_ROLES_JS = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
+// Fallback default, used only until the real list arrives from the
+// server (getStudentContacts()'s "types" field, sourced from the
+// admin-editable Contact Types list on Settings > General) — avoids a
+// blank dropdown for the brief moment before that first response lands.
+var _contactTypes = ['Parent/Guardian', 'Administrator', 'Counselor', 'Case Manager'];
 
 // rowIndex === null → adding a brand new contact.
 // rowIndex !== null → editing the contact at that sheet row.
@@ -1087,13 +1407,14 @@ function openContactEditor(rowIndex) {
   setCeMsg('', '');
 
   clearVal('ce-first'); clearVal('ce-last'); clearVal('ce-email');
-  document.getElementById('ce-role').value = '';
+  document.getElementById('ce-type').value = '';
 
   if (rowIndex === null) {
     // New contact — show search-before-create, no siblings yet.
     document.getElementById('ce-search-wrap').style.display = 'block';
     document.getElementById('ce-search-input').value = '';
     document.getElementById('ce-siblings').style.display = 'none';
+    setContactSearchMode('contacts');
   } else {
     // Editing an existing contact — find it in the cached list.
     document.getElementById('ce-search-wrap').style.display = 'none';
@@ -1103,7 +1424,7 @@ function openContactEditor(rowIndex) {
       setVal('ce-first', existing.firstName || '');
       setVal('ce-last',  existing.lastName  || '');
       setVal('ce-email', existing.email     || '');
-      document.getElementById('ce-role').value = existing.role || '';
+      document.getElementById('ce-type').value = existing.type || '';
     }
 
     // Look up siblings sharing this contact's GUID (same person linked
@@ -1149,9 +1470,25 @@ function closeContactEditor() {
   if (results) results.style.display = 'none';
 }
 
-// Search existing contacts as the admin types (search-before-create —
-// prevents accidentally creating a duplicate GUID for someone already
-// on file for another student).
+// Which source the "search existing" box is currently querying —
+// 'contacts' (other students' referral contacts, the original
+// behavior) or 'staff' (the Staff sheet, so an admin can add an
+// existing teacher/counselor/admin without retyping their info).
+var _ceSearchMode = 'contacts';
+
+function setContactSearchMode(mode) {
+  _ceSearchMode = mode;
+  document.getElementById('ce-toggle-contacts').classList.toggle('active', mode === 'contacts');
+  document.getElementById('ce-toggle-staff').classList.toggle('active', mode === 'staff');
+  var input = document.getElementById('ce-search-input');
+  input.placeholder = mode === 'staff' ? 'Type a staff name or email...' : 'Type a name or email...';
+  document.getElementById('ce-search-results').style.display = 'none';
+  if (input.value.trim().length >= 2) onContactSearch(input.value);
+}
+
+// Search existing contacts (or staff, per _ceSearchMode) as the admin
+// types — search-before-create prevents accidentally creating a
+// duplicate GUID for someone already on file for another student.
 function onContactSearch(query) {
   clearTimeout(_ceSearchTimer);
   var results = document.getElementById('ce-search-results');
@@ -1159,25 +1496,50 @@ function onContactSearch(query) {
     results.style.display = 'none';
     return;
   }
+  var mode = _ceSearchMode;
   _ceSearchTimer = setTimeout(function() {
-    google.script.run
-      .withSuccessHandler(function(r) {
-        if (!r.success || r.results.length === 0) {
-          results.style.display = 'none';
-          return;
-        }
-        results.innerHTML = r.results.map(function(p) {
-          return '<div class="ce-search-item" onclick="selectExistingContact('+
-            JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
-            '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.role||'—')+')</span></div>' +
-            '<div class="ce-si-email">'+esc(p.email)+'</div>' +
-          '</div>';
-        }).join('');
-        results.style.display = 'block';
-      })
-      .withFailureHandler(function() { results.style.display = 'none'; })
-      .searchParentContacts(query);
+    if (mode === 'staff') {
+      google.script.run
+        .withSuccessHandler(onStaffSearchResults)
+        .withFailureHandler(onSearchFailed)
+        .searchStaffContacts(query);
+    } else {
+      google.script.run
+        .withSuccessHandler(onContactSearchResults)
+        .withFailureHandler(onSearchFailed)
+        .searchParentContacts(query);
+    }
   }, 300);
+}
+
+function onSearchFailed() {
+  document.getElementById('ce-search-results').style.display = 'none';
+}
+
+function onContactSearchResults(r) {
+  var results = document.getElementById('ce-search-results');
+  if (!r.success || r.results.length === 0) { results.style.display = 'none'; return; }
+  results.innerHTML = r.results.map(function(p) {
+    return '<div class="ce-search-item" onclick="selectExistingContact('+
+      JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
+      '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.type||'—')+')</span></div>' +
+      '<div class="ce-si-email">'+esc(p.email)+'</div>' +
+    '</div>';
+  }).join('');
+  results.style.display = 'block';
+}
+
+function onStaffSearchResults(r) {
+  var results = document.getElementById('ce-search-results');
+  if (!r.success || r.results.length === 0) { results.style.display = 'none'; return; }
+  results.innerHTML = r.results.map(function(p) {
+    return '<div class="ce-search-item" onclick="selectStaffContact('+
+      JSON.stringify(p).replace(/"/g,'&quot;')+')">' +
+      '<div class="ce-si-name">'+esc(p.name)+' <span style="color:#94a3b8;font-weight:400;">('+esc(p.role||'staff')+')</span></div>' +
+      '<div class="ce-si-email">'+esc(p.email)+'</div>' +
+    '</div>';
+  }).join('');
+  results.style.display = 'block';
 }
 
 // Admin selected an existing contact from search results — reuse their
@@ -1187,18 +1549,34 @@ function selectExistingContact(p) {
   setVal('ce-first', p.firstName || '');
   setVal('ce-last',  p.lastName  || '');
   setVal('ce-email', p.email || '');
-  if (p.role) document.getElementById('ce-role').value = p.role;
+  if (p.type) document.getElementById('ce-type').value = p.type;
+  document.getElementById('ce-search-results').style.display = 'none';
+  document.getElementById('ce-search-input').value = p.name || '';
+}
+
+// Admin selected a staff member instead. Staff aren't linked across
+// students the way parent contacts are (that "siblings" concept is
+// specifically for one parent's multiple kids, not one staff member
+// serving many unrelated students) — so this is left as an independent
+// contact, no GUID reused, same as typing someone in by hand. Type is
+// deliberately left for the admin to choose (Administrator, Counselor,
+// Case Manager, etc.) since a staff role doesn't map 1:1 to a contact type.
+function selectStaffContact(p) {
+  _ceGuid = '';
+  setVal('ce-first', p.firstName || '');
+  setVal('ce-last',  p.lastName  || '');
+  setVal('ce-email', p.email || '');
   document.getElementById('ce-search-results').style.display = 'none';
   document.getElementById('ce-search-input').value = p.name || '';
 }
 
 function submitContactForm() {
-  var role  = document.getElementById('ce-role').value;
+  var type  = document.getElementById('ce-type').value;
   var first = document.getElementById('ce-first').value.trim();
   var last  = document.getElementById('ce-last').value.trim();
   var email = document.getElementById('ce-email').value.trim();
 
-  if (!role)  { setCeMsg('Select a role.', 'err'); return; }
+  if (!type)  { setCeMsg('Select a type.', 'err'); return; }
   if (!first || !last || !email) {
     setCeMsg('First name, last name, and email are required.', 'err');
     return;
@@ -1213,7 +1591,7 @@ function submitContactForm() {
 
   var contact = {
     guid:      _ceGuid,
-    role:      role,
+    type:      type,
     firstName: first,
     lastName:  last,
     email:     email
@@ -1240,14 +1618,20 @@ function submitContactForm() {
 }
 
 function confirmDeleteContact(rowIndex, name) {
-  if (!confirm('Remove ' + name + ' from this student\'s referral email contacts?\n\nThis only removes this one contact — other contacts for this student are unaffected.')) return;
-  google.script.run
-    .withSuccessHandler(function(r) {
-      if (r.success) loadContactsList();
-      else alert('Error: ' + (r.error || 'Unknown'));
-    })
-    .withFailureHandler(function(err) { alert('Error: ' + (err.message || err)); })
-    .deleteContact(rowIndex);
+  showConfirm({
+    title: 'Remove ' + name + '?',
+    message: 'This removes them from this student\u2019s referral email contacts.',
+    confirmLabel: 'Remove',
+    onConfirm: function() {
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (r.success) { loadContactsList(); showToast('✓ Contact removed.'); }
+          else showToast(r.error || 'Could not remove contact.', true);
+        })
+        .withFailureHandler(function(err) { showToast(err.message || err, true); })
+        .deleteContact(rowIndex);
+    }
+  });
 }
 
 function setCeMsg(text, type) {

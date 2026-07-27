@@ -52,7 +52,7 @@
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 
     /* Bar chart */
-    .bar-chart { display: flex; align-items: flex-end; gap: 5px; height: 110px; padding-top: 6px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 5px; height: 138px; padding-top: 6px; }
     .bar-col   { flex: 1; display: flex; flex-direction: column; align-items: center;
                  justify-content: flex-end; gap: 3px; }
     .bar       { width: 100%; border-radius: 3px 3px 0 0; background: #3b82f6; min-height: 2px; }
@@ -81,8 +81,6 @@
     .pts-bar-wrap { display: flex; align-items: center; gap: 7px; }
     .pts-mini { background: #f1f5f9; border-radius: 3px; height: 5px; width: 70px; overflow: hidden; flex-shrink: 0; }
     .pts-mini-fill { height: 100%; border-radius: 3px; }
-    .stu-link { color: #1d4ed8; text-decoration: none; font-weight: 500; }
-    .stu-link:hover { text-decoration: underline; }
 
     /* Activity */
     .activity-list { display: flex; flex-direction: column; }
@@ -106,11 +104,6 @@
                 display: flex; justify-content: space-between; align-items: center; }
     .tch-name  { font-size: 0.8rem; font-weight: 500; }
     .tch-count { font-size: 0.86rem; font-weight: 700; color: #3b82f6; }
-
-    /* NW badge */
-    .nw-badge { display: inline-block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
-                padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
-                margin-bottom: 16px; }
 
     .loading-msg { color: #94a3b8; padding: 24px; text-align: center; font-size: 0.88rem; }
 
@@ -183,15 +176,13 @@
     </div>
   </div>
 
-  <div id="nw-badge-row"></div>
-
   <!-- ══════════════════════════════════════════════════════════
        ADMIN DASHBOARD — full school-wide view
   ══════════════════════════════════════════════════════════ -->
   <div id="admin-dashboard" style="display:none;">
 
   <div class="stats-grid">
-    <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">This Nine Weeks</div></div>
+    <div class="stat-card blue">  <div class="stat-value" id="st-total">—</div>  <div class="stat-label">This Term</div></div>
     <div class="stat-card amber"> <div class="stat-value" id="st-today">—</div>  <div class="stat-label">Today</div></div>
     <div class="stat-card teal">  <div class="stat-value" id="st-week">—</div>   <div class="stat-label">This Week</div></div>
     <div class="stat-card indigo"><div class="stat-value" id="st-stus">—</div>   <div class="stat-label">Total Students</div></div>
@@ -379,12 +370,6 @@ function render(d) {
     'Welcome, ' + d.user.name + '  ·  ' +
     now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  if (d.currentNineWeeks) {
-    document.getElementById('nw-badge-row').innerHTML =
-      '<div class="nw-badge">📅 ' + d.currentNineWeeks.label +
-      ': ' + formatDateMDY(d.currentNineWeeks.start) + ' – ' + formatDateMDY(d.currentNineWeeks.end) + '</div>';
-  }
-
   if (d.user && d.user.role === 'teacher') {
     _isAdminView = false;
     document.getElementById('teacher-dashboard').style.display = 'block';
@@ -401,15 +386,15 @@ var _isAdminView = false;
 
 function renderAdmin(d) {
   var s = d.stats;
-  setText('st-total', s.nineWeeksReferrals);
+  setText('st-total', s.termReferrals);
   setText('st-today', s.todayReferrals); setText('st-week', s.weekReferrals);
   setText('st-negative', s.negativeCount); setText('st-positive', s.positiveCount);
   setText('st-stus', s.totalStudents);
-  setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.semesterPoints + ' pts');
+  setText('st-risk',  s.atRiskCount);    setText('st-pts',  d.termPoints + ' pts');
 
   var maxM = Math.max.apply(null, d.monthlyTrend.map(function(m){ return m.count; })) || 1;
   document.getElementById('monthly-chart').innerHTML = d.monthlyTrend.map(function(m) {
-    var h = Math.max(3, Math.round((m.count / maxM) * 100));
+    var h = Math.max(3, Math.round((m.count / maxM) * 80));
     return '<div class="bar-col"><div class="bar-val">'+(m.count||'')+'</div>' +
            '<div class="bar" style="height:'+h+'px" title="'+esc(m.label)+': '+m.count+'"></div>' +
            '<div class="bar-label">'+esc(m.label)+'</div></div>';
@@ -418,7 +403,7 @@ function renderAdmin(d) {
   renderHbars('inf-chart', d.infractionBreakdown, 'amber');
   renderHbars('loc-chart', d.locationBreakdown, '');
 
-  renderAtRiskTable('ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
+  renderAtRiskTable('ar-body', d.atRisk, d.termPoints, d.pointTiers);
 
   document.getElementById('act-list').innerHTML = d.recentReferrals.length === 0
     ? '<div style="color:#94a3b8;padding:16px;text-align:center;">No referrals yet.</div>'
@@ -436,7 +421,7 @@ function renderAdmin(d) {
         return '<div class="activity-item">' +
           '<div class="a-dot '+dotCls+'"></div>' +
           '<div class="a-main"><div class="a-stu">' +
-            '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
+            esc(r.studentName)+'</div>' +
           '<div class="a-det">'+esc(r.infractionType)+' · '+esc(r.teacherName)+'</div></div>' +
           '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
             (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
@@ -461,7 +446,7 @@ function renderAtRiskTable(targetId, atRisk, sp, pointTiers) {
     : atRisk.map(function(s) {
         var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
         var color = s.pointColor || getPointColor(pct, pointTiers);
-        return '<tr><td><a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(s.studentId)+'">'+esc(s.studentName)+'</a></td>' +
+        return '<tr><td>'+esc(s.studentName)+'</td>' +
                '<td>'+esc(s.grade)+'</td>' +
                '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
                '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
@@ -486,7 +471,7 @@ function renderTeacher(d) {
   _myRefsToday   = d.today;
   _myRefsWeekAgo = d.day7ago;
 
-  renderAtRiskTable('t-ar-body', d.atRisk, d.semesterPoints, d.pointTiers);
+  renderAtRiskTable('t-ar-body', d.atRisk, d.termPoints, d.pointTiers);
 
   // Default window is "Today" per the button already marked active in
   // the HTML — render that slice immediately.
@@ -533,7 +518,7 @@ function renderMyReferrals(windowKey) {
         return '<div class="activity-item">' +
           '<div class="a-dot '+dotCls+'"></div>' +
           '<div class="a-main"><div class="a-stu">' +
-            '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a></div>' +
+            esc(r.studentName)+'</div>' +
           '<div class="a-det">'+esc(r.infractionType)+'</div></div>' +
           '<div class="a-meta"><div class="a-date">'+esc(formatDateMDY(r.incidentDate))+
             (r.incidentTime ? ' <span class="a-time">'+esc(formatTime12h(r.incidentTime))+'</span>' : '')+'</div>' +
@@ -545,7 +530,7 @@ function renderMyReferrals(windowKey) {
 
 // ── Referral View Details modal (shared: teacher's My Referrals list
 // and admin's Recent Activity feed) ─────────────────────────────
-// Mirrors the same View Details pattern used in Index.html's nine-weeks
+// Mirrors the same View Details pattern used in Index.html's term
 // history and Student.html's referral table.
 var _refDetailLookup = {};
 
@@ -563,7 +548,7 @@ function openRefDetailModal(refId) {
   var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
 
   var fields = [
-    ['Student',    '<a class="stu-link" href="'+BASE_URL+'?page=student&id='+esc(r.studentId||'')+'">'+esc(r.studentName)+'</a>' + (r.grade ? ' (Grade '+esc(r.grade)+')' : '')],
+    ['Student',    esc(r.studentName) + (r.grade ? ' (Grade '+esc(r.grade)+')' : '')],
     ['Location',   r.location || ''],
     ['Infraction', r.infractionType || '']
   ];

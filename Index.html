@@ -68,29 +68,29 @@
     .sel-badge .rm { cursor: pointer; opacity: 0.6; font-weight: 700; }
     .sel-badge .rm:hover { opacity: 1; }
 
-    /* ── Nine-weeks panel ── */
-    #nw-panel { display: none; margin-top: 14px; }
-    .nw-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+    /* ── Term panel ── */
+    #term-panel { display: none; margin-top: 14px; }
+    .term-panel-inner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
                       padding: 14px 16px; margin-bottom: 10px; }
-    .nw-panel-inner:last-child { margin-bottom: 0; }
-    .nw-title { font-size: 0.78rem; font-weight: 700; color: #166534;
+    .term-panel-inner:last-child { margin-bottom: 0; }
+    .term-title { font-size: 0.78rem; font-weight: 700; color: #166534;
                 text-transform: uppercase; letter-spacing: 0.06em;
                 display: flex; align-items: center; justify-content: space-between;
                 cursor: pointer; user-select: none; }
-    .nw-title:hover { opacity: 0.8; }
-    .nw-title .nw-chevron { transition: transform 0.15s; flex-shrink: 0; margin-left: 8px; }
-    .nw-title .nw-chevron svg { width: 14px; height: 14px; display: block; }
-    .nw-panel-inner.open .nw-title .nw-chevron { transform: rotate(180deg); }
-    .nw-body-wrap { max-height: 0; overflow: hidden; transition: max-height 0.18s ease; }
-    .nw-panel-inner.open .nw-body-wrap { max-height: 600px; }
-    .nw-body { margin-top: 10px; }
-    .nw-empty { color: #6b7280; font-size: 0.84rem; }
-    .nw-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    .nw-table th { color: #6b7280; font-size: 0.72rem; text-transform: uppercase;
+    .term-title:hover { opacity: 0.8; }
+    .term-title .term-chevron { transition: transform 0.15s; flex-shrink: 0; margin-left: 8px; }
+    .term-title .term-chevron svg { width: 14px; height: 14px; display: block; }
+    .term-panel-inner.open .term-title .term-chevron { transform: rotate(180deg); }
+    .term-body-wrap { max-height: 0; overflow: hidden; transition: max-height 0.18s ease; }
+    .term-panel-inner.open .term-body-wrap { max-height: 600px; }
+    .term-body { margin-top: 10px; }
+    .term-empty { color: #6b7280; font-size: 0.84rem; }
+    .term-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .term-table th { color: #6b7280; font-size: 0.72rem; text-transform: uppercase;
                    letter-spacing: 0.05em; padding: 4px 8px; text-align: left;
                    border-bottom: 1px solid #d1fae5; }
-    .nw-table td { padding: 6px 8px; border-bottom: 1px solid #f0fdf4; }
-    .nw-table tr:last-child td { border-bottom: none; }
+    .term-table td { padding: 6px 8px; border-bottom: 1px solid #f0fdf4; }
+    .term-table tr:last-child td { border-bottom: none; }
 
     /* ── View description button + modal ── */
     .view-desc-btn { background: white; border: 1px solid #bbf7d0; color: #166534;
@@ -180,13 +180,14 @@
 
     /* ── Toast notification ── */
     #toast-wrap { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-                  z-index: 300; display: flex; flex-direction: column; gap: 8px;
-                  pointer-events: none; width: 100%; max-width: 420px; padding: 0 16px; }
+                  z-index: 300; display: flex; flex-direction: column; align-items: center; gap: 8px;
+                  pointer-events: none; max-width: 420px; padding: 0 16px; }
     .toast { background: #166534; color: white; border-radius: 9px;
              padding: 13px 16px; font-size: 0.9rem; font-weight: 600;
              box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex;
              align-items: center; gap: 10px; opacity: 0; transform: translateY(-12px);
-             transition: opacity 0.22s ease, transform 0.22s ease; }
+             transition: opacity 0.22s ease, transform 0.22s ease; max-width: 100%; }
+    .toast span { overflow-wrap: break-word; }
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast svg { width: 19px; height: 19px; flex-shrink: 0; }
 
@@ -250,9 +251,9 @@
       Maximum of 10 students reached. Remove a student to add another.
     </div>
 
-    <!-- Nine-weeks panel — one block per selected student -->
-    <div id="nw-panel">
-      <div id="nw-panels-container"></div>
+    <!-- Term panel — one block per selected student -->
+    <div id="term-panel">
+      <div id="term-panels-container"></div>
     </div>
   </div>
 
@@ -349,7 +350,7 @@ var state = {
   infList:     [],   // flat list of infractions for autofill search
   semPts:      100,
   pointTiers:  [],   // admin-configured point-balance color tiers
-  nwLabel:     'Current Nine Weeks',
+  termLabel:     'Current Term',
   lastIncident: null // cached incident details for "Submit and Copy"
 };
 
@@ -376,9 +377,9 @@ function onBootstrap(data) {
   state.teacherName  = data.user.name  || data.user.email;
   state.teacherEmail = data.user.email;
   state.allStudents  = data.students   || [];
-  state.semPts       = data.semesterPoints || 100;
+  state.semPts       = data.termPoints || 100;
   state.pointTiers   = data.pointTiers || [];
-  state.nwLabel      = data.currentNineWeeks ? data.currentNineWeeks.label : 'Current Nine Weeks';
+  state.termLabel      = data.currentTerm ? data.currentTerm.label : 'Current Term';
 
   document.getElementById('teacher-name').value  = state.teacherName;
   document.getElementById('teacher-email').value = state.teacherEmail;
@@ -403,6 +404,18 @@ function onBootstrap(data) {
 }
 
 // ── Student Search (client-side — no round trip) ──────────────
+// Matches only at the start of a word, not anywhere within a word — so
+// searching "a" finds "Aaron" or "Mary Ann Smith", not every name that
+// happens to contain an "a" somewhere in the middle (e.g. "Frank").
+function matchesWordStart(text, query) {
+  if (!query) return true;
+  var words = (text || '').toLowerCase().split(/\s+/);
+  for (var i = 0; i < words.length; i++) {
+    if (words[i].indexOf(query) === 0) return true;
+  }
+  return false;
+}
+
 function searchStudents(query) {
   var q        = (query || '').trim().toLowerCase();
   var gradeVal = document.getElementById('filter-grade').value;
@@ -418,8 +431,8 @@ function searchStudents(query) {
 
   var hits = state.allStudents.filter(function(s) {
     if (gradeVal && s.grade !== gradeVal) return false;
-    if (q && s.studentName.toLowerCase().indexOf(q) < 0 &&
-             s.studentId.toLowerCase().indexOf(q)   < 0) return false;
+    if (q && !matchesWordStart(s.studentName, q) &&
+             !(/\d/.test(q) && s.studentId.toLowerCase().indexOf(q) >= 0)) return false;
     return true;
   }).slice(0, 40);
 
@@ -484,7 +497,7 @@ function toggleStudent(studentId) {
   updateSelectedStrip();
   updateSubmitButton();
   updateMultiDescWarning();
-  maybeLoadNineWeeks();
+  maybeLoadTerm();
 }
 
 function updateSelectedStrip() {
@@ -513,14 +526,14 @@ function updateMultiDescWarning() {
   warn.classList.toggle('show', state.selected.length > 1);
 }
 
-// ── Nine-Weeks Panel ──────────────────────────────────────────
+// ── Term Panel ──────────────────────────────────────────
 // Shows one panel block per selected student; fetched from server,
 // cached per studentId so re-selecting doesn't refetch.
 var _nwCache = {};  // studentId → data (avoid re-fetching)
 
-function maybeLoadNineWeeks() {
-  var panel     = document.getElementById('nw-panel');
-  var container = document.getElementById('nw-panels-container');
+function maybeLoadTerm() {
+  var panel     = document.getElementById('term-panel');
+  var container = document.getElementById('term-panels-container');
 
   if (state.selected.length === 0) {
     panel.style.display = 'none';
@@ -543,20 +556,20 @@ function maybeLoadNineWeeks() {
 
     if (!block) {
       block = document.createElement('div');
-      block.className = 'nw-panel-inner open';
+      block.className = 'term-panel-inner open';
       block.dataset.sid = sid;
       block.innerHTML =
-        '<div class="nw-title" onclick="toggleNwPanel(this)">' +
-          '<span>' + esc(state.nwLabel) + ' Referrals — ' + esc(s.studentName) + '</span>' +
-          '<span class="nw-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+        '<div class="term-title" onclick="toggleTermPanel(this)">' +
+          '<span>' + esc(state.termLabel) + ' Referrals — ' + esc(s.studentName) + '</span>' +
+          '<span class="term-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
             '<polyline points="6 9 12 15 18 9"/></svg></span>' +
         '</div>' +
-        '<div class="nw-body-wrap"><div class="nw-body"><div class="nw-empty">Loading...</div></div></div>';
+        '<div class="term-body-wrap"><div class="term-body"><div class="term-empty">Loading...</div></div></div>';
       container.appendChild(block);
     }
 
     if (_nwCache[sid]) {
-      renderNwPanel(block, _nwCache[sid]);
+      renderTermPanel(block, _nwCache[sid]);
       return;
     }
 
@@ -566,29 +579,29 @@ function maybeLoadNineWeeks() {
         // Only render if this student is still selected
         if (state.selected.some(function(x) { return x.studentId === sid; })) {
           var b = container.querySelector('[data-sid="' + cssEsc(sid) + '"]');
-          if (b) renderNwPanel(b, data);
+          if (b) renderTermPanel(b, data);
         }
       })
       .withFailureHandler(function(err) {
         var b = container.querySelector('[data-sid="' + cssEsc(sid) + '"]');
-        if (b) b.querySelector('.nw-body').innerHTML =
-          '<div class="nw-empty" style="color:#dc2626;">Error: '+(err.message||err)+'</div>';
+        if (b) b.querySelector('.term-body').innerHTML =
+          '<div class="term-empty" style="color:#dc2626;">Error: '+(err.message||err)+'</div>';
       })
       .getStudentFormCard(sid);
   });
 }
 
-function renderNwPanel(block, data) {
-  var body = block.querySelector('.nw-body');
-  if (data.error) { body.innerHTML = '<div class="nw-empty" style="color:#dc2626;">'+esc(data.error)+'</div>'; return; }
+function renderTermPanel(block, data) {
+  var body = block.querySelector('.term-body');
+  if (data.error) { body.innerHTML = '<div class="term-empty" style="color:#dc2626;">'+esc(data.error)+'</div>'; return; }
 
-  var refs = data.nwRefs || [];
+  var refs = data.termRefs || [];
   if (refs.length === 0) {
-    body.innerHTML = '<div class="nw-empty">No referrals this nine weeks. ✓</div>';
+    body.innerHTML = '<div class="term-empty">No referrals this term. ✓</div>';
     return;
   }
 
-  var html = '<table class="nw-table"><thead><tr>' +
+  var html = '<table class="term-table"><thead><tr>' +
     '<th>Date</th><th>Time</th><th>Infraction</th><th>Pts Δ</th><th>Teacher</th><th>Desc.</th>' +
     '</tr></thead><tbody>';
   refs.forEach(function(r) {
@@ -636,10 +649,10 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeDescModal();
 });
 
-// Toggles a single student's nine-weeks panel open/closed.
+// Toggles a single student's term panel open/closed.
 // Called from the title row's onclick.
-function toggleNwPanel(titleEl) {
-  var block = titleEl.closest('.nw-panel-inner');
+function toggleTermPanel(titleEl) {
+  var block = titleEl.closest('.term-panel-inner');
   if (block) block.classList.toggle('open');
 }
 
@@ -771,8 +784,7 @@ function onSubmitOk(result) {
     state.lastIncident = null;
   } else {
     clearStatus(); // dismiss the inline "Submitting..." banner
-    showToast('✓ ' + result.saved + ' referral' + (result.saved > 1 ? 's' : '') +
-              ' submitted. Confirmation email on the way.');
+    showToast(result.saved + ' referral' + (result.saved > 1 ? 's' : '') + ' submitted.');
     resetForm();
     // Move the page back to the top so the next student selection (Step 2)
     // is immediately visible without the teacher needing to scroll.
@@ -821,8 +833,8 @@ function resetForm() {
   updateMultiDescWarning();
   clearSearch();
   document.getElementById('max-warning').classList.remove('show');
-  document.getElementById('nw-panel').style.display = 'none';
-  document.getElementById('nw-panels-container').innerHTML = '';
+  document.getElementById('term-panel').style.display = 'none';
+  document.getElementById('term-panels-container').innerHTML = '';
 
   if (keepIncident) {
     // "Submit and Copy" — restore incident details, only clear student selection.
