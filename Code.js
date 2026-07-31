@@ -1568,63 +1568,90 @@ function sendDailyParentEmails() {
   var sent   = 0;
   var errors = [];
 
-  Object.keys(grouped).forEach(function(studentId) {
-    try {
-      var studentContacts = contactMap[studentId];
-      if (!studentContacts || studentContacts.length === 0) return;
+  var studentIds = Object.keys(grouped);
+  // Paced in small batches with a short pause between them — not
+  // strictly required at the volumes this school sees (50 emails is
+  // well within what Apps Script/Gmail handle fine in one straight
+  // run), but a cheap, deliberate safety margin against bursting a lot
+  // of sendEmail() calls back to back on a busier day.
+  var BATCH_SIZE = 10;
+  var PAUSE_MS   = 1000;
 
-      var refs        = grouped[studentId];
-      var studentName = refs[0].studentName;
-      var grade       = refs[0].grade;
+  studentIds.forEach(function(studentId, idx) {
+    var studentContacts = contactMap[studentId];
+    if (studentContacts && studentContacts.length > 0) {
+      try {
+        var refs        = grouped[studentId];
+        var studentName = refs[0].studentName;
+        var grade       = refs[0].grade;
 
-      var subject = 'Daily Behavior Summary — ' + cfg.schoolName + ' — ' + studentName + ' — ' + today;
+        var subject = 'Daily Behavior Summary — ' + cfg.schoolName + ' — ' + studentName + ' — ' + today;
 
-      var bodyIntro =
-        'This is the daily behavior summary from ' + cfg.schoolName +
-        ' for your student.\n\n' +
-        'Student: ' + studentName + ' (Grade ' + grade + ')\n' +
-        'Date:    ' + today + '\n\n';
+        var bodyIntro =
+          'This is the daily behavior summary from ' + cfg.schoolName +
+          ' for your student.\n\n' +
+          'Student: ' + studentName + ' (Grade ' + grade + ')\n' +
+          'Date:    ' + today + '\n\n';
 
-      var bodyRefs = refs.length === 1
-        ? '── Referral Received ────────────────────\n'
-        : '── ' + refs.length + ' Referrals Received ─────────────────\n';
+        var bodyRefs = refs.length === 1
+          ? '── Referral Received ────────────────────\n'
+          : '── ' + refs.length + ' Referrals Received ─────────────────\n';
 
-      refs.forEach(function(ref, idx) {
-        if (refs.length > 1) bodyRefs += '\nReferral ' + (idx + 1) + ':\n';
-        bodyRefs +=
-          'Time:        ' + ref.incidentTime + '\n' +
-          'Location:    ' + ref.location + '\n' +
-          'Infraction:  ' + ref.infractionType + '\n' +
-          'Teacher:     ' + ref.teacherName + '\n' +
-          'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
-        if (ref.description) {
-          bodyRefs += 'Notes:       ' + ref.description + '\n';
+        refs.forEach(function(ref, refIdx) {
+          if (refs.length > 1) bodyRefs += '\nReferral ' + (refIdx + 1) + ':\n';
+          bodyRefs +=
+            'Time:        ' + ref.incidentTime + '\n' +
+            'Location:    ' + ref.location + '\n' +
+            'Infraction:  ' + ref.infractionType + '\n' +
+            'Teacher:     ' + ref.teacherName + '\n' +
+            'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
+          if (ref.description) {
+            bodyRefs += 'Notes:       ' + ref.description + '\n';
+          }
+          bodyRefs += '\n';
+        });
+
+        var bodyClose = '─────────────────────────────────────────\n' +
+          'Current Point Balance: ' + refs[refs.length - 1].pointsAfter + ' pts\n\n' +
+          cfg.emailFooter + '\n';
+
+        // Send the same digest to every contact on file for this student —
+        // Parent/Guardian, Administrator, Counselor, Case Manager, etc.
+        // Each contact's send is tried independently: if one address
+        // bounces or is invalid, that failure is reported on its own
+        // without blocking the others, and — importantly — without
+        // causing contacts who already received their email successfully
+        // to get a duplicate on a retry. ParentNotified only stays
+        // unmarked (so the whole thing retries tomorrow) if NONE of a
+        // student's contacts could be reached at all.
+        var anySucceeded = false;
+        studentContacts.forEach(function(contact) {
+          try {
+            var salutation = contact.firstName || displayName(contact.firstName, contact.lastName) || 'there';
+            var body = 'Dear ' + salutation + ',\n\n' + bodyIntro + bodyRefs + bodyClose;
+            GmailApp.sendEmail(contact.email, subject, body);
+            anySucceeded = true;
+          } catch (contactErr) {
+            errors.push('StudentID ' + studentId + ' (' + contact.email + '): ' + contactErr.message);
+            Logger.log('Daily parent email error for ' + contact.email + ': ' + contactErr.message);
+          }
+        });
+
+        if (anySucceeded) {
+          sent++;
+          rowIndices[studentId].forEach(function(rowNum) {
+            refSheet.getRange(rowNum, pnIdx + 1).setValue('Yes');
+          });
         }
-        bodyRefs += '\n';
-      });
 
-      var bodyClose = '─────────────────────────────────────────\n' +
-        'Current Point Balance: ' + refs[refs.length - 1].pointsAfter + ' pts\n\n' +
-        cfg.emailFooter + '\n';
+      } catch (err) {
+        errors.push('StudentID ' + studentId + ': ' + err.message);
+        Logger.log('Daily parent email error: ' + err.message);
+      }
+    }
 
-      // Send the same digest to every contact on file for this student —
-      // Parent/Guardian, Administrator, Counselor, Case Manager, etc.
-      // Each gets their own salutation but identical referral details.
-      studentContacts.forEach(function(contact) {
-        var salutation = contact.firstName || displayName(contact.firstName, contact.lastName) || 'there';
-        var body = 'Dear ' + salutation + ',\n\n' + bodyIntro + bodyRefs + bodyClose;
-        GmailApp.sendEmail(contact.email, subject, body);
-      });
-
-      sent++;
-
-      rowIndices[studentId].forEach(function(rowNum) {
-        refSheet.getRange(rowNum, pnIdx + 1).setValue('Yes');
-      });
-
-    } catch (err) {
-      errors.push('StudentID ' + studentId + ': ' + err.message);
-      Logger.log('Daily parent email error: ' + err.message);
+    if ((idx + 1) % BATCH_SIZE === 0 && idx + 1 < studentIds.length) {
+      Utilities.sleep(PAUSE_MS);
     }
   });
 
