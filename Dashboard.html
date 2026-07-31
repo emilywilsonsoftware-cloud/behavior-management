@@ -444,13 +444,14 @@ function renderAtRiskTable(targetId, atRisk, sp, pointTiers) {
   document.getElementById(targetId).innerHTML = atRisk.length === 0
     ? '<tr><td colspan="3" style="color:#94a3b8;text-align:center;padding:16px;">No students at risk.</td></tr>'
     : atRisk.map(function(s) {
-        var pct   = sp > 0 ? Math.max(0, Math.min(100, Math.round(s.currentPoints/sp*100))) : 0;
-        var color = s.pointColor || getPointColor(pct, pointTiers);
+        var truePct = sp > 0 ? Math.round(s.currentPoints/sp*100) : 0;
+        var barPct  = Math.max(0, Math.min(100, truePct));
+        var color   = s.pointColor || getPointColor(truePct, pointTiers);
         return '<tr><td>'+esc(s.studentName)+'</td>' +
                '<td>'+esc(s.grade)+'</td>' +
                '<td><div class="pts-bar-wrap"><strong style="min-width:28px;">'+s.currentPoints+'</strong>' +
-               '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
-               '<span style="font-size:0.7rem;color:#94a3b8;">'+pct+'%</span></div></td></tr>';
+               '<div class="pts-mini"><div class="pts-mini-fill" style="width:'+barPct+'%;background:'+color+';"></div></div>' +
+               '<span style="font-size:0.7rem;color:#94a3b8;">'+truePct+'%</span></div></td></tr>';
       }).join('');
 }
 
