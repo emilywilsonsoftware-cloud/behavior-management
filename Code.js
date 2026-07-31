@@ -591,11 +591,11 @@ function getPointColor(pct, tiers) {
       return POINT_COLOR_PALETTE[list[i].color] || POINT_COLOR_DEFAULT;
     }
   }
-  // pct fell below every tier's threshold (e.g. a negative balance from a
-  // manual sheet edit — the app itself floors points at 0 in
-  // submitReferrals, so this shouldn't happen through normal use). The
-  // lowest tier already represents "worst case," so extend its color
-  // here too rather than falling back to an uninformative gray default.
+  // pct fell below every tier's threshold — a genuinely negative
+  // balance, which is expected now (referrals are no longer floored at
+  // 0; see submitReferrals()). The lowest tier already represents
+  // "worst case," so extend its color here too rather than falling
+  // back to an uninformative gray default.
   return POINT_COLOR_PALETTE[list[list.length - 1].color] || POINT_COLOR_DEFAULT;
 }
 
@@ -1121,7 +1121,7 @@ function submitReferrals(referrals) {
         }
       }
 
-      var pointsAfter = Math.max(0, pointsBefore + pointValue);
+      var pointsAfter = pointsBefore + pointValue;
 
       var newRowNum = refSheet.appendRow([
         id, timestamp,
@@ -2347,7 +2347,7 @@ function updateReferralDetails(referralId, updates) {
       return { success: false, error: 'Unknown infraction type: ' + infractionType };
     }
     var newPointValue = parseFloat(infMatch.pointValue) || 0;
-    var newAfter = Math.max(0, oldBefore + newPointValue);
+    var newAfter = oldBefore + newPointValue;
 
     // IncidentDate through Description are contiguous columns — one
     // write instead of eight. PointsBeforeReferral is written back
@@ -2368,7 +2368,7 @@ function updateReferralDetails(referralId, updates) {
     if (stuRowIdx >= 0) {
       var curBalance = parseFloat(stuData[stuRowIdx][STU_COL_POINTS]) || 0;
       var delta = newPointValue - oldPointValue;
-      newBalance = Math.max(0, curBalance + delta);
+      newBalance = curBalance + delta;
       stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[newBalance, new Date()]]);
     }
 
@@ -2513,7 +2513,7 @@ function deleteReferral(referralId, reason) {
 
     var balance = cfg.termPoints;
     remaining.forEach(function(ref) {
-      balance = Math.max(0, balance + ref.pts);
+      balance = balance + ref.pts;
     });
 
     var stuData = stuSheet.getDataRange().getValues();
@@ -2620,6 +2620,120 @@ function getChangeLog() {
   return { success: true, rows: rows };
 }
 
+// One-time migration tool: referrals submitted before points stopped
+// being floored at 0 have their PointsAfterReferral (and every
+// downstream PointsBeforeReferral/CurrentPoints that followed from it)
+// permanently baked in with the old floor already applied. Changing
+// the calculation going forward doesn't reach back and fix rows that
+// were already written — this walks every student's referral history
+// in submission order and rewrites it without the floor.
+//
+// Each student's *first* referral's existing PointsBeforeReferral is
+// used as the anchor to replay forward from, rather than assuming
+// everyone started at the current TermStartPoints — that value was
+// never itself subject to flooring (only the computed "after" ever
+// was), so it reliably reflects whatever starting balance a student
+// actually had, including a custom starting point set for a mid-year
+// transfer. Falls back to the current TermStartPoints only if that
+// field is somehow missing.
+function recalculateAllPointBalances() {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  try {
+    var ss       = SpreadsheetApp.getActiveSpreadsheet();
+    var refSheet = ss.getSheetByName(SHEET_REFERRALS);
+    var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
+    var cfg      = getConfig();
+
+    var refData = refSheet.getDataRange().getValues();
+    var sidCol  = REFERRAL_HEADERS.indexOf('StudentID');
+    var pvCol   = REFERRAL_HEADERS.indexOf('PointValue');
+    var pbCol   = REFERRAL_HEADERS.indexOf('PointsBeforeReferral');
+    var paCol   = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
+
+    // Group referral row indices by student, preserving sheet order —
+    // rows are appended in submission order, so this is already
+    // chronological without needing to sort by anything else.
+    var byStudent = {};
+    for (var r = 1; r < refData.length; r++) {
+      var sid = (refData[r][sidCol] || '').toString();
+      if (!sid) continue;
+      if (!byStudent[sid]) byStudent[sid] = [];
+      byStudent[sid].push(r);
+    }
+
+    // Recompute before/after for every referral, per student, without
+    // ever flooring at 0. Collected into a full-height array matching
+    // the sheet's existing row order so the whole PointsBefore/After
+    // range can be written back in one call instead of one per row.
+    var pbPaValues = [];
+    for (var r2 = 1; r2 < refData.length; r2++) {
+      pbPaValues.push([refData[r2][pbCol], refData[r2][paCol]]); // unchanged unless recomputed below
+    }
+
+    var finalBalances = {}; // studentId -> corrected final balance
+    var referralsChanged = 0;
+
+    Object.keys(byStudent).forEach(function(sid) {
+      var rows = byStudent[sid];
+      var anchor = parseFloat(refData[rows[0]][pbCol]);
+      var balance = isNaN(anchor) ? cfg.termPoints : anchor;
+
+      rows.forEach(function(rowIdx) {
+        var before = balance;
+        var after  = before + (parseFloat(refData[rowIdx][pvCol]) || 0);
+        var arrIdx = rowIdx - 1; // pbPaValues[0] corresponds to sheet row 2
+        if (pbPaValues[arrIdx][0] !== before || pbPaValues[arrIdx][1] !== after) {
+          referralsChanged++;
+        }
+        pbPaValues[arrIdx] = [before, after];
+        balance = after;
+      });
+
+      finalBalances[sid] = balance;
+    });
+
+    if (pbPaValues.length > 0) {
+      refSheet.getRange(2, pbCol + 1, pbPaValues.length, 2).setValues(pbPaValues);
+    }
+
+    // Write corrected final balances to the Students sheet. Students
+    // with no referrals at all are left untouched — there's nothing to
+    // recalculate for a clean record.
+    var stuData = stuSheet.getDataRange().getValues();
+    var now = new Date();
+    var studentsChanged = 0;
+    var stuUpdates = [];
+    for (var s = 1; s < stuData.length; s++) {
+      var stuId = stuData[s][STU_COL_ID].toString();
+      var oldBalance = parseFloat(stuData[s][STU_COL_POINTS]);
+      if (finalBalances.hasOwnProperty(stuId)) {
+        var newBalance = finalBalances[stuId];
+        if (newBalance !== oldBalance) studentsChanged++;
+        stuUpdates.push([newBalance, now]);
+      } else {
+        stuUpdates.push([stuData[s][STU_COL_POINTS], stuData[s][STU_COL_POINTS_DATE]]);
+      }
+    }
+    if (stuUpdates.length > 0) {
+      stuSheet.getRange(2, STU_COL_POINTS + 1, stuUpdates.length, 2).setValues(stuUpdates);
+    }
+
+    SpreadsheetApp.flush();
+    return {
+      success: true,
+      referralsChanged: referralsChanged,
+      studentsChanged: studentsChanged,
+      totalStudents: Object.keys(byStudent).length
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 function resetTermPoints() {
   try {
     var user = getCurrentUser();
@@ -2688,21 +2802,8 @@ function startNewYear() {
     var stuCsv = rowsToCsv_(stuData);
     var pcCsv  = rowsToCsv_(pcData);
 
-    // ── Export first. Nothing below this point touches live data until
-    // every file is confirmed written. ──────────────────────────────
-    var archiveRoot = getOrCreateFolder_('BehaviorTracker Archives', null);
-    var yearFolder  = getOrCreateFolder_(yearLabel, archiveRoot);
-
-    var refFile = yearFolder.createFile(Utilities.newBlob(refCsv, 'text/csv', 'Referrals_' + yearLabel + '.csv'));
-    var stuFile = yearFolder.createFile(Utilities.newBlob(stuCsv, 'text/csv', 'Students_' + yearLabel + '.csv'));
-    var pcFile  = yearFolder.createFile(Utilities.newBlob(pcCsv,  'text/csv', 'ParentContacts_' + yearLabel + '.csv'));
-
-    // Verify each file actually landed with real content before
-    // proceeding — abort the whole operation (no reset) if not.
-    if (refCsv.length > 0 && refFile.getSize() === 0) throw new Error('Referrals export did not save correctly — nothing was reset.');
-    if (stuCsv.length > 0 && stuFile.getSize() === 0) throw new Error('Students export did not save correctly — nothing was reset.');
-    if (pcCsv.length  > 0 && pcFile.getSize()  === 0) throw new Error('Contacts export did not save correctly — nothing was reset.');
-
+    // ── Build the export first. Nothing below this point touches live
+    // data until the zip is confirmed to actually contain something. ──
     var zipBlob = Utilities.zip(
       [
         Utilities.newBlob(refCsv, 'text/csv', 'Referrals_' + yearLabel + '.csv'),
@@ -2711,7 +2812,15 @@ function startNewYear() {
       ],
       'BehaviorTracker_' + yearLabel + '.zip'
     );
-    yearFolder.createFile(zipBlob);
+
+    // No Drive involved at all — the zip is handed straight back to the
+    // browser as base64 and downloaded from there (see
+    // triggerZipDownload() in Settings.html), so there's no external
+    // write step to verify. This just confirms the in-memory zip
+    // actually has real content before proceeding to the reset.
+    if (zipBlob.getBytes().length === 0) {
+      throw new Error('Export did not generate correctly — nothing was reset.');
+    }
 
     // ── Export verified — safe to reset now. ─────────────────────────
     clearSheetDataRows_(refSheet);
@@ -2722,7 +2831,6 @@ function startNewYear() {
     return {
       success:  true,
       yearLabel: yearLabel,
-      folderUrl: yearFolder.getUrl(),
       counts:   { referrals: refCount, students: stuCount, contacts: pcCount },
       zipBase64:   Utilities.base64Encode(zipBlob.getBytes()),
       zipFilename: 'BehaviorTracker_' + yearLabel + '.zip'
@@ -2739,16 +2847,6 @@ function computeSchoolYearLabel_() {
   var y = now.getFullYear();
   var m = now.getMonth() + 1;
   return (m >= 7) ? (y + '-' + (y + 1)) : ((y - 1) + '-' + y);
-}
-
-// Finds (or creates) a folder by name directly under parentFolder —
-// defaults to Drive's root. Reused on every reset so repeated years
-// nest under the same "BehaviorTracker Archives" folder rather than
-// creating a new duplicate each time.
-function getOrCreateFolder_(name, parentFolder) {
-  var parent  = parentFolder || DriveApp.getRootFolder();
-  var existing = parent.getFoldersByName(name);
-  return existing.hasNext() ? existing.next() : parent.createFolder(name);
 }
 
 // Converts a full getDataRange().getValues() 2D array into a CSV
@@ -2785,90 +2883,20 @@ function csvEscapeCell_(val) {
   return s;
 }
 
-// Deletes every data row (everything below the header) from a sheet,
+// Clears every data row (everything below the header) from a sheet,
 // leaving just the header row — used by startNewYear() only, after the
-// export has already been verified.
+// export has already been verified. Uses clearContent() rather than
+// deleteRows(): if the header row is frozen (View > Freeze > 1 row,
+// a common setup), deleteRows(2, lastRow-1) would be deleting every
+// single non-frozen row, which Google Sheets refuses outright ("not
+// possible to delete all non-frozen rows"). Clearing content instead
+// empties the cells without touching row structure, so it works
+// whether or not the header happens to be frozen.
 function clearSheetDataRows_(sheet) {
   var lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    sheet.deleteRows(2, lastRow - 1);
-  }
-}
-
-// Lists every year folder under "BehaviorTracker Archives" that has a
-// Referrals CSV in it, newest first — lets the Reset & Archive tab offer
-// a one-click "Load" instead of requiring a manual download+reupload
-// every time.
-function listArchivedYears() {
-  var user = getCurrentUser();
-  if (user.role !== 'admin') {
-    return { success: false, error: 'Admin access required.' };
-  }
-
-  try {
-    var rootIter = DriveApp.getFoldersByName('BehaviorTracker Archives');
-    if (!rootIter.hasNext()) return { success: true, years: [] };
-    var archiveRoot = rootIter.next();
-
-    var years = [];
-    var yearFolders = archiveRoot.getFolders();
-    while (yearFolders.hasNext()) {
-      var yf = yearFolders.next();
-      var refFile = null;
-      var files = yf.getFilesByType(MimeType.CSV);
-      while (files.hasNext()) {
-        var f = files.next();
-        if (f.getName().indexOf('Referrals_') === 0) { refFile = f; break; }
-      }
-      if (refFile) {
-        years.push({
-          yearLabel:    yf.getName(),
-          fileId:       refFile.getId(),
-          fileName:     refFile.getName(),
-          folderUrl:    yf.getUrl(),
-          exportedDate: formatDate(refFile.getDateCreated())
-        });
-      }
-    }
-    years.sort(function(a, b) { return b.yearLabel.localeCompare(a.yearLabel); });
-
-    return { success: true, years: years };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-// Reads back a previously-archived Referrals CSV by Drive file ID, for
-// the Reset & Archive tab's "Load" button. Read-only — never writes
-// anywhere. Confirms the file actually lives under the
-// BehaviorTracker Archives folder tree before reading it, rather than
-// trusting any arbitrary file ID the client sends.
-function loadArchivedYearCsv(fileId) {
-  var user = getCurrentUser();
-  if (user.role !== 'admin') {
-    return { success: false, error: 'Admin access required.' };
-  }
-
-  try {
-    var file = DriveApp.getFileById(fileId);
-
-    var inArchive = false;
-    var parents = file.getParents();
-    while (parents.hasNext() && !inArchive) {
-      var p = parents.next();
-      if (p.getName() === 'BehaviorTracker Archives') { inArchive = true; break; }
-      var grandparents = p.getParents();
-      while (grandparents.hasNext()) {
-        if (grandparents.next().getName() === 'BehaviorTracker Archives') { inArchive = true; break; }
-      }
-    }
-    if (!inArchive) {
-      return { success: false, error: 'That file is not a recognized archive export.' };
-    }
-
-    return { success: true, csv: file.getBlob().getDataAsString(), fileName: file.getName() };
-  } catch (err) {
-    return { success: false, error: err.message };
+  var lastCol = sheet.getLastColumn();
+  if (lastRow > 1 && lastCol > 0) {
+    sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
   }
 }
 
@@ -3284,9 +3312,11 @@ function importStudents(rows) {
   try {
     var ss      = SpreadsheetApp.getActiveSpreadsheet();
     var sheet   = ss.getSheetByName(SHEET_STUDENTS);
+    var pcSheet = ss.getSheetByName(SHEET_PARENT);
     var data    = sheet.getDataRange().getValues();
     var cfg     = getConfig();
     var now     = new Date();
+    var contactTypes = cfg.contactTypes;
 
     // Build set of existing IDs for fast lookup
     var existingIds = {};
@@ -3299,6 +3329,47 @@ function importStudents(rows) {
     var skipped  = 0;
     var errors   = [];
     var seenInImport = {};
+
+    // Contact rows are collected here and written in one bulk call at
+    // the end, rather than one appendRow() per contact — the same
+    // reasoning as the batched write in resetTermPoints(): a school-year
+    // import can easily mean 500+ contacts, and one API call per row
+    // adds up fast.
+    var newContactRows = [];
+    var contactsAdded  = 0;
+
+    // CSV contact types are matched case-insensitively against the
+    // configured list (unlike the single-contact editor, which expects
+    // an exact match from a dropdown) — bulk data pulled from a school's
+    // SIS is far more likely to have inconsistent casing than something
+    // typed through the UI.
+    function matchContactType(input) {
+      var lower = (input || '').toString().trim().toLowerCase();
+      for (var t = 0; t < contactTypes.length; t++) {
+        if (contactTypes[t].toLowerCase() === lower) return contactTypes[t];
+      }
+      return null;
+    }
+
+    function tryAddContact(studentId, type, first, last, email, rowNum, slotLabel) {
+      type  = (type  || '').toString().trim();
+      first = sanitizeText(first || '');
+      last  = sanitizeText(last  || '');
+      email = sanitizeText(email || '').toLowerCase();
+      if (!type && !first && !last && !email) return; // slot simply not used for this row
+
+      if (!type || !first || !last || !email) {
+        errors.push('Row ' + rowNum + ': ' + slotLabel + ' is missing a field (type, first name, last name, or email) — contact skipped, student still imported.');
+        return;
+      }
+      var matchedType = matchContactType(type);
+      if (!matchedType) {
+        errors.push('Row ' + rowNum + ': ' + slotLabel + ' has an unrecognized type "' + type + '" — contact skipped, student still imported.');
+        return;
+      }
+      newContactRows.push([studentId, generateGuid(), matchedType, first, last, email]);
+      contactsAdded++;
+    }
 
     for (var i = 0; i < rows.length; i++) {
       try {
@@ -3324,13 +3395,20 @@ function importStudents(rows) {
         seenInImport[id] = true;
         added++;
 
+        tryAddContact(id, r.contactType, r.contactFirstName, r.contactLastName, r.contactEmail, i + 1, 'Contact');
+
       } catch (rowErr) {
         errors.push('Row ' + (i + 1) + ': ' + rowErr.message);
       }
     }
 
+    if (newContactRows.length > 0) {
+      var pcLastRow = pcSheet.getLastRow();
+      pcSheet.getRange(pcLastRow + 1, 1, newContactRows.length, 6).setValues(newContactRows);
+    }
+
     SpreadsheetApp.flush();
-    return { success: true, added: added, skipped: skipped, errors: errors };
+    return { success: true, added: added, skipped: skipped, contactsAdded: contactsAdded, errors: errors };
 
   } catch (e) {
     return { success: false, error: e.message };
