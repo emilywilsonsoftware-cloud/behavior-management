@@ -1068,6 +1068,21 @@ function submitReferrals(referrals) {
     throw new Error('No referrals provided.');
   }
 
+  // Serializes concurrent submissions so two teachers referring the same
+  // student at nearly the same moment can't both read that student's
+  // balance before either has written back — without this, whichever
+  // write happens second silently overwrites the first, and one
+  // teacher's point deduction just vanishes with no error shown to
+  // anyone. This blocks other executions of any locked function (not
+  // just this one) until released below.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    throw new Error('The system is busy processing another submission — please try again in a moment.');
+  }
+
+  try {
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var refSheet = ss.getSheetByName(SHEET_REFERRALS);
   var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
@@ -1183,6 +1198,9 @@ function submitReferrals(referrals) {
   }
 
   return results;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // =============================================================
@@ -1215,6 +1233,16 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
     throw new Error('No referrals provided.');
   }
 
+  // See submitReferrals() for why this lock exists — same read-then-write
+  // race on a student's point balance applies here too.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    throw new Error('The system is busy processing another submission — please try again in a moment.');
+  }
+
+  try {
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var refSheet = ss.getSheetByName(SHEET_REFERRALS);
   var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
@@ -1413,6 +1441,9 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
   }
 
   return results;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function findStudentRow(stuData, studentId) {
@@ -2314,6 +2345,15 @@ function updateReferralDetails(referralId, updates) {
     return { success: false, error: 'Admin access required.' };
   }
 
+  // See submitReferrals() for why this lock exists — same read-then-write
+  // race on a student's point balance applies here too.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return { success: false, error: 'The system is busy processing another change — please try again in a moment.' };
+  }
+
   try {
     var ss       = SpreadsheetApp.getActiveSpreadsheet();
     var refSheet = ss.getSheetByName(SHEET_REFERRALS);
@@ -2434,6 +2474,8 @@ function updateReferralDetails(referralId, updates) {
     };
   } catch (e) {
     return { success: false, error: e.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -2464,6 +2506,16 @@ function deleteReferral(referralId, reason) {
   reason = (reason || '').toString().trim();
   if (!reason) {
     return { success: false, error: 'A reason is required to delete a referral.' };
+  }
+
+  // See submitReferrals() for why this lock exists — deleteReferral()
+  // both reads and writes a student's point balance (via the replay
+  // described below), so it's just as exposed to the same race.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return { success: false, error: 'The system is busy processing another change — please try again in a moment.' };
   }
 
   try {
@@ -2563,6 +2615,8 @@ function deleteReferral(referralId, reason) {
     };
   } catch (err) {
     return { success: false, error: err.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
