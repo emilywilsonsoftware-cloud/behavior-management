@@ -872,6 +872,30 @@
         </div>
       </div>
 
+      <!-- Archive a term's referrals — for a school with an unusually
+           heavy referral volume in a single term, a lighter-weight
+           alternative to Start New Year that only touches Referrals,
+           and only one term's worth. -->
+      <div class="card danger-card" id="card-archiveterm">
+        <div class="section-title">Archive a Term's Referrals</div>
+        <p class="section-desc">
+          Exports one term's referrals to a CSV, downloaded straight to this computer, then
+          permanently removes just those rows from the Referrals sheet. Student point balances
+          are <strong>not</strong> changed — this only trims the detailed log, it doesn't undo
+          anything those referrals already affected. Lowest-risk right after that term's points
+          have already been reset above, since at that point the archived rows have no remaining
+          connection to any live balance — but this works correctly at any time.
+        </p>
+        <div class="form-row" style="max-width:320px;margin:0 auto 14px;">
+          <label>Term to Archive</label>
+          <select id="archiveterm-select"><option value="">— Select a term —</option></select>
+        </div>
+        <div class="save-row" style="justify-content:center;">
+          <span class="save-msg" id="msg-archiveterm"></span>
+          <button class="btn-danger" onclick="confirmArchiveTerm()">Archive Term</button>
+        </div>
+      </div>
+
       <!-- Start New Year -->
       <div class="card card-danger" id="card-startnewyear">
         <div class="section-title" style="color:#b91c1c;border-bottom-color:#fecaca;">Start New Year</div>
@@ -946,6 +970,7 @@ var _staffLoaded   = false;
 var _studentsLoaded = false;
 var _colorPalette  = {};   // {key: hex} — the constrained palette from the server
 var _bootstrapConfig = {}; // raw config from getSettingsBootstrap() — used by the Add Student form's Contact Type dropdown
+var _settingsTerms = []; // computed {start, end, label} list — used by the Archive a Term's Referrals dropdown
 
 // Shared trash-can icon markup (same glyph used by the Point Balance
 // Colors tier editor) — used by every remove button in Settings so the
@@ -977,9 +1002,11 @@ function onBootstrap(data) {
 
   _colorPalette = data.colorPalette || {};
   _bootstrapConfig = data.config || {};
+  _settingsTerms = data.terms || [];
   document.getElementById('settings-body').style.display = 'block';
   populateGeneral(data.config);
   populateAddStudentContactTypes();
+  populateArchiveTermSelect();
 }
 
 // ── Tab switching ──────────────────────────────────────────────
@@ -1021,6 +1048,7 @@ var SETTINGS_SEARCH_INDEX = [
   { label: 'Bulk Import (CSV)',                  tab: 'students',       target: 'card-bulkimport' },
   { label: 'Student Roster',                     tab: 'students',       target: 'card-roster' },
   { label: 'Reset Term Points',              tab: 'yearend',        target: 'card-resetpoints' },
+  { label: 'Archive a Term\u2019s Referrals',    tab: 'yearend',        target: 'card-archiveterm' },
   { label: 'Start New Year',                     tab: 'yearend',        target: 'card-startnewyear' },
   { label: 'View a Previous Year\u2019s Referrals', tab: 'yearend',     target: 'card-viewarchive' }
 ];
@@ -1774,11 +1802,73 @@ function triggerZipDownload(base64, filename) {
   setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
 }
 
-// ── Detected archives list ────────────────────────────────────
-// Lists year folders already saved by "Start New Year" so viewing one
-// is a single click instead of a manual download-then-reupload round
-// trip. The manual upload further below still works as a fallback for
-// files saved somewhere else.
+// ── Archive a Term's Referrals ──────────────────────────────────
+function populateArchiveTermSelect() {
+  var sel = document.getElementById('archiveterm-select');
+  _settingsTerms.forEach(function(term, idx) {
+    var endLabel = term.end === '9999-12-31' ? 'present' : term.end;
+    sel.innerHTML += '<option value="' + idx + '">' + esc(term.label) +
+      ' (' + esc(term.start) + ' \u2013 ' + esc(endLabel) + ')</option>';
+  });
+}
+
+function confirmArchiveTerm() {
+  var sel = document.getElementById('archiveterm-select');
+  var idx = sel.value;
+  if (idx === '') {
+    setMsg('archiveterm', 'Select a term first.', 'err');
+    return;
+  }
+  var termLabel = sel.options[sel.selectedIndex].textContent;
+
+  showConfirm({
+    title: 'Archive ' + termLabel + '?',
+    message: 'This exports every referral in ' + termLabel + ' to a CSV, downloaded straight ' +
+             'to this computer, then permanently removes just those rows from the Referrals ' +
+             'sheet. Student point balances are not changed. This cannot be undone once it ' +
+             'completes.',
+    confirmLabel: 'Archive Term',
+    onConfirm: function() { archiveTermFlow(idx); }
+  });
+}
+
+function archiveTermFlow(termIndex) {
+  setMsg('archiveterm', 'Archiving\u2026', 'ld');
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) {
+        setMsg('archiveterm', 'Error: ' + (r.error || 'Unknown error'), 'err');
+        showToast(r.error || 'Archive failed.', true);
+        return;
+      }
+      triggerCsvDownload(r.csv, r.filename);
+      setMsg('archiveterm',
+        '\u2713 Archived ' + r.count + ' referral' + (r.count === 1 ? '' : 's') + ' for ' + r.termLabel +
+        '. ' + r.remaining + ' referral' + (r.remaining === 1 ? '' : 's') + ' remain' + (r.remaining === 1 ? 's' : '') + ' in the sheet.',
+        'ok');
+      showToast(r.termLabel + ' archived and downloaded.');
+      document.getElementById('archiveterm-select').value = '';
+    })
+    .withFailureHandler(function(err) {
+      setMsg('archiveterm', 'Error: ' + (err.message || err), 'err');
+      showToast(err.message || err, true);
+    })
+    .exportAndDeleteTermReferrals(parseInt(termIndex, 10));
+}
+
+// Simpler than triggerZipDownload() above — one plain-text CSV, not a
+// binary zip, so a data URI works fine without the base64-to-Blob
+// conversion that binary content requires.
+function triggerCsvDownload(csv, filename) {
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 // ── Archived-year CSV viewer ────────────────────────────────────
 // Entirely client-side and read-only by design: parses the uploaded
 // file in the browser and never sends it to the server or writes it

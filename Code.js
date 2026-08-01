@@ -794,6 +794,7 @@ function getSettingsBootstrap() {
   return {
     user: user,
     colorPalette: POINT_COLOR_PALETTE, // {key: hex} — drives the Settings color picker
+    terms: cfg.terms, // computed {start, end, label} list — used by the Archive a Term's Referrals dropdown
     config: {
       SchoolName:                raw[CONFIG_COL_SCHOOL_NAME]       || [],
       TermStartPoints:       raw[CONFIG_COL_TERM_POINTS]   || [],
@@ -2918,6 +2919,112 @@ function startNewYear() {
     };
   } catch (err) {
     return { success: false, error: err.message };
+  }
+}
+
+// Exports one term's referrals to CSV, then permanently removes just
+// those rows from the Referrals sheet — a more targeted alternative to
+// Start New Year for a school with an unusually heavy referral volume
+// in a single term. Deliberately does NOT touch student point
+// balances: the point is trimming the size of the detailed log, not
+// undoing consequences those referrals already had. Correct to run
+// either mid-term or after that term's points have already been reset
+// via resetTermPoints() — but after the reset is the lower-risk time,
+// since at that point the archived rows have no remaining connection
+// to any live balance at all.
+function exportAndDeleteTermReferrals(termIndex) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return { success: false, error: 'The system is busy processing another change — please try again in a moment.' };
+  }
+
+  try {
+    var cfg  = getConfig();
+    var term = cfg.terms[termIndex];
+    if (!term) {
+      return { success: false, error: 'Term not found.' };
+    }
+
+    var ss       = SpreadsheetApp.getActiveSpreadsheet();
+    var refSheet = ss.getSheetByName(SHEET_REFERRALS);
+    var refData  = refSheet.getDataRange().getValues();
+    if (refData.length <= 1) {
+      return { success: false, error: 'No referrals to archive.' };
+    }
+
+    var headers = refData[0];
+    var dtCol   = REFERRAL_HEADERS.indexOf('IncidentDate');
+
+    // ── Split into "belongs to this term" (exported, then removed) and
+    // "everything else" (rewritten back exactly as it was). ──────────
+    var termRows = [headers]; // for the CSV — needs its own header row
+    var keepRows = [];        // for rewriting the sheet — header stays put below
+
+    for (var i = 1; i < refData.length; i++) {
+      var incidentDate = formatDateStr(refData[i][dtCol]);
+      if (incidentDate >= term.start && incidentDate <= term.end) {
+        termRows.push(refData[i]);
+      } else {
+        keepRows.push(refData[i]);
+      }
+    }
+
+    if (termRows.length <= 1) {
+      return { success: false, error: 'No referrals found for ' + term.label + '.' };
+    }
+
+    // ── Build the export first. Nothing below this point touches the
+    // sheet until the CSV is confirmed to actually contain something. ──
+    var csv = rowsToCsv_(termRows);
+    if (!csv || csv.length === 0) {
+      return { success: false, error: 'Export did not generate correctly — nothing was deleted.' };
+    }
+
+    // ── Export verified — safe to remove those rows now. clearContent()
+    // rather than deleteRows(), for the same reason as
+    // clearSheetDataRows_(): a frozen header row would otherwise make
+    // this fail with "not possible to delete all non-frozen rows". ────
+    clearSheetDataRows_(refSheet);
+    if (keepRows.length > 0) {
+      refSheet.getRange(2, 1, keepRows.length, headers.length).setValues(keepRows);
+    }
+    SpreadsheetApp.flush();
+
+    logChange_({
+      action:         'Bulk Archived',
+      changedByName:  user.name || user.email,
+      changedByEmail: user.email,
+      referralId:     '',
+      studentId:      '',
+      studentName:    '',
+      infractionType: '',
+      pointValue:     '',
+      incidentDate:   '',
+      incidentTime:   '',
+      details: 'Archived ' + (termRows.length - 1) + ' referral(s) for ' + term.label +
+               ' (' + term.start + ' to ' + term.end + ') to CSV. Student point balances were not changed.'
+    });
+
+    return {
+      success:   true,
+      termLabel: term.label,
+      count:     termRows.length - 1,
+      remaining: keepRows.length,
+      csv:       csv,
+      filename:  'Referrals_' + term.label.replace(/\s+/g, '_') + '_' + formatDateStr(new Date()) + '.csv'
+    };
+
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
