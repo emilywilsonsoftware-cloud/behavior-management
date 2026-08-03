@@ -1726,7 +1726,12 @@ function getDashboardData() {
 
   var now       = new Date();
   var today     = formatDate(now);
-  var day7ago   = formatDate(new Date(now.getTime() - 7 * 86400000));
+  // Monday of the current week through today — resets every Monday,
+  // rather than a rolling 7-day window that always reaches back into
+  // the previous weekend (or further) no matter what day it is today.
+  var dayOfWeek = now.getDay(); // 0=Sunday ... 6=Saturday
+  var daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  var weekStart = formatDate(new Date(now.getTime() - daysSinceMonday * 86400000));
   var thisMonth = now.getMonth();
   var thisYear  = now.getFullYear();
 
@@ -1769,7 +1774,7 @@ function getDashboardData() {
       termReferrals++;
     }
     if (inc === today)                      todayReferrals++;
-    if (inc >= day7ago && inc <= today)      weekReferrals++;
+    if (inc >= weekStart && inc <= today)      weekReferrals++;
     // Positive/negative are derived from PointValue's sign — every
     // infraction always has a point value, so this stays accurate
     // regardless. ptVal === 0 counts as neither (a logged incident with
@@ -1818,7 +1823,7 @@ function getDashboardData() {
     if (user.role === 'teacher' && rowTeacherEmail === user.email.toLowerCase()) {
       myTotal++;
       if (inc === today)                 myToday++;
-      if (inc >= day7ago && inc <= today) myWeek++;
+      if (inc >= weekStart && inc <= today) myWeek++;
       myRefs.push(refObj);
     }
   }
@@ -1864,7 +1869,7 @@ function getDashboardData() {
       },
       myReferrals: myRefs,
       today:       today,
-      day7ago:     day7ago,
+      weekStart:   weekStart,
       atRisk:      atRisk
     };
   }
