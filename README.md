@@ -274,14 +274,3 @@ From **Settings → Students → Bulk Import (CSV)**, upload a CSV with columns 
 **To also import a referral email contact per student** (one per row), add four more columns: `ContactType, ContactFirstName, ContactLastName, ContactEmail` (columns 6–9). Leave those four blank for any student with no contact to import yet — a full school-year roster import doesn't need every student to have a contact ready on day one. `ContactType` is matched against your configured Contact Types case-insensitively (so "parent" and "Parent" both work), but must still be a real configured type — an unrecognized one is skipped with a clear error rather than silently failing, and the student still imports either way, even if their contact row has a problem.
 
 `ClassID`/`ClassName` are not part of the current schema — teachers are selected directly by name on the referral form, not matched by class assignment.
-
----
-
-## Cost Summary
-
-| Item | Cost |
-|---|---|
-| Google Workspace for Education Fundamentals | Free for qualified K-12 schools |
-| Google Apps Script | Free (included) |
-| Google Sheets, Drive, Gmail | Free (included) |
-| Development & setup | See project quote |
