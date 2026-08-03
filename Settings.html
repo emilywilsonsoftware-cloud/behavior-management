@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyOCAyOCI+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjI4IiByeD0iNiIgZmlsbD0iIzdlYjRkOCIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYsNikgc2NhbGUoMC42NjY2NykiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZmZmZiIKICAgICBzdHJva2Utd2lkdGg9IjIuNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik05IDExbDMgM0wyMiA0Ii8+CiAgICA8cGF0aCBkPSJNMjEgMTJ2N2EyIDIgMCAwMS0yIDJINWEyIDIgMCAwMS0yLTJWNWEyIDIgMCAwMTItMmgxMSIvPgogIDwvZz4KPC9zdmc+Cg==">
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAACkklEQVRYhcWX3UsUURiHn3NmXdFZKK1dUcuPYnc1vZH1yoKgIMKsmyVTuhMKiaDuI1jwDygkkG66DQTrog//gC4koozMrxsVExcl0myd9WN3Thfubi7Fzuy4tr+rYebM+zznzHuGGcG+PHgzVe9S8r6Cy0A9UEZhYqDUrJJyWNtMPIl0t8TSF0T64OGrmX4heAyUFgj67wi+qaQID1wLfsgIpOBDhwrOTkwq83zk6plPIjI63WAmxQyHPfO/Myf10hapkuJeEeAAp5LG9m2ZariiRJiiV7LX7UUyUK2Swm01J9FdViOEgI7GSoJVHko0kXPs4o84o1OreRlYCnQ0VnKp2WuvmPwjGPB5CLdV83pihYnlDecCAZ8OwNC7BX7GEznHbifMDLwnVIMQsLmT+x5LAZma1bqxy1YKkCt+r86NUA1CCF5+jjL33chd37JiHvF7dXraa5Ep+JccS19wASdwRwIuKbjSWsVpr545F/B56G2vRQoYGV+2DXckUO7WCNUd4WZ7LQGfJ6vhRsajfI3+Qgq4dbaOi8Hj1hPKV2BjK8GL8Sjhtmp6QjUAWXAAtyY5cbQMU1nXy1sAyIDCbdVANjzfOBJIS2xs7e3xxbW40zLOBQ4KTqeg7wEnsVwBM9VJFbqbdWPXVtGK8hIAkja60FJgdjVGw7Fy+s/l/9kwsxKzHGMpMDa/hlLQVOXB7bL3xHYSJtMrMd7Prx1cQKk9iTEbxZxEApuHUtleDAlMFo8vFqSC50XjK/VWxgz9KTBfBHxcatqgfNR9Mq5Q1wHrPVPAKLgb6fQvSYCBruaPyhQXgMX/wI6j6BvoanoG+/6OASLDk55kmXZHCLqBIOApENQA5lCMSk0bjHT6l9IXfgP2Mt1rCu9QlAAAAABJRU5ErkJggg==">
   <title>Behavior Tracker — Settings</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -365,12 +367,25 @@
     .archive-viewer-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .archive-viewer-toolbar input[type="text"] { max-width: 260px; }
     .archive-count { font-size: 0.78rem; color: #8a96a8; white-space: nowrap; }
+    .archive-showall-label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem;
+                              color: #374151; white-space: nowrap; cursor: pointer; }
+    .archive-showall-label input { cursor: pointer; }
+    .archive-summary { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem;
+                        color: #374151; background: #f8fafc; border: 1px solid #e2e8f0;
+                        border-radius: 8px; padding: 8px 14px; margin-bottom: 10px; }
+    .archive-summary strong { color: #1a1a2e; }
+    .archive-pts-neg { color: #dc2626; font-weight: 700; }
+    .archive-pts-pos { color: #166534; font-weight: 700; }
+    #archive-table th { cursor: pointer; user-select: none; white-space: nowrap; }
+    #archive-table th:hover { background: #eef2f8; }
+    #archive-table th .archive-sort-arrow { font-size: 0.7em; color: #8a96a8; margin-left: 3px; }
     .btn-outline-sm { background: white; color: #5a6a7e; border: 1px solid #c8d0e0;
                       border-radius: 6px; padding: 6px 14px; font-size: 0.8rem;
                       font-weight: 600; cursor: pointer; font-family: inherit;
                       transition: background 0.12s; margin-left: auto; }
     .btn-outline-sm:hover { background: #f4f6f9; }
-    .archive-tbl-wrap { max-height: 480px; overflow-y: auto; }
+    .archive-tbl-wrap { max-height: 480px; overflow-y: auto; overflow-x: auto; }
+    #archive-table { width: auto; min-width: 100%; }
     #archive-table th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
 
     /* ── Status messages ── */
@@ -945,9 +960,14 @@
           <div class="archive-viewer-toolbar">
             <input type="text" id="archive-search" placeholder="Search any column..."
                    oninput="renderArchiveTable()">
+            <label class="archive-showall-label" id="archive-showall-label">
+              <input type="checkbox" id="archive-showall" onchange="renderArchiveTable()">
+              <span id="archive-showall-text">Show all columns</span>
+            </label>
             <span class="archive-count" id="archive-count"></span>
             <button class="btn-outline-sm" onclick="clearArchiveViewer()">Clear</button>
           </div>
+          <div class="archive-summary" id="archive-summary"></div>
           <div class="tbl-wrap archive-tbl-wrap">
             <table class="tbl-editor" id="archive-table">
               <thead><tr id="archive-thead-row"></tr></thead>
@@ -1900,6 +1920,9 @@ function onArchiveFileChosen(input) {
       msgEl.className = 'save-msg ok';
       document.getElementById('archive-viewer').style.display = 'block';
       document.getElementById('archive-search').value = '';
+      document.getElementById('archive-showall').checked = false;
+      _archiveSortCol = -1;
+      _archiveSortAsc = true;
       renderArchiveTable();
     } catch (err) {
       msgEl.textContent = 'Error: ' + err.message;
@@ -1947,38 +1970,203 @@ function parseCsv(text) {
   return rows;
 }
 
+// Priority columns shown by default — the ones an admin actually
+// scans when reviewing past referrals. Everything else (email flags,
+// admin notes, raw IDs) is still there behind "Show all columns", just
+// not competing for attention by default. Falls back to showing every
+// column if the uploaded CSV doesn't look like a Referrals export at
+// all (none of these names found) — so a differently-shaped CSV still
+// displays something reasonable rather than an empty table.
+var ARCHIVE_PRIORITY_COLUMNS = [
+  'IncidentDate', 'IncidentTime', 'StudentName', 'Grade',
+  'InfractionType', 'PointValue', 'Location', 'TeacherName', 'Description'
+];
+// Sorted numerically rather than as text when the user clicks these headers.
+var ARCHIVE_NUMERIC_COLUMNS = ['ID', 'Grade', 'PointValue', 'PointsBeforeReferral', 'PointsAfterReferral'];
+
+var _archiveSortCol = -1;
+var _archiveSortAsc = true;
+
+function getArchiveColIndex(name) {
+  var lower = name.toLowerCase();
+  for (var i = 0; i < _archiveHeaders.length; i++) {
+    if ((_archiveHeaders[i] || '').toLowerCase() === lower) return i;
+  }
+  return -1;
+}
+
+// Makes the checkbox self-explanatory with real numbers instead of a
+// bare "Show all columns" that gives no sense of what's hidden or why.
+// Only touches the text span, never the checkbox input itself.
+function updateArchiveShowAllLabel(visibleCount) {
+  var textEl  = document.getElementById('archive-showall-text');
+  var showAll = document.getElementById('archive-showall').checked;
+  var total   = _archiveHeaders.length;
+  textEl.textContent = showAll
+    ? 'Show all columns (all ' + total + ' shown)'
+    : 'Show all columns (' + visibleCount + ' of ' + total + ' shown now)';
+}
+
+function getArchiveVisibleCols() {
+  var showAll = document.getElementById('archive-showall').checked;
+  if (showAll) {
+    return _archiveHeaders.map(function(_, i) { return i; });
+  }
+  var cols = ARCHIVE_PRIORITY_COLUMNS
+    .map(function(name) { return getArchiveColIndex(name); })
+    .filter(function(i) { return i >= 0; });
+  // Doesn't look like a Referrals export at all — show everything
+  // rather than an empty or near-empty table.
+  return cols.length > 0 ? cols : _archiveHeaders.map(function(_, i) { return i; });
+}
+
+// Converts 'YYYY-MM-DD' to 'MM-DD-YYYY'. Leaves anything else
+// (already-formatted dates, blanks, unexpected values) untouched
+// rather than guessing.
+function formatArchiveDate(val) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(val || '');
+  return m ? (m[2] + '-' + m[3] + '-' + m[1]) : (val || '');
+}
+
+// Converts 24-hour 'HH:MM' to 12-hour with AM/PM. Same leave-it-alone
+// fallback as formatArchiveDate above.
+function formatArchiveTime(val) {
+  var m = /^(\d{1,2}):(\d{2})/.exec(val || '');
+  if (!m) return val || '';
+  var h = parseInt(m[1], 10);
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + m[2] + ' ' + period;
+}
+
+function sortArchiveBy(colIndex) {
+  if (_archiveSortCol === colIndex) {
+    _archiveSortAsc = !_archiveSortAsc;
+  } else {
+    _archiveSortCol = colIndex;
+    _archiveSortAsc = true;
+  }
+  renderArchiveTable();
+}
+
+function renderArchiveSummary() {
+  var el = document.getElementById('archive-summary');
+  var dateIdx = getArchiveColIndex('IncidentDate');
+  var stuIdx  = getArchiveColIndex('StudentName') >= 0 ? getArchiveColIndex('StudentName') : getArchiveColIndex('StudentID');
+  var ptsIdx  = getArchiveColIndex('PointValue');
+
+  if (dateIdx < 0 && stuIdx < 0) {
+    // Doesn't look like a Referrals export — nothing meaningful to summarize.
+    el.style.display = 'none';
+    return;
+  }
+
+  var parts = ['<strong>' + _archiveRows.length + '</strong> referral' + (_archiveRows.length !== 1 ? 's' : '')];
+
+  if (stuIdx >= 0) {
+    var students = {};
+    _archiveRows.forEach(function(r) { if (r[stuIdx]) students[r[stuIdx]] = true; });
+    parts.push('<strong>' + Object.keys(students).length + '</strong> student' + (Object.keys(students).length !== 1 ? 's' : ''));
+  }
+
+  if (dateIdx >= 0) {
+    var dates = _archiveRows.map(function(r) { return r[dateIdx]; }).filter(Boolean).sort();
+    if (dates.length > 0) {
+      parts.push('<strong>' + formatArchiveDate(dates[0]) + '</strong> to <strong>' + formatArchiveDate(dates[dates.length - 1]) + '</strong>');
+    }
+  }
+
+  if (ptsIdx >= 0) {
+    var totalDeducted = 0;
+    _archiveRows.forEach(function(r) {
+      var v = parseFloat(r[ptsIdx]);
+      if (!isNaN(v) && v < 0) totalDeducted += v;
+    });
+    parts.push('<strong>' + totalDeducted + '</strong> points deducted');
+  }
+
+  el.innerHTML = parts.join(' &nbsp;\u00b7&nbsp; ');
+  el.style.display = 'flex';
+}
+
 function renderArchiveTable() {
   var theadRow = document.getElementById('archive-thead-row');
   var tbody    = document.getElementById('archive-tbody');
   var q        = document.getElementById('archive-search').value.trim().toLowerCase();
+  var visibleCols = getArchiveVisibleCols();
 
-  theadRow.innerHTML = _archiveHeaders.map(function(h) { return '<th>' + esc(h) + '</th>'; }).join('');
+  updateArchiveShowAllLabel(visibleCols.length);
+  renderArchiveSummary();
 
-  var filtered = !q ? _archiveRows : _archiveRows.filter(function(r) {
+  theadRow.innerHTML = visibleCols.map(function(colIdx) {
+    var arrow = _archiveSortCol === colIdx ? (_archiveSortAsc ? ' <span class="archive-sort-arrow">\u25b2</span>' : ' <span class="archive-sort-arrow">\u25bc</span>') : '';
+    return '<th onclick="sortArchiveBy(' + colIdx + ')">' + esc(_archiveHeaders[colIdx]) + arrow + '</th>';
+  }).join('');
+
+  var filtered = !q ? _archiveRows.slice() : _archiveRows.filter(function(r) {
     return r.some(function(cell) { return (cell || '').toLowerCase().indexOf(q) >= 0; });
   });
+
+  if (_archiveSortCol >= 0) {
+    var sortCol = _archiveSortCol;
+    var isNumeric = ARCHIVE_NUMERIC_COLUMNS.indexOf(_archiveHeaders[sortCol]) >= 0;
+    filtered.sort(function(a, b) {
+      var av = a[sortCol] || '', bv = b[sortCol] || '';
+      if (isNumeric) { av = parseFloat(av) || 0; bv = parseFloat(bv) || 0; }
+      else { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+      var cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return _archiveSortAsc ? cmp : -cmp;
+    });
+  }
 
   document.getElementById('archive-count').textContent =
     filtered.length + (q ? ' of ' + _archiveRows.length : '') + ' rows';
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="' + _archiveHeaders.length +
+    tbody.innerHTML = '<tr><td colspan="' + visibleCols.length +
       '" style="text-align:center;color:#8a96a8;padding:16px;">No matching rows.</td></tr>';
     return;
   }
 
   // Display is capped for performance on very large archives — search
-  // still runs against every row, only rendering is limited.
+  // and sort still run against every row, only rendering is limited.
   var MAX_RENDER = 500;
   var shown = filtered.slice(0, MAX_RENDER);
 
   tbody.innerHTML = shown.map(function(r) {
-    return '<tr>' + _archiveHeaders.map(function(_, i) {
-      return '<td style="white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;" ' +
-             'title="' + esc(r[i] || '') + '">' + esc(r[i] || '') + '</td>';
+    return '<tr>' + visibleCols.map(function(colIdx) {
+      var header = (_archiveHeaders[colIdx] || '').toLowerCase();
+      var raw = r[colIdx] || '';
+      var displayVal = raw;
+      var cellClass = '';
+
+      if (header === 'incidentdate') {
+        displayVal = formatArchiveDate(raw);
+      } else if (header === 'incidenttime') {
+        displayVal = formatArchiveTime(raw);
+      } else if (header === 'pointvalue' || header === 'pointsbeforereferral' || header === 'pointsafterreferral') {
+        var n = parseFloat(raw);
+        if (!isNaN(n)) {
+          displayVal = n > 0 ? '+' + n : '' + n;
+          cellClass = n < 0 ? 'archive-pts-neg' : n > 0 ? 'archive-pts-pos' : '';
+        }
+      }
+
+      // Only free-text fields that can genuinely run long get truncated
+      // with a hover tooltip — everything else (dates, names, short
+      // codes) is short enough to just show in full and size the
+      // column naturally, rather than uniformly capping every column
+      // at the same width regardless of what's actually in it.
+      var isLongText = header === 'description' || header === 'adminnotes';
+      var cellStyle = isLongText
+        ? 'white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis;'
+        : 'white-space:nowrap;';
+
+      return '<td class="' + cellClass + '" style="' + cellStyle + '" ' +
+             'title="' + esc(raw) + '">' + esc(displayVal) + '</td>';
     }).join('') + '</tr>';
   }).join('') + (filtered.length > MAX_RENDER
-    ? '<tr><td colspan="' + _archiveHeaders.length + '" style="text-align:center;color:#8a96a8;padding:10px;">' +
+    ? '<tr><td colspan="' + visibleCols.length + '" style="text-align:center;color:#8a96a8;padding:10px;">' +
       'Showing first ' + MAX_RENDER + ' of ' + filtered.length + ' matching rows — narrow your search to see more.</td></tr>'
     : '');
 }
@@ -1986,6 +2174,8 @@ function renderArchiveTable() {
 function clearArchiveViewer() {
   _archiveHeaders = [];
   _archiveRows = [];
+  _archiveSortCol = -1;
+  _archiveSortAsc = true;
   document.getElementById('archive-file-input').value = '';
   document.getElementById('archive-viewer').style.display = 'none';
   document.getElementById('msg-archive-upload').textContent = '';
