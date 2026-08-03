@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyOCAyOCI+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjI4IiByeD0iNiIgZmlsbD0iIzdlYjRkOCIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYsNikgc2NhbGUoMC42NjY2NykiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZmZmZiIKICAgICBzdHJva2Utd2lkdGg9IjIuNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik05IDExbDMgM0wyMiA0Ii8+CiAgICA8cGF0aCBkPSJNMjEgMTJ2N2EyIDIgMCAwMS0yIDJINWEyIDIgMCAwMS0yLTJWNWEyIDIgMCAwMTItMmgxMSIvPgogIDwvZz4KPC9zdmc+Cg==">
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAACkklEQVRYhcWX3UsUURiHn3NmXdFZKK1dUcuPYnc1vZH1yoKgIMKsmyVTuhMKiaDuI1jwDygkkG66DQTrog//gC4koozMrxsVExcl0myd9WN3Thfubi7Fzuy4tr+rYebM+zznzHuGGcG+PHgzVe9S8r6Cy0A9UEZhYqDUrJJyWNtMPIl0t8TSF0T64OGrmX4heAyUFgj67wi+qaQID1wLfsgIpOBDhwrOTkwq83zk6plPIjI63WAmxQyHPfO/Myf10hapkuJeEeAAp5LG9m2ZariiRJiiV7LX7UUyUK2Swm01J9FdViOEgI7GSoJVHko0kXPs4o84o1OreRlYCnQ0VnKp2WuvmPwjGPB5CLdV83pihYnlDecCAZ8OwNC7BX7GEznHbifMDLwnVIMQsLmT+x5LAZma1bqxy1YKkCt+r86NUA1CCF5+jjL33chd37JiHvF7dXraa5Ep+JccS19wASdwRwIuKbjSWsVpr545F/B56G2vRQoYGV+2DXckUO7WCNUd4WZ7LQGfJ6vhRsajfI3+Qgq4dbaOi8Hj1hPKV2BjK8GL8Sjhtmp6QjUAWXAAtyY5cbQMU1nXy1sAyIDCbdVANjzfOBJIS2xs7e3xxbW40zLOBQ4KTqeg7wEnsVwBM9VJFbqbdWPXVtGK8hIAkja60FJgdjVGw7Fy+s/l/9kwsxKzHGMpMDa/hlLQVOXB7bL3xHYSJtMrMd7Prx1cQKk9iTEbxZxEApuHUtleDAlMFo8vFqSC50XjK/VWxgz9KTBfBHxcatqgfNR9Mq5Q1wHrPVPAKLgb6fQvSYCBruaPyhQXgMX/wI6j6BvoanoG+/6OASLDk55kmXZHCLqBIOApENQA5lCMSk0bjHT6l9IXfgP2Mt1rCu9QlAAAAABJRU5ErkJggg==">
   <title>Behavior Tracker — Students</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1046,7 +1048,8 @@ function initials(name) {
 }
 
 function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  if (s === null || s === undefined) s = '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── Toast notification ──────────────────────────────────────────

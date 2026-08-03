@@ -2759,7 +2759,8 @@ function setMsg(section, text, type) {
 }
 
 function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  if (s === null || s === undefined) s = '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
                         .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
