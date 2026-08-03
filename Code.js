@@ -3544,51 +3544,73 @@ function importStudents(rows) {
       return null;
     }
 
-    function tryAddContact(studentId, type, first, last, email, rowNum, slotLabel) {
+    // Email is intentionally optional here — a contact with no email on
+    // file still gets tracked (type + name are enough to identify who
+    // they are); they just won't receive the daily digest, the same as
+    // any other contact missing an email already behaves.
+    function tryAddContact(studentId, type, first, last, email, rowNum) {
       type  = (type  || '').toString().trim();
       first = sanitizeText(first || '');
       last  = sanitizeText(last  || '');
       email = sanitizeText(email || '').toLowerCase();
-      if (!type && !first && !last && !email) return; // slot simply not used for this row
+      if (!type && !first && !last && !email) return; // no contact on this row at all
 
-      if (!type || !first || !last || !email) {
-        errors.push('Row ' + rowNum + ': ' + slotLabel + ' is missing a field (type, first name, last name, or email) — contact skipped, student still imported.');
+      if (!type || !first || !last) {
+        errors.push('Row ' + rowNum + ': contact is missing type, first name, or last name — contact skipped.');
         return;
       }
       var matchedType = matchContactType(type);
       if (!matchedType) {
-        errors.push('Row ' + rowNum + ': ' + slotLabel + ' has an unrecognized type "' + type + '" — contact skipped, student still imported.');
+        errors.push('Row ' + rowNum + ': contact has an unrecognized type "' + type + '" — contact skipped.');
         return;
       }
       newContactRows.push([studentId, generateGuid(), matchedType, first, last, email]);
       contactsAdded++;
     }
 
+    // One row per contact, not one row per student — the same StudentID
+    // can legitimately repeat across several rows (a student with two
+    // contacts is two rows, a student with none is one row with the
+    // contact columns left blank). The student itself is only ever
+    // created once, on whichever row first establishes it; every row
+    // after that for the same ID is purely a contact-carrying row and
+    // doesn't need the student fields filled in again.
     for (var i = 0; i < rows.length; i++) {
       try {
         var r      = rows[i];
-        var id     = sanitizeText(r.studentId  || '').toUpperCase();
-        var first  = sanitizeText(r.firstName   || '');
-        var last   = sanitizeText(r.lastName    || '');
-        var middle = sanitizeText(r.middleName  || '');
-        var grade  = sanitizeText(r.grade        || '');
+        var id     = sanitizeText(r.studentId || '').toUpperCase();
+        var rowNum = i + 1;
 
-        if (!id || !first || !last || !grade) {
-          errors.push('Row ' + (i + 1) + ': missing required field (ID, first name, last name, or grade).');
+        if (!id) {
+          errors.push('Row ' + rowNum + ': missing Student ID — row skipped entirely.');
           continue;
         }
 
-        if (existingIds[id] || seenInImport[id]) {
+        var alreadyKnown = existingIds[id] || seenInImport[id];
+
+        if (!alreadyKnown) {
+          var first  = sanitizeText(r.firstName  || '');
+          var last   = sanitizeText(r.lastName   || '');
+          var middle = sanitizeText(r.middleName || '');
+          var grade  = sanitizeText(r.grade       || '');
+
+          if (!first || !last || !grade) {
+            errors.push('Row ' + rowNum + ': Student ID ' + id + ' hasn\'t been seen yet and this row is missing first name, last name, or grade — student not created, contact on this row not added either since there\'s no student to attach it to.');
+            continue;
+          }
+
+          sheet.appendRow([id, first, last, middle, grade, cfg.termPoints, now]);
+          existingIds[id]  = true;
+          seenInImport[id] = true;
+          added++;
+        } else {
           skipped++;
-          continue;
         }
 
-        sheet.appendRow([id, first, last, middle, grade, cfg.termPoints, now]);
-        existingIds[id]  = true;
-        seenInImport[id] = true;
-        added++;
-
-        tryAddContact(id, r.contactType, r.contactFirstName, r.contactLastName, r.contactEmail, i + 1, 'Contact');
+        // Runs whether this row created a new student, matched an
+        // already-imported one, or matched one already on the roster —
+        // a contact row's whole purpose can be exactly that.
+        tryAddContact(id, r.contactType, r.contactFirstName, r.contactLastName, r.contactEmail, rowNum);
 
       } catch (rowErr) {
         errors.push('Row ' + (i + 1) + ': ' + rowErr.message);

@@ -801,12 +801,16 @@
           Import students from a CSV file. Required columns in order:
           <strong>StudentID, FirstName, LastName, Grade</strong>.
           Optional 5th column: <strong>MiddleName</strong>.
-          To also import a referral email contact, add:
+          To also import a referral contact, add:
           <strong>ContactType, ContactFirstName, ContactLastName, ContactEmail</strong>
-          (columns 6–9). Leave those blank for students with no contact to import yet;
-          Contact Type must match one of the types configured on the General tab
-          (not case-sensitive). First row must be a header row — it will be skipped.
-          Existing StudentIDs are skipped without error.
+          (columns 6–9) — Email is optional, but Type, First Name, and Last Name are required
+          if a contact is included at all. Contact Type must match one of the types configured
+          on the General tab (not case-sensitive).
+          <strong>A student with multiple contacts gets one row per contact</strong>, all sharing
+          the same StudentID — only the first row for a given ID needs the student's name and
+          grade filled in; every row after that for the same ID can leave those blank and just
+          carry another contact. A student with no contact yet is a single row with the contact
+          columns left blank. First row must be a header row — it will be skipped.
         </p>
 
         <div class="import-area" onclick="document.getElementById('csv-file').click()">
@@ -2629,12 +2633,16 @@ function onCsvSelected(input) {
       });
     }
     _csvRows = rows;
+    var uniqueIds = {};
+    rows.forEach(function(r) { if (r.studentId) uniqueIds[r.studentId.toUpperCase()] = true; });
+    var uniqueCount = Object.keys(uniqueIds).length;
     var withContact = rows.filter(function(r) {
-      return r.contactEmail;
+      return r.contactType || r.contactFirstName || r.contactLastName || r.contactEmail;
     }).length;
     document.getElementById('csv-preview').textContent =
-      rows.length + ' student' + (rows.length !== 1 ? 's' : '') + ' ready to import' +
-      (withContact > 0 ? ' (' + withContact + ' with a contact)' : '') + '.';
+      rows.length + ' row' + (rows.length !== 1 ? 's' : '') +
+      ' (' + uniqueCount + ' unique student' + (uniqueCount !== 1 ? 's' : '') +
+      (withContact > 0 ? ', ' + withContact + ' with a contact' : '') + ') ready to import.';
     document.getElementById('btn-import').disabled = rows.length === 0;
   };
   reader.readAsText(file);
@@ -2663,7 +2671,7 @@ function importStudents() {
   google.script.run
     .withSuccessHandler(function(r) {
       if (r.success) {
-        var msg = '✓ Added: ' + r.added + ', Skipped: ' + r.skipped;
+        var msg = '✓ New students: ' + r.added + ', Existing student rows: ' + r.skipped;
         if (r.contactsAdded) msg += ', Contacts added: ' + r.contactsAdded;
         if (r.errors && r.errors.length) msg += ', Errors: ' + r.errors.length;
         setMsg('import', msg, r.errors && r.errors.length ? 'err' : 'ok');
