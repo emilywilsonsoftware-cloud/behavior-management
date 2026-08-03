@@ -599,7 +599,7 @@ function renderHbars(id, items, colorClass) {
 }
 
 function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) { if (s === null || s === undefined) s = ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // Converts a "YYYY-MM-DD" string to "MM-DD-YYYY" for display.
 // Returns the input unchanged if it doesn't match the expected pattern.
