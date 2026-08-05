@@ -1101,7 +1101,7 @@ function submitReferrals(referrals) {
 
   var lastId     = getLastId(refSheet);
   var timestamp  = new Date();
-  var results    = { saved: 0, errors: [] };
+  var results    = { saved: 0, errors: [], updatedBalances: {} };
   var emailQueue = [];
 
   for (var i = 0; i < referrals.length; i++) {
@@ -1173,6 +1173,7 @@ function submitReferrals(referrals) {
       }
 
       results.saved++;
+      results.updatedBalances[sidStr] = pointsAfter;
       emailQueue.push({
         referral:     r,
         id:           id,
@@ -1558,7 +1559,13 @@ function sendDailyParentEmails() {
     var incDate  = formatDateStr(row[dtIdx]);
     var notified = row[pnIdx] ? row[pnIdx].toString() : '';
 
-    if (incDate !== today) continue;
+    // Catches today's referrals, same as before, but now also picks up
+    // anything from an earlier day that never got processed — a missed
+    // trigger run, or a referral backfilled with a past date. Only
+    // genuinely future-dated rows are excluded, since those shouldn't
+    // exist and sending a parent email for something that "hasn't
+    // happened yet" per its own date would be wrong regardless of cause.
+    if (incDate > today) continue;
     if (notified === 'Yes' || notified === 'N/A') continue;
 
     // Positive notes (Write Off, Saturday School, etc.) are never sent to
@@ -1623,7 +1630,7 @@ function sendDailyParentEmails() {
           'This is the daily behavior summary from ' + cfg.schoolName +
           ' for your student.\n\n' +
           'Student: ' + studentName + ' (Grade ' + grade + ')\n' +
-          'Date:    ' + today + '\n\n';
+          'Sent:    ' + today + '\n\n';
 
         var bodyRefs = refs.length === 1
           ? '── Referral Received ────────────────────\n'
@@ -1632,6 +1639,7 @@ function sendDailyParentEmails() {
         refs.forEach(function(ref, refIdx) {
           if (refs.length > 1) bodyRefs += '\nReferral ' + (refIdx + 1) + ':\n';
           bodyRefs +=
+            'Date:        ' + ref.incidentDate + '\n' +
             'Time:        ' + ref.incidentTime + '\n' +
             'Location:    ' + ref.location + '\n' +
             'Infraction:  ' + ref.infractionType + '\n' +
@@ -1666,6 +1674,23 @@ function sendDailyParentEmails() {
           } catch (contactErr) {
             errors.push('StudentID ' + studentId + ' (' + contact.email + '): ' + contactErr.message);
             Logger.log('Daily parent email error for ' + contact.email + ': ' + contactErr.message);
+            // A specific contact's send failing — visible in the Change
+            // Log rather than only in the Apps Script execution log,
+            // which no admin realistically checks day to day.
+            logChange_({
+              action:         'Notification Failed',
+              changedByName:  'Automated Daily Email',
+              changedByEmail: '',
+              referralId:     refs.map(function(r) { return r.id; }).join(', '),
+              studentId:      studentId,
+              studentName:    studentName,
+              infractionType: '',
+              pointValue:     '',
+              incidentDate:   today,
+              incidentTime:   '',
+              details: 'Email to ' + (contact.firstName || contact.lastName || 'contact') +
+                ' (' + contact.email + ') failed to send: ' + contactErr.message
+            });
           }
         });
 
@@ -1680,6 +1705,28 @@ function sendDailyParentEmails() {
         errors.push('StudentID ' + studentId + ': ' + err.message);
         Logger.log('Daily parent email error: ' + err.message);
       }
+    } else {
+      // No contact with an email on file at all — nothing was even
+      // attempted, which used to leave zero trace anywhere an admin
+      // would actually see. Logged once per student per day, not once
+      // per referral, matching how the digest email itself groups a
+      // student's referrals together rather than sending one per
+      // incident.
+      var skippedRefs = grouped[studentId];
+      logChange_({
+        action:         'Notification Failed',
+        changedByName:  'Automated Daily Email',
+        changedByEmail: '',
+        referralId:     skippedRefs.map(function(r) { return r.id; }).join(', '),
+        studentId:      studentId,
+        studentName:    skippedRefs[0].studentName,
+        infractionType: '',
+        pointValue:     '',
+        incidentDate:   today,
+        incidentTime:   '',
+        details: 'No contact with an email on file for this student — nothing sent. ' +
+          skippedRefs.length + ' referral' + (skippedRefs.length !== 1 ? 's' : '') + ' affected.'
+      });
     }
 
     if ((idx + 1) % BATCH_SIZE === 0 && idx + 1 < studentIds.length) {

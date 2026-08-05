@@ -781,6 +781,20 @@ function submitForm(copyMode) {
 function onSubmitOk(result) {
   document.getElementById('submit-btn').disabled      = false;
   document.getElementById('submit-copy-btn').disabled = false;
+
+  // The referral history panel always re-fetches from the server on
+  // student select, so it was never stale — but the point balance shown
+  // in search results/selection comes from this cached roster, loaded
+  // once at page bootstrap. Without this patch, submitting a second
+  // referral for the same student in one sitting (no page refresh)
+  // would still show their balance from before either referral.
+  if (result.updatedBalances) {
+    Object.keys(result.updatedBalances).forEach(function(sid) {
+      var student = state.allStudents.find(function(s) { return s.studentId === sid; });
+      if (student) student.currentPoints = result.updatedBalances[sid];
+    });
+  }
+
   if (result.errors && result.errors.length) {
     showErr('Saved ' + result.saved + ' referral(s) with errors:\n' + result.errors.join('\n'));
     state.lastIncident = null;
