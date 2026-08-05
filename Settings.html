@@ -803,9 +803,11 @@
           Optional 5th column: <strong>MiddleName</strong>.
           To also import a referral contact, add:
           <strong>ContactType, ContactFirstName, ContactLastName, ContactEmail</strong>
-          (columns 6–9) — Email is optional, but Type, First Name, and Last Name are required
-          if a contact is included at all. Contact Type must match one of the types configured
-          on the General tab (not case-sensitive).
+          (columns 6–9) — Type is always required, but name and email are each independently
+          optional as long as at least one is present: a contact can be a full name with no
+          email, an email with no name, or both together. A first name with no last name (or the
+          reverse) isn't allowed — enter both or leave both blank. Contact Type must match one of
+          the types configured on the General tab (not case-sensitive).
           <strong>A student with multiple contacts gets one row per contact</strong>, all sharing
           the same StudentID — only the first row for a given ID needs the student's name and
           grade filled in; every row after that for the same ID can leave those blank and just
@@ -2526,13 +2528,15 @@ function addSingleStudent() {
       lastName:  row.querySelector('.nc-last').value.trim(),
       email:     row.querySelector('.nc-email').value.trim()
     };
-    var anyFilled = !!(c.type || c.firstName || c.lastName || c.email);
-    var allFilled = !!(c.type && c.firstName && c.lastName && c.email);
-    if (allFilled) contacts.push(c);
+    var anyFilled      = !!(c.type || c.firstName || c.lastName || c.email);
+    var hasFullName    = !!(c.firstName && c.lastName);
+    var hasPartialName = !!((c.firstName && !c.lastName) || (!c.firstName && c.lastName));
+    var isValid         = !!c.type && !hasPartialName && (hasFullName || !!c.email);
+    if (isValid) contacts.push(c);
     else if (anyFilled) rowError = true;
   });
   if (rowError) {
-    setMsg('add-student', 'Each contact needs type, first name, last name, and email — or leave that row entirely blank to skip it.', 'err');
+    setMsg('add-student', 'Each contact needs a type plus either a full name or an email (or both) — or leave that row entirely blank to skip it.', 'err');
     return;
   }
 
