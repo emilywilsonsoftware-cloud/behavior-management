@@ -1596,8 +1596,14 @@ function submitContactForm() {
   var email = document.getElementById('ce-email').value.trim();
 
   if (!type)  { setCeMsg('Select a type.', 'err'); return; }
-  if (!first || !last || !email) {
-    setCeMsg('First name, last name, and email are required.', 'err');
+  var hasFullName    = first && last;
+  var hasPartialName = (first && !last) || (!first && last);
+  if (hasPartialName) {
+    setCeMsg('Enter both a first and last name, or leave both blank.', 'err');
+    return;
+  }
+  if (!hasFullName && !email) {
+    setCeMsg('At least a name or an email is required.', 'err');
     return;
   }
 

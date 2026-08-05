@@ -409,6 +409,21 @@ function formatTimeStr(val) {
   return str;
 }
 
+// Converts a 24-hour "HH:MM" string (formatTimeStr()'s output) to
+// 12-hour with AM/PM — for contexts meant for a human to read, like
+// the daily parent email. formatTimeStr() itself stays 24-hour on
+// purpose, since that format is what sorting/comparisons elsewhere in
+// the app rely on; this is a separate, display-only conversion applied
+// only where something is actually being shown to a person.
+function formatTime12h(timeStr) {
+  var m = /^(\d{1,2}):(\d{2})/.exec(timeStr || '');
+  if (!m) return timeStr || '';
+  var h = parseInt(m[1], 10);
+  var period = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + m[2] + ' ' + period;
+}
+
 function formatDate(d) {
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
 }
@@ -1477,7 +1492,7 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       'Your referral has been saved.\n\n' +
       'Referral #:      ' + referralId + '\n' +
       'Student:         ' + referral.studentName + ' (Grade ' + referral.grade + ')\n' +
-      'Date:            ' + referral.incidentDate + ' at ' + referral.incidentTime + '\n' +
+      'Date:            ' + referral.incidentDate + ' at ' + formatTime12h(referral.incidentTime) + '\n' +
       'Location:        ' + referral.location + '\n' +
       'Infraction:      ' + referral.infractionType + '\n\n' +
       ptLine + '\n' +
@@ -1640,7 +1655,7 @@ function sendDailyParentEmails() {
           if (refs.length > 1) bodyRefs += '\nReferral ' + (refIdx + 1) + ':\n';
           bodyRefs +=
             'Date:        ' + ref.incidentDate + '\n' +
-            'Time:        ' + ref.incidentTime + '\n' +
+            'Time:        ' + formatTime12h(ref.incidentTime) + '\n' +
             'Location:    ' + ref.location + '\n' +
             'Infraction:  ' + ref.infractionType + '\n' +
             'Teacher:     ' + ref.teacherName + '\n' +
@@ -1664,11 +1679,10 @@ function sendDailyParentEmails() {
         // to get a duplicate on a retry. ParentNotified only stays
         // unmarked (so the whole thing retries tomorrow) if NONE of a
         // student's contacts could be reached at all.
+        var body = bodyIntro + bodyRefs + bodyClose;
         var anySucceeded = false;
         studentContacts.forEach(function(contact) {
           try {
-            var salutation = contact.firstName || displayName(contact.firstName, contact.lastName) || 'there';
-            var body = 'Dear ' + salutation + ',\n\n' + bodyIntro + bodyRefs + bodyClose;
             GmailApp.sendEmail(contact.email, subject, body);
             anySucceeded = true;
           } catch (contactErr) {
@@ -3549,6 +3563,19 @@ function importStudents(rows) {
     return { success: false, error: 'No rows provided.' };
   }
 
+  // Prevents two overlapping imports (a double-click, a retry after a
+  // slow response that looked like nothing happened) from both reading
+  // the same starting snapshot of existing students and each adding a
+  // full duplicate set — the exact failure mode a large, un-batched
+  // import used to be especially exposed to, since the slower the
+  // writes, the wider the window for a second run to overlap with it.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return { success: false, error: 'The system is busy processing another change — please try again in a moment.' };
+  }
+
   try {
     var ss      = SpreadsheetApp.getActiveSpreadsheet();
     var sheet   = ss.getSheetByName(SHEET_STUDENTS);
@@ -3569,6 +3596,14 @@ function importStudents(rows) {
     var skipped  = 0;
     var errors   = [];
     var seenInImport = {};
+
+    // New student rows are collected here and written in one bulk call
+    // at the end, rather than one appendRow() per student — a
+    // school-year import can easily mean 500+ new students, and one
+    // API call per row is both slow (minutes, not seconds, for a large
+    // roster) and widens the window described above for a duplicate
+    // run to collide with an in-progress one.
+    var newStudentRows = [];
 
     // Contact rows are collected here and written in one bulk call at
     // the end, rather than one appendRow() per contact — the same
@@ -3602,8 +3637,18 @@ function importStudents(rows) {
       email = sanitizeText(email || '').toLowerCase();
       if (!type && !first && !last && !email) return; // no contact on this row at all
 
-      if (!type || !first || !last) {
-        errors.push('Row ' + rowNum + ': contact is missing type, first name, or last name — contact skipped.');
+      if (!type) {
+        errors.push('Row ' + rowNum + ': contact is missing a type — contact skipped.');
+        return;
+      }
+      var hasFullName    = first && last;
+      var hasPartialName = (first && !last) || (!first && last);
+      if (hasPartialName) {
+        errors.push('Row ' + rowNum + ': contact has only a first or last name, not both — contact skipped.');
+        return;
+      }
+      if (!hasFullName && !email) {
+        errors.push('Row ' + rowNum + ': contact needs at least a name or an email — contact skipped.');
         return;
       }
       var matchedType = matchContactType(type);
@@ -3646,7 +3691,7 @@ function importStudents(rows) {
             continue;
           }
 
-          sheet.appendRow([id, first, last, middle, grade, cfg.termPoints, now]);
+          newStudentRows.push([id, first, last, middle, grade, cfg.termPoints, now]);
           existingIds[id]  = true;
           seenInImport[id] = true;
           added++;
@@ -3664,6 +3709,11 @@ function importStudents(rows) {
       }
     }
 
+    if (newStudentRows.length > 0) {
+      var stuLastRow = sheet.getLastRow();
+      sheet.getRange(stuLastRow + 1, 1, newStudentRows.length, 7).setValues(newStudentRows);
+    }
+
     if (newContactRows.length > 0) {
       var pcLastRow = pcSheet.getLastRow();
       pcSheet.getRange(pcLastRow + 1, 1, newContactRows.length, 6).setValues(newContactRows);
@@ -3674,6 +3724,8 @@ function importStudents(rows) {
 
   } catch (e) {
     return { success: false, error: e.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -3810,14 +3862,18 @@ function getStudentContacts(studentId) {
       if (pData[i][PARENT_COL_STUDENT_ID].toString().trim() === id) {
         var first = pData[i][PARENT_COL_FIRST] ? pData[i][PARENT_COL_FIRST].toString().trim() : '';
         var last  = pData[i][PARENT_COL_LAST]  ? pData[i][PARENT_COL_LAST].toString().trim()  : '';
+        var email = pData[i][PARENT_COL_EMAIL] ? pData[i][PARENT_COL_EMAIL].toString().trim() : '';
         contacts.push({
           rowIndex:  i + 1, // 1-based sheet row, used by saveContact/deleteContact
           guid:      pData[i][PARENT_COL_GUID]  ? pData[i][PARENT_COL_GUID].toString().trim()  : '',
           type:      pData[i][PARENT_COL_TYPE]  ? pData[i][PARENT_COL_TYPE].toString().trim()  : '',
           firstName: first,
           lastName:  last,
-          name:      displayName(first, last),
-          email:     pData[i][PARENT_COL_EMAIL] ? pData[i][PARENT_COL_EMAIL].toString().trim() : ''
+          // A neutral placeholder rather than falling back to the email
+          // itself — the email already gets its own line right below
+          // this one, so reusing it here would just show it twice.
+          name:      displayName(first, last) || '(No name on file)',
+          email:     email
         });
       }
     }
@@ -3900,9 +3956,14 @@ function saveContact(studentId, contact, updateSiblingIds) {
   if (contactTypes.indexOf(type) < 0) {
     return { success: false, error: 'Type must be one of: ' + contactTypes.join(', ') + '.' };
   }
-  if (!first) return { success: false, error: 'First name is required.' };
-  if (!last)  return { success: false, error: 'Last name is required.' };
-  if (!email) return { success: false, error: 'Email is required.' };
+  var hasFullName    = first && last;
+  var hasPartialName = (first && !last) || (!first && last);
+  if (hasPartialName) {
+    return { success: false, error: 'Enter both a first and last name, or leave both blank.' };
+  }
+  if (!hasFullName && !email) {
+    return { success: false, error: 'At least a name or an email is required.' };
+  }
 
   try {
     var ss    = SpreadsheetApp.getActiveSpreadsheet();
