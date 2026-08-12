@@ -513,11 +513,14 @@
 
       <div class="card" id="card-email">
         <div class="section-title">Email Notifications</div>
-        <p class="section-desc">Controls parent and teacher email behaviour independently.</p>
+        <p class="section-desc">Controls parent and teacher email behaviour independently. These
+          toggles apply only to the <strong>automated</strong> email path (sent via Gmail). If
+          automated delivery isn't working in your environment, referrals can still be sent to
+          parents manually — see the "Parent Notifications" panel on the Report page.</p>
         <div class="toggle-row">
           <div>
-            <div class="toggle-label">Parent Email Notifications</div>
-            <div class="toggle-sub">Turn off to suppress the daily end-of-day parent email digest.</div>
+            <div class="toggle-label">Automated Parent Email Notifications (via Gmail)</div>
+            <div class="toggle-sub">Turn off to suppress the daily end-of-day parent email digest. Turning this off does not affect manual sending from the Report page.</div>
           </div>
           <label class="toggle">
             <input type="checkbox" id="cfg-emailEnabled">
@@ -526,7 +529,7 @@
         </div>
         <div class="toggle-row" style="margin-top:10px;">
           <div>
-            <div class="toggle-label">Teacher Email Notifications</div>
+            <div class="toggle-label">Automated Teacher Email Notifications (via Gmail)</div>
             <div class="toggle-sub">Turn off to suppress the immediate confirmation email sent to whoever submits a referral.</div>
           </div>
           <label class="toggle">
@@ -535,7 +538,7 @@
           </label>
         </div>
         <div class="form-row" style="margin-top:14px;">
-          <label>Daily Parent Email Send Time</label>
+          <label>Daily Automated Parent Email Send Time</label>
           <div class="time-picker-row">
             <select id="cfg-emailHour"></select>
             <span class="time-sep">:</span>
@@ -548,6 +551,7 @@
         </div>
         <div class="form-row">
           <label>Email Footer Text</label>
+          <div class="toggle-sub" style="margin-bottom:4px;">Used in both automated and manually-sent (mail-merge) parent notifications.</div>
           <textarea id="cfg-emailFooter" rows="3"></textarea>
         </div>
         <div class="save-row" data-dirty-key="email">
@@ -1059,8 +1063,8 @@ var SETTINGS_SEARCH_INDEX = [
   { label: 'Term Start Points',              tab: 'general',        target: 'card-school' },
   { label: 'Positive Points Cap',                tab: 'general',        target: 'card-school' },
   { label: 'Email Notifications',                tab: 'general',        target: 'card-email' },
-  { label: 'Parent Email Notifications',         tab: 'general',        target: 'card-email' },
-  { label: 'Teacher Email Notifications',        tab: 'general',        target: 'card-email' },
+  { label: 'Automated Parent Email Notifications', tab: 'general',      target: 'card-email' },
+  { label: 'Automated Teacher Email Notifications', tab: 'general',     target: 'card-email' },
   { label: 'Daily Parent Email Send Time',       tab: 'general',        target: 'card-email' },
   { label: 'Email Footer Text',                  tab: 'general',        target: 'card-email' },
   { label: 'Locations',                          tab: 'general',        target: 'card-locations' },

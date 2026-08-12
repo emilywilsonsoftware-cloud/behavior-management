@@ -95,6 +95,7 @@
 
     .pts-neg { color:#dc2626; font-weight:700; }
     .pts-pos { color:#166534; font-weight:700; }
+    .pts-zer { color:#6b7280; font-weight:700; text-align:center; }
 
     .bal-pill { display:inline-block; padding:2px 7px; border-radius:11px; font-size:0.78rem; font-weight:700; }
     .btn-sm { padding: 4px 10px; font-size: 0.76rem; }
@@ -254,6 +255,8 @@
       <div style="flex:1;"></div>
       <button class="btn btn-outline" id="btn-view-change-log" style="display:none;"
               onclick="openChangeLogPanel()">View Change Log</button>
+      <button class="btn btn-outline" id="btn-parent-notifs" style="display:none;"
+              onclick="openNotifPanel()">Parent Notifications</button>
       <button class="btn btn-green" id="btn-export-csv" onclick="exportCsv()">Export CSV</button>
     </div>
   </div>
@@ -301,6 +304,29 @@
     Every referral that's been modified or deleted — who modified/deleted it, when, and why.
   </div>
   <div id="change-log-content"></div>
+</div>
+
+<div class="overlay" id="notif-overlay" onclick="closeNotifPanel()"></div>
+<div class="detail-panel" id="notif-panel">
+  <button class="d-close" onclick="closeNotifPanel()">×</button>
+  <div class="d-title">Parent Notifications</div>
+  <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:14px;">
+    Referrals pending a parent notification. Downloading the CSV immediately marks everything
+    below as notified — it's treated as the actual send, since delivery then happens outside
+    the app (Word Mail Merge). If a send is later known to have failed, reopen that referral's
+    detail panel from the Report table and set Parent Notification back to "Not Notified" to
+    have it picked up again next time.
+  </div>
+
+  <div id="notif-mode-banner" style="font-size:0.8rem;padding:9px 12px;border-radius:6px;margin-bottom:12px;"></div>
+
+  <div id="notif-summary" style="font-size:0.82rem;color:#6b7280;margin-bottom:10px;"></div>
+
+  <button class="btn btn-green" id="btn-notif-download" onclick="downloadNotifCsv()" style="width:100%;margin-bottom:14px;">
+    Download CSV &amp; Mark as Notified
+  </button>
+
+  <div id="notif-list"></div>
 </div>
 
 <script>
@@ -451,7 +477,10 @@ function onFirstPageLoaded(data) {
   showLoading(false);
   if (typeof updateNavUser === 'function') updateNavUser(data.user);
   isAdmin = !!(data.user && data.user.role === 'admin');
-  if (isAdmin) document.getElementById('btn-view-change-log').style.display = '';
+  if (isAdmin) {
+    document.getElementById('btn-view-change-log').style.display = '';
+    document.getElementById('btn-parent-notifs').style.display = '';
+  }
 
   // Teacher filter is admin-only, per request — non-admin staff still
   // see every referral in the report, just without the ability to
@@ -545,11 +574,18 @@ function setControlsEnabled(enabled) {
 // happens to contain an "a" somewhere in the middle (e.g. "Frank").
 function matchesWordStart(text, query) {
   if (!query) return true;
-  var words = (text || '').toLowerCase().split(/\s+/);
-  for (var i = 0; i < words.length; i++) {
-    if (words[i].indexOf(query) === 0) return true;
-  }
-  return false;
+  var nameWords = (text || '').toLowerCase().split(/\s+/);
+  // Split the TYPED query into words too — the previous version only
+  // ever checked whether the whole typed string was a prefix of a
+  // single name word, so "John" matched but "John Smith" never could,
+  // regardless of how the name is stored. Requiring each typed word to
+  // independently prefix-match some word in the name fixes full-name
+  // search and works regardless of word order or "Last, First" vs
+  // "First Last" storage.
+  var queryWords = query.trim().split(/\s+/);
+  return queryWords.every(function(qw) {
+    return nameWords.some(function(nw) { return nw.indexOf(qw) === 0; });
+  });
 }
 
 // ── Student search dropdown (mirrors the referral form's student picker,
@@ -691,7 +727,7 @@ function renderTable() {
     var idx      = startIdx + localIdx; // global index into filteredRows — openDetail() depends on this
     var pts      = parseFloat(row['PointValue'])||0;
     var ptsStr   = pts > 0 ? '+'+pts : pts.toString();
-    var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : '';
+    var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : 'pts-zer';
     var balance  = parseInt(row['CurrentPoints'])||0;
     var bPct     = semPts > 0 ? Math.round(balance/semPts*100) : 0;
     var bColor   = row['CurrentPointsColor'] || getPointColor(bPct, pointTiers);
@@ -768,7 +804,7 @@ function openDetail(idx) {
 function renderDetailView(row) {
   var pts    = parseFloat(row['PointValue'])||0;
   var ptsStr = pts > 0 ? '+'+pts : pts.toString();
-  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
+  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : 'color:#6b7280';
 
   var fields = [
     ['Student',     (row['StudentName']||'')+' (Grade '+(row['Grade']||'')+')'],
@@ -781,7 +817,6 @@ function renderDetailView(row) {
                     (row['PointsBeforeReferral']||0)+' → '+(row['PointsAfterReferral']||0)+')'],
     ['Balance',     '<strong>'+(row['CurrentPoints']||0)+' pts</strong>'],
     ['Teacher',     row['TeacherName']||''],
-    ['Parent Notif.',row['ParentNotified']||''],
     ['Teacher Notif.',row['TeacherNotified']||'']
   ];
 
@@ -789,6 +824,19 @@ function renderDetailView(row) {
     return '<div class="d-row"><div class="d-label">'+esc(f[0])+'</div>' +
            '<div class="d-val">'+f[1]+'</div></div>';
   }).join('');
+
+  // Parent Notif. gets its own row, separate from the plain fields above,
+  // since admins can override it (positive notes are always 'N/A' and
+  // aren't editable — there's nothing to notify a parent about).
+  var pn = (row['ParentNotified']||'').toString();
+  html = '<div class="d-row"><div class="d-label">Parent Notif.</div><div class="d-val">' +
+    (isAdmin && (pn === 'Yes' || pn === 'No')
+      ? '<select id="d-parent-notified" onchange="saveParentNotified(\''+esc(row['ID'])+'\', this.value)" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;">' +
+          '<option value="Yes"'+(pn==='Yes'?' selected':'')+'>Yes</option>' +
+          '<option value="No"'+(pn==='No'?' selected':'')+'>No</option>' +
+        '</select> <span id="d-parent-notified-msg" style="font-size:0.74rem;margin-left:6px;"></span>'
+      : esc(pn)) +
+    '</div></div>' + html;
 
   if (row['Description']) {
     var inEmail = (row['IncludeDescriptionInEmail']||'').toString().toLowerCase() === 'yes';
@@ -984,7 +1032,7 @@ function loadChangeLog() {
       wrap.innerHTML = r.rows.map(function(row) {
         var pts    = row.pointValue || 0;
         var ptsStr = pts > 0 ? '+'+pts : pts.toString();
-        var ptsCls = pts < 0 ? 'color:#dc2626' : 'color:#166534';
+        var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : 'color:#6b7280';
         var incident = formatDateMDY(row.incidentDate) +
           (row.incidentTime ? ' at ' + formatTime12h(row.incidentTime) : '');
         var isDeleted = row.action !== 'Edited';
@@ -1013,6 +1061,192 @@ function loadChangeLog() {
       wrap.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load the change log: ' + esc(err.message || err) + '</div>';
     })
     .getChangeLog();
+}
+
+// ── Parent Notifications (manual mail-merge fallback) ─────────────
+// Export IS the send confirmation here — downloading the CSV
+// immediately marks every listed referral as notified. There's no
+// selection UI because there's nothing left to select: every pending
+// referral goes into the export, every time. The counterpart is the
+// "Not Notified" override in the referral detail panel (see
+// renderDetailView() / setParentNotified()) for the rare case a send
+// is known to have failed and needs to reappear here.
+var pendingNotifs = []; // raw list from server
+
+function openNotifPanel() {
+  document.getElementById('notif-overlay').classList.add('open');
+  document.getElementById('notif-panel').classList.add('open');
+  loadEmailModeStatus();
+  loadPendingNotifications(); // always refresh — this list changes as referrals come in
+}
+
+function loadEmailModeStatus() {
+  var banner = document.getElementById('notif-mode-banner');
+  banner.textContent = '';
+  google.script.run
+    .withSuccessHandler(function(status) {
+      if (status && status.automatedEnabled) {
+        banner.style.background = '#fef3c7';
+        banner.style.color = '#92400e';
+        banner.innerHTML = '⚠️ <strong>Automated Parent Emails are still enabled in Settings.</strong> ' +
+          'If that trigger runs, it will mark referrals as notified even though delivery is broken — ' +
+          'hiding them from this list without actually sending anything. Turn it off in Settings while using manual sending.';
+      } else {
+        banner.style.background = '#dcfce7';
+        banner.style.color = '#166534';
+        banner.innerHTML = '✓ Automated Parent Emails are disabled in Settings — you\'re safely in manual sending mode.';
+      }
+    })
+    .withFailureHandler(function() {
+      banner.style.background = '#f1f5f9';
+      banner.style.color = '#64748b';
+      banner.textContent = 'Couldn\'t check automated-email status.';
+    })
+    .getEmailModeStatus();
+}
+
+function closeNotifPanel() {
+  document.getElementById('notif-overlay').classList.remove('open');
+  document.getElementById('notif-panel').classList.remove('open');
+}
+
+function loadPendingNotifications() {
+  var list = document.getElementById('notif-list');
+  list.innerHTML = '<div class="empty-msg">Loading...</div>';
+  document.getElementById('notif-summary').textContent = '';
+  document.getElementById('btn-notif-download').disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      pendingNotifs = rows || [];
+      document.getElementById('btn-notif-download').disabled = pendingNotifs.length === 0;
+      renderNotifList();
+    })
+    .withFailureHandler(function(err) {
+      list.innerHTML = '<div class="empty-msg" style="color:#dc2626;">Couldn\'t load pending notifications: ' + esc(err.message || err) + '</div>';
+    })
+    .getPendingParentNotifications();
+}
+
+function renderNotifList() {
+  var list = document.getElementById('notif-list');
+  document.getElementById('notif-summary').textContent =
+    pendingNotifs.length + ' pending notification' + (pendingNotifs.length !== 1 ? 's' : '');
+
+  if (pendingNotifs.length === 0) {
+    list.innerHTML = '<div class="empty-msg">Nothing pending — all caught up.</div>';
+    return;
+  }
+
+  list.innerHTML = pendingNotifs.map(function(n) {
+    return '<div class="d-row" style="align-items:flex-start;border-bottom:1px solid #f1f5f9;padding-bottom:8px;margin-bottom:8px;">' +
+      '<div style="flex:1;">' +
+        '<div style="font-weight:600;font-size:0.86rem;">' + esc(n.studentDisplay) + '</div>' +
+        '<div style="font-size:0.78rem;color:#6b7280;">' + esc(n.parentEmail) + '</div>' +
+        '<div style="font-size:0.76rem;color:#94a3b8;margin-top:2px;">' + n.referralIds.length + ' referral' + (n.referralIds.length !== 1 ? 's' : '') + ' — ' + esc(n.subject) + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Builds a CSV suitable for a Word Mail Merge to Email (or similar tool).
+// Multi-referral bodies now use real embedded newlines (see
+// buildNotificationBody_() in ParentNotifications.gs) rather than a
+// " | " join — Word/Outlook generally preserve those as line breaks
+// when merging to email. Confirm via Mailings > Preview Results.
+//
+// Downloading immediately marks everything just exported as notified —
+// see the note at the top of this section for why. IMPORTANT ORDERING:
+// the mark-as-notified call happens FIRST and must succeed before the
+// download is triggered — not the reverse. A data-URI download can
+// disrupt the page (some browsers/iframe contexts navigate or otherwise
+// interrupt JS execution around it) before an async google.script.run
+// call that was fired afterward gets a chance to complete, silently
+// dropping the write with no error ever shown. Marking first and
+// waiting for confirmation avoids that risk entirely.
+function downloadNotifCsv() {
+  if (!pendingNotifs.length) { showToast('Nothing to export.', true); return; }
+
+  var referralIds = [];
+  pendingNotifs.forEach(function(n) { referralIds = referralIds.concat(n.referralIds); });
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result || !result.success) {
+        showToast('Could not mark referrals as notified — CSV NOT downloaded, nothing was sent. ' +
+          (result && result.error || 'Unknown error'), true);
+        return;
+      }
+
+      // Only build and trigger the download once the sheet write is
+      // confirmed done.
+      var todayIso = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      var todayStr = formatDateMDY(todayIso);                // MM-DD-YYYY, matches the rest of the app
+      var cols = ['Date', 'ParentName', 'ParentEmail', 'StudentDisplay', 'Subject', 'Body', 'ReferralIDs'];
+      var csv = cols.join(',') + '\n' + pendingNotifs.map(function(n) {
+        return cols.map(function(c) {
+          if (c === 'Date') return '"' + todayStr + '"';
+          if (c === 'ReferralIDs') return '"' + n.referralIds.join(';') + '"';
+          var key = c.charAt(0).toLowerCase() + c.slice(1);
+          var v = n[key] !== undefined ? n[key].toString() : '';
+          return '"' + v.replace(/"/g, '""') + '"';
+        }).join(',');
+      }).join('\n');
+      var a = document.createElement('a');
+      // Leading \uFEFF is a UTF-8 byte-order mark — without it, Excel's
+      // Workbooks.Open (what the VBA macro uses) tends to guess the
+      // system ANSI codepage instead of UTF-8, garbling any non-ASCII
+      // character it encounters: curly apostrophes from autocorrect
+      // (O'Brien -> O'Brien), accented names, etc. The BOM tells Excel
+      // definitively "this file is UTF-8," fixing that regardless of
+      // which non-ASCII characters end up in the data.
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
+      // Date-stamped filename — the SendParentNotifications VBA macro
+      // prompts to browse for the file each run (Application.GetOpenFilename),
+      // so there's no need for a fixed path a saved template auto-reconnects
+      // to. Date-stamping instead avoids overwrite confusion and gives a
+      // natural per-day history of what was exported.
+      a.download = 'parent_notifications_' + new Date().toISOString().split('T')[0] + '.csv';
+      a.click();
+
+      showToast(result.updated + ' referral' + (result.updated !== 1 ? 's' : '') + ' marked as notified. CSV downloaded.');
+      loadPendingNotifications(); // refresh — list should now be empty
+    })
+    .withFailureHandler(function(err) {
+      showToast('Could not mark referrals as notified — CSV NOT downloaded, nothing was sent: ' +
+        (err.message || err), true);
+    })
+    .markReferralsNotified(referralIds);
+}
+
+// ── Parent Notification override (admin) ─────────────────────────
+// Escape hatch for the mark-on-export design: if a mail-merge send is
+// later found to have failed (or was sent by mistake), flip this back
+// to "No" so it reappears in the Parent Notifications panel next time.
+function saveParentNotified(referralId, newValue) {
+  var msg = document.getElementById('d-parent-notified-msg');
+  msg.textContent = 'Saving...'; msg.style.color = '#6b7280';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (!result || !result.success) {
+        msg.textContent = 'Error: ' + (result && result.error || 'Unknown');
+        msg.style.color = '#dc2626';
+        return;
+      }
+      msg.textContent = '✓ Saved';
+      msg.style.color = '#166534';
+      // Keep the in-memory row + table in sync so re-opening this
+      // referral (or re-sorting the table) doesn't show a stale value.
+      var row = filteredRows[detailIdx];
+      if (row) row['ParentNotified'] = newValue;
+      showToast('Parent Notification set to "' + newValue + '".');
+    })
+    .withFailureHandler(function(err) {
+      msg.textContent = 'Error: ' + (err.message || err);
+      msg.style.color = '#dc2626';
+    })
+    .setParentNotifiedStatus(referralId, newValue);
 }
 
 function saveDetail() {
@@ -1103,7 +1337,12 @@ function exportCsv() {
     }).join(',');
   }).join('\n');
   var a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  // Leading \uFEFF is a UTF-8 byte-order mark — without it, Excel tends
+  // to guess the system ANSI codepage instead of UTF-8 when opening a
+  // .csv directly, garbling any non-ASCII character it encounters
+  // (curly apostrophes from autocorrect, accented names, etc.). Same
+  // fix as the Parent Notifications export.
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
   a.download = 'referrals_' + new Date().toISOString().split('T')[0] + '.csv';
   a.click();
 }
