@@ -398,11 +398,18 @@ function onBootstrap(data) {
 // happens to contain an "a" somewhere in the middle (e.g. "Frank").
 function matchesWordStart(text, query) {
   if (!query) return true;
-  var words = (text || '').toLowerCase().split(/\s+/);
-  for (var i = 0; i < words.length; i++) {
-    if (words[i].indexOf(query) === 0) return true;
-  }
-  return false;
+  var nameWords = (text || '').toLowerCase().split(/\s+/);
+  // Split the TYPED query into words too — the previous version only
+  // ever checked whether the whole typed string was a prefix of a
+  // single name word, so "John" matched but "John Smith" never could,
+  // regardless of how the name is stored. Requiring each typed word to
+  // independently prefix-match some word in the name fixes full-name
+  // search and works regardless of word order or "Last, First" vs
+  // "First Last" storage.
+  var queryWords = query.trim().split(/\s+/);
+  return queryWords.every(function(qw) {
+    return nameWords.some(function(nw) { return nw.indexOf(qw) === 0; });
+  });
 }
 
 function searchPosStudents(query) {

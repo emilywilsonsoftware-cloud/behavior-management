@@ -573,11 +573,18 @@ function setControlsEnabled(enabled) {
 // happens to contain an "a" somewhere in the middle (e.g. "Frank").
 function matchesWordStart(text, query) {
   if (!query) return true;
-  var words = (text || '').toLowerCase().split(/\s+/);
-  for (var i = 0; i < words.length; i++) {
-    if (words[i].indexOf(query) === 0) return true;
-  }
-  return false;
+  var nameWords = (text || '').toLowerCase().split(/\s+/);
+  // Split the TYPED query into words too — the previous version only
+  // ever checked whether the whole typed string was a prefix of a
+  // single name word, so "John" matched but "John Smith" never could,
+  // regardless of how the name is stored. Requiring each typed word to
+  // independently prefix-match some word in the name fixes full-name
+  // search and works regardless of word order or "Last, First" vs
+  // "First Last" storage.
+  var queryWords = query.trim().split(/\s+/);
+  return queryWords.every(function(qw) {
+    return nameWords.some(function(nw) { return nw.indexOf(qw) === 0; });
+  });
 }
 
 // ── Student search dropdown (mirrors the referral form's student picker,
@@ -1185,16 +1192,20 @@ function downloadNotifCsv() {
         }).join(',');
       }).join('\n');
       var a = document.createElement('a');
-      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-      // Fixed filename (no date) on purpose — so a saved Word mail-merge
-      // template pointed at this file can auto-refresh its data source
-      // each day (Word prompts "retrieve the latest data?" on open)
-      // instead of needing recipients re-selected every time. The
-      // browser will still append " (1)", " (2)", etc. if a previous
-      // download with this name wasn't overwritten/moved — the person
-      // running the merge should save over (not alongside) the same
-      // file/location each day.
-      a.download = 'parent_notifications.csv';
+      // Leading \uFEFF is a UTF-8 byte-order mark — without it, Excel's
+      // Workbooks.Open (what the VBA macro uses) tends to guess the
+      // system ANSI codepage instead of UTF-8, garbling any non-ASCII
+      // character it encounters: curly apostrophes from autocorrect
+      // (O'Brien -> O'Brien), accented names, etc. The BOM tells Excel
+      // definitively "this file is UTF-8," fixing that regardless of
+      // which non-ASCII characters end up in the data.
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
+      // Date-stamped filename — the SendParentNotifications VBA macro
+      // prompts to browse for the file each run (Application.GetOpenFilename),
+      // so there's no need for a fixed path a saved template auto-reconnects
+      // to. Date-stamping instead avoids overwrite confusion and gives a
+      // natural per-day history of what was exported.
+      a.download = 'parent_notifications_' + new Date().toISOString().split('T')[0] + '.csv';
       a.click();
 
       showToast(result.updated + ' referral' + (result.updated !== 1 ? 's' : '') + ' marked as notified. CSV downloaded.');
@@ -1325,7 +1336,12 @@ function exportCsv() {
     }).join(',');
   }).join('\n');
   var a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  // Leading \uFEFF is a UTF-8 byte-order mark — without it, Excel tends
+  // to guess the system ANSI codepage instead of UTF-8 when opening a
+  // .csv directly, garbling any non-ASCII character it encounters
+  // (curly apostrophes from autocorrect, accented names, etc.). Same
+  // fix as the Parent Notifications export.
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
   a.download = 'referrals_' + new Date().toISOString().split('T')[0] + '.csv';
   a.click();
 }

@@ -58,6 +58,7 @@ function getPendingParentNotifications() {
   var infIdx   = REFERRAL_HEADERS.indexOf('InfractionType');
   var ptIdx    = REFERRAL_HEADERS.indexOf('PointValue');
   var afIdx    = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
+  var bfIdx    = REFERRAL_HEADERS.indexOf('PointsBeforeReferral');
   var tchIdx   = REFERRAL_HEADERS.indexOf('TeacherName');
   var descIdx  = REFERRAL_HEADERS.indexOf('Description');
   var incEmIdx = REFERRAL_HEADERS.indexOf('IncludeDescriptionInEmail');
@@ -115,6 +116,7 @@ function getPendingParentNotifications() {
       infractionType: row[infIdx] ? row[infIdx].toString() : '',
       pointValue:     pts,
       pointsAfter:    row[afIdx] !== undefined ? row[afIdx] : '',
+      pointsBefore:   row[bfIdx] !== undefined ? row[bfIdx] : '',
       teacherName:    row[tchIdx] ? row[tchIdx].toString() : '',
       description:    includeDesc && row[descIdx] ? row[descIdx].toString() : ''
     });
@@ -174,12 +176,12 @@ function buildNotificationBody_(cfg, displayNameForParent, grade, refs) {
   refs.forEach(function(ref, idx) {
     var ptsStr = ref.pointValue > 0 ? '+' + ref.pointValue : ref.pointValue.toString();
     lines.push('Referral ' + (idx + 1) + ':');
-    lines.push(padLabel_('Date:') + ref.incidentDate);
+    lines.push(padLabel_('Date:') + toMDY_(ref.incidentDate));
     lines.push(padLabel_('Time:') + ref.incidentTime);
     lines.push(padLabel_('Location:') + ref.location);
     lines.push(padLabel_('Infraction:') + ref.infractionType);
     lines.push(padLabel_('Teacher:') + ref.teacherName);
-    lines.push(padLabel_('Points:') + ptsStr + '  (Balance: ' + ref.pointsAfter + ' pts)');
+    lines.push(padLabel_('Points:') + ptsStr + '  (' + ref.pointsBefore + ' -> ' + ref.pointsAfter + ' pts)');
     if (ref.description) lines.push(padLabel_('Notes:') + ref.description);
     lines.push('');
     lines.push('');
@@ -202,6 +204,16 @@ function buildNotificationBody_(cfg, displayNameForParent, grade, refs) {
   // worth a quick visual check via Mailings > Preview Results, or a
   // test send to yourself, since exact rendering varies by client.
   return lines.join('\n');
+}
+
+// Converts the stored YYYY-MM-DD incident date (kept in that format
+// because it's what makes the "> today" comparison in
+// getPendingParentNotifications() sort correctly as a plain string) into
+// MM-DD-YYYY for display — mirrors formatDateMDY() in Report.html.
+function toMDY_(isoDate) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate || '');
+  if (!m) return isoDate || '';
+  return m[2] + '-' + m[3] + '-' + m[1];
 }
 
 // Pads a field label (e.g. "Date:") to a fixed column width so the
