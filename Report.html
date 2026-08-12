@@ -95,6 +95,7 @@
 
     .pts-neg { color:#dc2626; font-weight:700; }
     .pts-pos { color:#166534; font-weight:700; }
+    .pts-zer { color:#6b7280; font-weight:700; text-align:center; }
 
     .bal-pill { display:inline-block; padding:2px 7px; border-radius:11px; font-size:0.78rem; font-weight:700; }
     .btn-sm { padding: 4px 10px; font-size: 0.76rem; }
@@ -726,7 +727,7 @@ function renderTable() {
     var idx      = startIdx + localIdx; // global index into filteredRows — openDetail() depends on this
     var pts      = parseFloat(row['PointValue'])||0;
     var ptsStr   = pts > 0 ? '+'+pts : pts.toString();
-    var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : '';
+    var ptsCls   = pts < 0 ? 'pts-neg' : pts > 0 ? 'pts-pos' : 'pts-zer';
     var balance  = parseInt(row['CurrentPoints'])||0;
     var bPct     = semPts > 0 ? Math.round(balance/semPts*100) : 0;
     var bColor   = row['CurrentPointsColor'] || getPointColor(bPct, pointTiers);
@@ -803,7 +804,7 @@ function openDetail(idx) {
 function renderDetailView(row) {
   var pts    = parseFloat(row['PointValue'])||0;
   var ptsStr = pts > 0 ? '+'+pts : pts.toString();
-  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : '';
+  var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : 'color:#6b7280';
 
   var fields = [
     ['Student',     (row['StudentName']||'')+' (Grade '+(row['Grade']||'')+')'],
@@ -1031,7 +1032,7 @@ function loadChangeLog() {
       wrap.innerHTML = r.rows.map(function(row) {
         var pts    = row.pointValue || 0;
         var ptsStr = pts > 0 ? '+'+pts : pts.toString();
-        var ptsCls = pts < 0 ? 'color:#dc2626' : 'color:#166534';
+        var ptsCls = pts < 0 ? 'color:#dc2626' : pts > 0 ? 'color:#166534' : 'color:#6b7280';
         var incident = formatDateMDY(row.incidentDate) +
           (row.incidentTime ? ' at ' + formatTime12h(row.incidentTime) : '');
         var isDeleted = row.action !== 'Edited';

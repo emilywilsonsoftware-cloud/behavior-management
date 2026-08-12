@@ -134,6 +134,7 @@
                      min-height: 22px; display: flex; align-items: center; gap: 7px; }
     .pt-badge { padding: 2px 9px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; }
     .pt-pos { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+    .pt-zer { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; }
 
     /* ── Submit ── */
     .submit-row { display: flex; align-items: center; gap: 12px; justify-content: flex-end;
@@ -652,8 +653,11 @@ function onPosTypeChange() {
   var t   = posState.typeMap[sel.value];
   var preview = document.getElementById('pos-point-preview');
   if (!t) { preview.innerHTML = ''; return; }
-  preview.innerHTML = '<span class="pt-badge pt-pos">+'+t.pointValue+' pts</span>' +
-                      '<span style="color:#6b7280;font-weight:400;">added per student</span>';
+  var sign = t.pointValue > 0 ? '+' : '';
+  var cls  = t.pointValue > 0 ? 'pt-pos' : 'pt-zer';
+  var verb = t.pointValue > 0 ? 'added per student' : 'no point change';
+  preview.innerHTML = '<span class="pt-badge '+cls+'">'+sign+t.pointValue+' pts</span>' +
+                      '<span style="color:#6b7280;font-weight:400;">'+verb+'</span>';
 }
 
 // ── Submit ────────────────────────────────────────────────────
