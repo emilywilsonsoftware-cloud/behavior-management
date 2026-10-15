@@ -828,8 +828,8 @@ function renderDetailView(row) {
   }).join('');
 
   // Parent Notif. gets its own row, separate from the plain fields above,
-  // since admins can override it (positive notes are always 'N/A' and
-  // aren't editable — there's nothing to notify a parent about).
+  // since admins can override it (positive notes saved before this was
+  // added are 'N/A' and aren't editable — they were never meant to be sent).
   var pn = (row['ParentNotified']||'').toString();
   html = '<div class="d-row"><div class="d-label">Parent Notif.</div><div class="d-val">' +
     (isAdmin && (pn === 'Yes' || pn === 'No')

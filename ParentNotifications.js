@@ -8,13 +8,13 @@
  * Verified against the actual Code.js: uses the real REFERRAL_HEADERS /
  * PARENT_COL_* constants and SHEET_REFERRALS / SHEET_PARENT names, and
  * mirrors sendDailyParentEmails()'s exact filtering logic (future-dated
- * exclusion, 'Yes'/'N/A' exclusion, positive-note exclusion) so this
+ * exclusion, 'Yes'/'N/A' exclusion; positive notes included) so this
  * list and the daily-digest logic never disagree about what's pending.
  */
 
 /**
  * Returns one entry per (student, contact) pair with at least one
- * pending demerit referral — mirrors sendDailyParentEmails()'s grouping
+ * pending referral or positive note — mirrors sendDailyParentEmails()'s grouping
  * and filtering exactly, but returns data instead of sending email.
  * Includes every contact type on file for that student (Parent/Guardian,
  * Administrator, Counselor, Case Manager), same as the daily digest.
@@ -90,10 +90,9 @@ function getPendingParentNotifications() {
     if (incDate > today) continue;               // matches sendDailyParentEmails()
     if (notified === 'Yes' || notified === 'N/A') continue;
 
+    // Positive notes are included, same as sendDailyParentEmails().
+    // Older positive notes were saved as 'N/A' and are skipped above.
     var pts = parseInt(row[ptIdx], 10) || 0;
-    if (pts > 0) continue; // positive notes never generate a parent notification — matches
-                            // sendDailyParentEmails()'s exact check; note this means a
-                            // 0-point infraction IS included, same as the real digest.
 
     var studentId = row[sidIdx] ? row[sidIdx].toString() : '';
     if (!studentId) continue;
@@ -170,17 +169,26 @@ function buildNotificationBody_(cfg, displayNameForParent, grade, refs) {
   lines.push('This is an automated behavior notification from ' + cfg.schoolName + ' for ' +
     displayNameForParent + (displayNameForParent.slice(-1) === '.' ? '' : '.'));
   lines.push('');
-  lines.push(refs.length + ' Referral' + (refs.length !== 1 ? 's' : '') + ' Received');
+  lines.push(notificationCountLabel_(refs)); // e.g. "2 Referrals and 1 Positive Note" (Code.gs)
   lines.push('');
 
-  refs.forEach(function(ref, idx) {
+  var refNum = 0, posNum = 0;
+  refs.forEach(function(ref) {
     var ptsStr = ref.pointValue > 0 ? '+' + ref.pointValue : ref.pointValue.toString();
-    lines.push('Referral ' + (idx + 1) + ':');
-    lines.push(padLabel_('Date:') + toMDY_(ref.incidentDate));
-    lines.push(padLabel_('Time:') + ref.incidentTime);
-    lines.push(padLabel_('Location:') + ref.location);
-    lines.push(padLabel_('Infraction:') + ref.infractionType);
-    lines.push(padLabel_('Teacher:') + ref.teacherName);
+    if (ref.pointValue > 0) {
+      // Positive note — no real time/location to show.
+      lines.push('Positive Note ' + (++posNum) + ':');
+      lines.push(padLabel_('Date:') + toMDY_(ref.incidentDate));
+      lines.push(padLabel_('Type:') + ref.infractionType);
+      lines.push(padLabel_('Awarded by:') + ref.teacherName);
+    } else {
+      lines.push('Referral ' + (++refNum) + ':');
+      lines.push(padLabel_('Date:') + toMDY_(ref.incidentDate));
+      lines.push(padLabel_('Time:') + ref.incidentTime);
+      lines.push(padLabel_('Location:') + ref.location);
+      lines.push(padLabel_('Infraction:') + ref.infractionType);
+      lines.push(padLabel_('Teacher:') + ref.teacherName);
+    }
     // Record-only referral (incident from a previous term, entered late):
     // say so rather than showing a misleading "100 -> 100".
     if (isRecordOnly_(ref.pointValue, ref.pointsBefore, ref.pointsAfter)) {

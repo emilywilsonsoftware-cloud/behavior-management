@@ -1195,6 +1195,17 @@ function isPriorTermDate_(incidentDate) {
   return !!d && d < cfg.currentTerm.start;
 }
 
+// "1 Referral", "2 Referrals and 1 Positive Note", "1 Positive Note" —
+// heading for a parent notification that can mix both kinds.
+function notificationCountLabel_(refs) {
+  var neg = 0, pos = 0;
+  refs.forEach(function(r) { if ((parseFloat(r.pointValue) || 0) > 0) pos++; else neg++; });
+  var parts = [];
+  if (neg) parts.push(neg + ' Referral' + (neg === 1 ? '' : 's'));
+  if (pos) parts.push(pos + ' Positive Note' + (pos === 1 ? '' : 's'));
+  return parts.join(' and ');
+}
+
 function formatResetTime_(ms) {
   if (!ms) return '';
   return Utilities.formatDate(new Date(ms), Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a');
@@ -1546,10 +1557,10 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         sanitizeText(r.infractionType),
         pointValue, pointsBefore, pointsAfter,
         safeDescription,
-        'N/A', // IncludeDescriptionInEmail — moot; positive notes never go in the parent digest
+        r.includeDescriptionInEmail === true ? 'Yes' : 'No', // admin's choice on the Positive Note page
         sanitizeText(r.teacherName || user.name),
         user.email,
-        'N/A', // ParentNotified — positive notes are excluded from sendDailyParentEmails entirely
+        'No',  // ParentNotified — positive notes go to parents too, in the same daily notification
         'No', adminNotes
       ]).getLastRow();
 
@@ -1726,11 +1737,9 @@ function sendDailyParentEmails() {
     if (incDate > today) continue;
     if (notified === 'Yes' || notified === 'N/A') continue;
 
-    // Positive notes (Write Off, Saturday School, etc.) are never sent to
-    // parents — the daily digest is a behavior-referral notification only.
-    // PointValue's sign is what separates negative from positive.
-    var ptsCheck = parseInt(row[ptIdx], 10) || 0;
-    if (ptsCheck > 0) continue;
+    // Positive notes are included too (since v13). Older positive notes
+    // were saved with ParentNotified = 'N/A', so they're skipped above
+    // and never sent retroactively.
 
     var studentId = row[sidIdx] ? row[sidIdx].toString() : '';
     if (!studentId) continue;
@@ -1791,18 +1800,27 @@ function sendDailyParentEmails() {
           'Student: ' + studentName + ' (Grade ' + grade + ')\n' +
           'Sent:    ' + today + '\n\n';
 
-        var bodyRefs = refs.length === 1
-          ? '── Referral Received ────────────────────\n'
-          : '── ' + refs.length + ' Referrals Received ─────────────────\n';
+        var bodyRefs = '── ' + notificationCountLabel_(refs) + ' ─────────────────\n';
 
-        refs.forEach(function(ref, refIdx) {
-          if (refs.length > 1) bodyRefs += '\nReferral ' + (refIdx + 1) + ':\n';
+        var refNum = 0, posNum = 0;
+        refs.forEach(function(ref) {
+          var isPos = ref.pointValue > 0;
+          if (refs.length > 1) {
+            bodyRefs += isPos ? '\nPositive Note ' + (++posNum) + ':\n'
+                              : '\nReferral ' + (++refNum) + ':\n';
+          }
+          // Positive notes have no real time/location (time is just when it
+          // was entered; location is 'N/A'), so those lines are left out.
+          bodyRefs += isPos
+            ? 'Date:        ' + ref.incidentDate + '\n' +
+              'Type:        ' + ref.infractionType + '\n' +
+              'Awarded by:  ' + ref.teacherName + '\n'
+            : 'Date:        ' + ref.incidentDate + '\n' +
+              'Time:        ' + formatTime12h(ref.incidentTime) + '\n' +
+              'Location:    ' + ref.location + '\n' +
+              'Infraction:  ' + ref.infractionType + '\n' +
+              'Teacher:     ' + ref.teacherName + '\n';
           bodyRefs +=
-            'Date:        ' + ref.incidentDate + '\n' +
-            'Time:        ' + formatTime12h(ref.incidentTime) + '\n' +
-            'Location:    ' + ref.location + '\n' +
-            'Infraction:  ' + ref.infractionType + '\n' +
-            'Teacher:     ' + ref.teacherName + '\n' +
             (ref.recordOnly
               ? 'Points:      ' + ref.pointsStr + '  (recorded for a previous term — current balance not changed)\n'
               : 'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n');
