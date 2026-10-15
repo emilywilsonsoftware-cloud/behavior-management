@@ -144,6 +144,12 @@
                    font-weight: 600; margin-top: 8px; display: none; }
     .max-warning.show { display: block; }
 
+    /* ── Previous-term notice (under the incident date) ── */
+    .prior-term-notice { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+                         border-radius: 6px; padding: 8px 11px; font-size: 0.8rem;
+                         font-weight: 600; margin-top: 6px; display: none; line-height: 1.45; }
+    .prior-term-notice.show { display: block; }
+
     /* ── Multi-student description warning ── */
     #multi-desc-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
                           border-radius: 6px; padding: 10px 13px; font-size: 0.83rem;
@@ -265,7 +271,11 @@
     <div class="form-grid">
       <div>
         <label for="inc-date">Date <span class="req">*</span></label>
-        <input type="date" id="inc-date">
+        <input type="date" id="inc-date" onchange="updatePriorTermNotice()" oninput="updatePriorTermNotice()">
+        <div class="prior-term-notice" id="prior-term-notice">
+          This date is in a previous term. The referral will be saved and parents will be
+          notified, but it will <u>not</u> change the student's current point balance.
+        </div>
       </div>
       <div>
         <label for="inc-time">Time of Incident <span class="req">*</span></label>
@@ -353,6 +363,7 @@ var state = {
   semPts:      100,
   pointTiers:  [],   // admin-configured point-balance color tiers
   termLabel:     'Current Term',
+  termStart:   '',   // YYYY-MM-DD start of the current term ('' if not configured)
   lastIncident: null // cached incident details for "Submit and Copy"
 };
 
@@ -382,6 +393,8 @@ function onBootstrap(data) {
   state.semPts       = data.termPoints || 100;
   state.pointTiers   = data.pointTiers || [];
   state.termLabel      = data.currentTerm ? data.currentTerm.label : 'Current Term';
+  state.termStart      = data.currentTerm ? data.currentTerm.start : '';
+  updatePriorTermNotice();
 
   document.getElementById('teacher-name').value  = state.teacherName;
   document.getElementById('teacher-email').value = state.teacherEmail;
@@ -807,7 +820,9 @@ function onSubmitOk(result) {
     state.lastIncident = null;
   } else {
     clearStatus(); // dismiss the inline "Submitting..." banner
-    showToast(result.saved + ' referral' + (result.saved > 1 ? 's' : '') + ' submitted.');
+    showToast(result.saved + ' referral' + (result.saved > 1 ? 's' : '') + ' submitted.' +
+      (result.recordOnly ? ' Recorded for a previous term — current balance not changed.' : ''),
+      result.recordOnly ? 5000 : undefined);
     resetForm();
     // Move the page back to the top so the next student selection (Step 2)
     // is immediately visible without the teacher needing to scroll.
@@ -820,6 +835,15 @@ function onSubmitOk(result) {
       window.scrollTo(0, 0);
     });
   }
+}
+
+// Shows the "previous term" notice when the incident date is before the
+// current term's start. Matches isPriorTermDate_() in Code.gs, which is
+// what actually decides — this is just the heads-up for the teacher.
+function updatePriorTermNotice() {
+  var d = document.getElementById('inc-date').value;
+  var prior = !!(state.termStart && d && d < state.termStart);
+  document.getElementById('prior-term-notice').classList.toggle('show', prior);
 }
 
 // ── Toast notification ──────────────────────────────────────────
@@ -870,6 +894,7 @@ function resetForm() {
     document.getElementById('include-desc-email').checked = keepIncident.includeInEmail;
     selectInfraction(keepIncident.infractionName);
     state.lastIncident = null;
+    updatePriorTermNotice();
   } else {
     var now = new Date();
     document.getElementById('inc-date').value = dateStr(now);
@@ -880,6 +905,7 @@ function resetForm() {
     document.getElementById('description').value = '';
     document.getElementById('include-desc-email').checked = false;
     document.getElementById('point-preview').innerHTML = '';
+    updatePriorTermNotice();
   }
 }
 

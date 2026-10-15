@@ -34,6 +34,10 @@
       outline: none; border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.12); }
     textarea { resize: vertical; min-height: 76px; }
 
+    .chk-item { display: flex; align-items: center; gap: 7px; margin-top: 8px; cursor: pointer; }
+    .chk-item input { width: 15px; height: 15px; accent-color: #166534; flex-shrink: 0; }
+    .chk-item label { font-size: 0.85rem; font-weight: 500; cursor: pointer; margin: 0; }
+
     /* ── Student Search ── */
     .filter-bar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
     .filter-bar select { padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px;
@@ -74,6 +78,12 @@
                    border-radius: 6px; padding: 8px 12px; font-size: 0.82rem;
                    font-weight: 600; margin-top: 8px; display: none; }
     .max-warning.show { display: block; }
+
+    /* ── Previous-term notice (under the date) ── */
+    .prior-term-notice { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+                         border-radius: 6px; padding: 8px 11px; font-size: 0.8rem;
+                         font-weight: 600; margin-top: 6px; display: none; line-height: 1.45; }
+    .prior-term-notice.show { display: block; }
 
     /* ── Term positive-points panel (mirrors Index.html's
          term referral panel) ── */
@@ -276,7 +286,11 @@
     <div class="form-grid">
       <div>
         <label for="pos-date">Date <span class="req">*</span></label>
-        <input type="date" id="pos-date">
+        <input type="date" id="pos-date" onchange="updatePriorTermNotice()" oninput="updatePriorTermNotice()">
+        <div class="prior-term-notice" id="prior-term-notice">
+          This date is in a previous term. The note will be saved, but it will <u>not</u>
+          add points to the student's current balance or count toward this term's cap.
+        </div>
       </div>
       <div>
         <label for="pos-type-sel">Type <span class="req">*</span></label>
@@ -286,6 +300,13 @@
       <div class="full">
         <label for="pos-description">Note <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
         <textarea id="pos-description" placeholder="Optional note..." maxlength="1000"></textarea>
+        <div class="chk-item" onclick="document.getElementById('pos-include-desc-email').click()">
+          <input type="checkbox" id="pos-include-desc-email" onclick="event.stopPropagation()">
+          <label for="pos-include-desc-email">Include this note in the parent email</label>
+        </div>
+        <div style="font-size:0.78rem;color:#6b7280;margin-top:6px;">
+          Parents are notified of positive notes in the same daily notification as referrals.
+        </div>
       </div>
     </div>
   </div>
@@ -324,7 +345,8 @@ var state = {
                                       // holds the ADMIN's name/email here.
   allStudents: [],   // full roster loaded once
   semPts:      100,
-  pointTiers:  []    // admin-configured point-balance color tiers
+  pointTiers:  [],   // admin-configured point-balance color tiers
+  termStart:   ''    // YYYY-MM-DD start of the current term ('' if not configured)
 };
 
 var posState = {
@@ -360,6 +382,8 @@ function onBootstrap(data) {
   state.allStudents  = data.students   || [];
   state.semPts       = data.termPoints || 100;
   state.pointTiers   = data.pointTiers || [];
+  state.termStart    = data.currentTerm ? data.currentTerm.start : '';
+  updatePriorTermNotice();
 
   document.getElementById('admin-name').value  = state.teacherName;
   document.getElementById('admin-email').value = state.teacherEmail;
@@ -648,6 +672,13 @@ function cssEsc(s) {
   return String(s).replace(/["\\]/g, '\\$&');
 }
 
+// Matches isPriorTermDate_() in Code.gs, which is what actually decides.
+function updatePriorTermNotice() {
+  var d = document.getElementById('pos-date').value;
+  var prior = !!(state.termStart && d && d < state.termStart);
+  document.getElementById('prior-term-notice').classList.toggle('show', prior);
+}
+
 function onPosTypeChange() {
   var sel = document.getElementById('pos-type-sel');
   var t   = posState.typeMap[sel.value];
@@ -670,11 +701,12 @@ function submitPositiveForm() {
   if (!type) { showPosErr('Please select a positive note type.'); return; }
 
   var desc = document.getElementById('pos-description').value.trim();
+  var includeInEmail = document.getElementById('pos-include-desc-email').checked;
 
   var referrals = posState.selected.map(function(s) {
     return { studentId: s.studentId, studentName: s.studentName, grade: s.grade,
              incidentDate: date, infractionType: type,
-             description: desc,
+             description: desc, includeDescriptionInEmail: includeInEmail,
              teacherName: state.teacherName, teacherEmail: state.teacherEmail,
              className: '' };
   });
@@ -728,7 +760,10 @@ function onPositiveSubmitOk(result, referrals) {
     showPosErr('Saved ' + result.saved + ' referral(s) with errors:\n' + result.errors.join('\n'));
   } else {
     clearPosStatus();
-    showToast('Awarded points to ' + result.saved + ' student' + (result.saved > 1 ? 's' : '') + '.');
+    showToast(result.recordOnly
+      ? 'Saved ' + result.saved + ' note' + (result.saved > 1 ? 's' : '') + ' for a previous term — current balance not changed.'
+      : 'Awarded points to ' + result.saved + ' student' + (result.saved > 1 ? 's' : '') + '.',
+      false, result.recordOnly ? 5000 : undefined);
     resetPositiveForm();
     requestAnimationFrame(function() {
       document.documentElement.scrollTop = 0;
@@ -753,8 +788,10 @@ function resetPositiveForm() {
 
   var now = new Date();
   document.getElementById('pos-date').value = dateStr(now);
+  updatePriorTermNotice();
   document.getElementById('pos-type-sel').value = '';
   document.getElementById('pos-description').value = '';
+  document.getElementById('pos-include-desc-email').checked = false;
   document.getElementById('pos-point-preview').innerHTML = '';
 }
 

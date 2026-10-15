@@ -180,7 +180,7 @@
     tbody tr:last-child td { border-bottom: none; }
     tbody tr:hover td { background: #f8fafc; }
 
-    .pts-neg { color:#dc2626; font-weight:700; } .pts-pos { color:#166534; font-weight:700; } .pts-zer { color:#6b7280; font-weight:700; text-align:center; }
+    .pts-neg { color:#dc2626; font-weight:700; } .pts-pos { color:#166534; font-weight:700; } .pts-zer { color:#6b7280; font-weight:700; }
 
     /* NW summary mini-cards */
     .term-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
@@ -457,6 +457,7 @@ var URL_ID = "<?!= urlId ?>";
     <div class="edit-info-switcher">
       <button class="edit-info-switch-btn active" id="edit-info-tab-student" onclick="showEditInfoStudent()">Student</button>
       <button class="edit-info-switch-btn" id="edit-info-tab-contacts" onclick="showEditInfoContacts()">Contacts</button>
+      <button class="edit-info-switch-btn" id="edit-info-tab-points" onclick="showEditInfoPoints()">Points</button>
     </div>
     <div class="edit-info-content" id="edit-info-content"></div>
   </div>
@@ -920,8 +921,10 @@ function openRefDetailModal(refId) {
   var fields = [
     ['Location',     r['Location']    || ''],
     ['Infraction',   r['InfractionType'] || ''],
-    ['Points',       '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span> &nbsp;('+
-                     (r['PointsBeforeReferral']||0)+' → '+(r['PointsAfterReferral']||0)+')'],
+    ['Points',       '<span style="font-weight:700;'+ptsCls+'">'+ptsStr+' pts</span> &nbsp;' +
+                     (isRecordOnly(r['PointValue'], r['PointsBeforeReferral'], r['PointsAfterReferral'])
+                       ? '<div style="font-size:0.74rem;color:#92400e;margin-top:3px;">Recorded for a previous term \u2014 did not change the current balance.</div>'
+                       : '('+(r['PointsBeforeReferral']||0)+' → '+(r['PointsAfterReferral']||0)+')')],
     ['Teacher',      r['TeacherName'] || ''],
     ['Parent Notif.',r['ParentNotified']  || ''],
     ['Submitted',    r['TimestampFormatted'] || '']
@@ -1033,6 +1036,13 @@ function buildTimelineSVG(timeline, sp, tiers) {
 }
 
 // ── Utilities ─────────────────────────────────────────────────
+// Mirrors isRecordOnly_() in Code.gs: a referral entered for a previous
+// term is saved with PointsBefore === PointsAfter and a non-zero value.
+function isRecordOnly(pv, before, after) {
+  var p = parseFloat(pv) || 0, b = parseFloat(before), a = parseFloat(after);
+  return p !== 0 && !isNaN(b) && !isNaN(a) && b === a;
+}
+
 function badge2(val, label, cls) {
   return '<div class="sum-b '+cls+'"><div class="sum-v">'+val+'</div><div class="sum-l">'+label+'</div></div>';
 }
@@ -1202,16 +1212,97 @@ function closeEditInfoModal() {
   document.getElementById('edit-info-overlay').classList.remove('open');
 }
 
+function setEditInfoTab(name) {
+  ['student', 'contacts', 'points'].forEach(function(t) {
+    document.getElementById('edit-info-tab-' + t).className =
+      'edit-info-switch-btn' + (t === name ? ' active' : '');
+  });
+}
+
 function showEditInfoStudent() {
-  document.getElementById('edit-info-tab-student').className = 'edit-info-switch-btn active';
-  document.getElementById('edit-info-tab-contacts').className = 'edit-info-switch-btn';
+  setEditInfoTab('student');
   renderStudentInfoForm();
+}
+
+// ── Adjust Points (admin only) ───────────────────────────────────
+// Sets the student's current balance directly, with a required reason.
+// Logged in the Change Log (Report → View Change Log) as "Points Adjusted".
+function showEditInfoPoints() {
+  setEditInfoTab('points');
+  var s = currentStudent.student;
+  document.getElementById('edit-info-content').innerHTML =
+    '<div style="padding:16px;">' +
+      '<div style="font-size:0.84rem;color:#374151;margin-bottom:12px;">Current balance: ' +
+        '<strong id="adj-current">' + s.currentPoints + ' pts</strong></div>' +
+      '<div class="ce-grid">' +
+        '<div><label>New Balance</label>' +
+          '<input type="number" id="adj-new" step="1" value="' + esc(s.currentPoints) + '" oninput="updateAdjPreview()"></div>' +
+        '<div style="display:flex;align-items:flex-end;padding-bottom:8px;">' +
+          '<span id="adj-preview" style="font-size:0.82rem;color:#64748b;"></span></div>' +
+        '<div style="grid-column:1/-1;"><label>Reason (required)</label>' +
+          '<input type="text" id="adj-reason" maxlength="300" placeholder="e.g., corrected after a deleted referral reversed the term reset"></div>' +
+      '</div>' +
+      '<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:10px;">' +
+        'Use this to correct a balance. Referrals and positive notes are the normal way points change. ' +
+        'This adjustment is recorded in the Change Log with your name and reason.' +
+      '</div>' +
+      '<div class="ce-btn-row" style="justify-content:flex-start;">' +
+        '<button class="ce-btn primary" id="adj-save-btn" onclick="saveAdjustPoints()">Save Balance</button>' +
+      '</div>' +
+      '<div class="ce-msg" id="adj-msg"></div>' +
+    '</div>';
+  updateAdjPreview();
+}
+
+function updateAdjPreview() {
+  var cur = currentStudent.student.currentPoints;
+  var v   = document.getElementById('adj-new').value;
+  var el  = document.getElementById('adj-preview');
+  if (v === '' || isNaN(Number(v))) { el.textContent = ''; return; }
+  var d = Number(v) - cur;
+  el.textContent = d === 0 ? 'No change' : (d > 0 ? '+' : '') + d + ' pts';
+  el.style.color = d < 0 ? '#dc2626' : d > 0 ? '#166534' : '#64748b';
+}
+
+function saveAdjustPoints() {
+  var msgEl  = document.getElementById('adj-msg');
+  var v      = document.getElementById('adj-new').value.trim();
+  var reason = document.getElementById('adj-reason').value.trim();
+  if (v === '' || isNaN(Number(v)) || Math.floor(Number(v)) !== Number(v)) {
+    msgEl.textContent = 'Enter a whole number.'; msgEl.className = 'ce-msg err'; return;
+  }
+  if (!reason) {
+    msgEl.textContent = 'A reason is required.'; msgEl.className = 'ce-msg err'; return;
+  }
+  var btn = document.getElementById('adj-save-btn');
+  btn.disabled = true;
+  msgEl.textContent = 'Saving...'; msgEl.className = 'ce-msg ld';
+
+  var sid = currentStudent.student.studentId;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      if (!r.success) {
+        msgEl.textContent = 'Error: ' + (r.error || 'Unknown'); msgEl.className = 'ce-msg err';
+        return;
+      }
+      // Keep the cached roster (search results, Point Range tab) in sync.
+      var cached = allStudents.find(function(x) { return x.studentId === sid; });
+      if (cached) { cached.currentPoints = r.newBalance; cached.pointColor = null; }
+      closeEditInfoModal();
+      showToast('Balance changed from ' + r.oldBalance + ' to ' + r.newBalance + ' pts.');
+      loadProfile(sid); // redraw header, bar, and colors with the new balance
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      msgEl.textContent = 'Error: ' + (err.message || err); msgEl.className = 'ce-msg err';
+    })
+    .adjustStudentPoints(sid, Number(v), reason);
 }
 
 // Switches the modal from Student Info to the Contacts list.
 function showEditInfoContacts() {
-  document.getElementById('edit-info-tab-student').className = 'edit-info-switch-btn';
-  document.getElementById('edit-info-tab-contacts').className = 'edit-info-switch-btn active';
+  setEditInfoTab('contacts');
 
   document.getElementById('edit-info-content').innerHTML =
     '<div id="contacts-panel"><div class="loading-msg"><span class="spin"></span>Loading contacts...</div></div>';
