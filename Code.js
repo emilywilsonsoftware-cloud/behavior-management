@@ -141,8 +141,17 @@ var REFERRAL_HEADERS = [
 var CHANGE_LOG_HEADERS = [
   'Timestamp', 'Action', 'ChangedByName', 'ChangedByEmail',
   'ReferralID', 'StudentID', 'StudentName',
-  'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Details'
+  'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Details',
+  // Added for "Points Adjusted" entries — the absolute balance before
+  // and after a manual adjustment. logChange_() appends these headers to
+  // an existing ChangeLog sheet automatically the first time it's used.
+  'OldBalance', 'NewBalance'
 ];
+
+// Script Property holding the time (ms since epoch) of the most recent
+// Reset Term Points (or Start New Year). Everything that decides whether
+// a referral still affects a student's live balance keys off this.
+var PROP_LAST_POINTS_RESET = 'LastPointsResetMs';
 
 // ── EXECUTION CACHES (per-execution only — not persistent) ────
 var _cfg  = null;
@@ -810,6 +819,7 @@ function getSettingsBootstrap() {
     user: user,
     colorPalette: POINT_COLOR_PALETTE, // {key: hex} — drives the Settings color picker
     terms: cfg.terms, // computed {start, end, label} list — used by the Archive a Term's Referrals dropdown
+    lastPointsReset: formatResetTime_(getLastResetMs_()),
     config: {
       SchoolName:                raw[CONFIG_COL_SCHOOL_NAME]       || [],
       TermStartPoints:       raw[CONFIG_COL_TERM_POINTS]   || [],
@@ -1071,6 +1081,126 @@ function getStudentFormCard(studentId) {
 }
 
 // =============================================================
+// POINT BALANCE RULES  (reset tracking + prior-term referrals)
+// =============================================================
+// One rule decides whether a referral is part of a student's CURRENT
+// balance: it must have been submitted after the last points reset, and
+// it must not be a "record-only" referral.
+//
+// Record-only referrals are ones entered now for an incident in an
+// earlier term. They're saved and parents are notified, but they don't
+// change the current balance (the reset already wiped that term's
+// balance). They're marked by PointsBeforeReferral === PointsAfterReferral
+// while PointValue is non-zero — no extra sheet column needed.
+//
+// Delete, edit, and recalculate all use this rule, so a reset can no
+// longer be undone by any of them.
+
+/**
+ * Time (ms) of the last points reset. Order of sources:
+ *   1. The saved Script Property (written by resetTermPoints/startNewYear).
+ *   2. Inferred from the Students sheet: a reset stamps every student's
+ *      PointsLastUpdated with the same timestamp, so the most common
+ *      value there is the reset time. Saved once found.
+ *   3. Midnight at the start of the current term.
+ *   4. 0 (no reset known — everything counts).
+ */
+function getLastResetMs_() {
+  var props = PropertiesService.getScriptProperties();
+  var saved = parseInt(props.getProperty(PROP_LAST_POINTS_RESET), 10);
+  if (!isNaN(saved) && saved > 0) return saved;
+
+  var inferred = inferResetFromStudents_();
+  if (inferred) {
+    props.setProperty(PROP_LAST_POINTS_RESET, String(inferred));
+    return inferred;
+  }
+
+  var cfg = getConfig();
+  if (cfg.currentTerm) {
+    var d = new Date(cfg.currentTerm.start + 'T00:00:00');
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return 0;
+}
+
+function setLastResetMs_(ms) {
+  PropertiesService.getScriptProperties().setProperty(PROP_LAST_POINTS_RESET, String(ms));
+}
+
+// Finds the PointsLastUpdated timestamp shared by the most students.
+// Only trusted if at least 2 students and 25% of the roster share it —
+// otherwise it's just an ordinary recent update, not a reset.
+function inferResetFromStudents_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_STUDENTS);
+  var data  = sheet.getDataRange().getValues();
+  var total = data.length - 1;
+  if (total < 2) return null;
+
+  var counts = {};
+  for (var i = 1; i < data.length; i++) {
+    var v = data[i][STU_COL_POINTS_DATE];
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      var k = String(v.getTime());
+      counts[k] = (counts[k] || 0) + 1;
+    }
+  }
+  var bestKey = null, bestCount = 0;
+  Object.keys(counts).forEach(function(k) {
+    if (counts[k] > bestCount) { bestKey = k; bestCount = counts[k]; }
+  });
+  if (bestKey && bestCount >= 2 && bestCount >= total * 0.25) return parseInt(bestKey, 10);
+  return null;
+}
+
+// True for a referral recorded for a previous term (no balance effect).
+function isRecordOnly_(pointValue, before, after) {
+  var pv = parseFloat(pointValue) || 0;
+  var b  = parseFloat(before);
+  var a  = parseFloat(after);
+  return pv !== 0 && !isNaN(b) && !isNaN(a) && b === a;
+}
+
+function timestampMs_(val) {
+  if (val instanceof Date) return val.getTime();
+  if (val === null || val === undefined || val === '') return null;
+  var d = new Date(val);
+  return isNaN(d.getTime()) ? null : d.getTime();
+}
+
+// True if this referral row (raw sheet values) is part of the student's
+// current balance.
+function affectsCurrentBalance_(row, resetMs) {
+  var pv = row[REFERRAL_HEADERS.indexOf('PointValue')];
+  var pb = row[REFERRAL_HEADERS.indexOf('PointsBeforeReferral')];
+  var pa = row[REFERRAL_HEADERS.indexOf('PointsAfterReferral')];
+  if (isRecordOnly_(pv, pb, pa)) return false;
+
+  var ts = timestampMs_(row[REFERRAL_HEADERS.indexOf('Timestamp')]);
+  if (ts !== null) return ts >= resetMs;
+
+  // No usable timestamp — fall back to the incident date.
+  var cfg = getConfig();
+  var inc = formatDateStr(row[REFERRAL_HEADERS.indexOf('IncidentDate')]);
+  return !cfg.currentTerm || inc >= cfg.currentTerm.start;
+}
+
+// True if an incident dated incidentDate (YYYY-MM-DD) falls in a term
+// before the current one, so it should be recorded without changing
+// the current balance.
+function isPriorTermDate_(incidentDate) {
+  var cfg = getConfig();
+  if (!cfg.currentTerm) return false;
+  var d = formatDateStr(incidentDate);
+  return !!d && d < cfg.currentTerm.start;
+}
+
+function formatResetTime_(ms) {
+  if (!ms) return '';
+  return Utilities.formatDate(new Date(ms), Session.getScriptTimeZone(), 'MM-dd-yyyy h:mm a');
+}
+
+// =============================================================
 // SUBMIT REFERRALS
 // =============================================================
 
@@ -1116,7 +1246,7 @@ function submitReferrals(referrals) {
 
   var lastId     = getLastId(refSheet);
   var timestamp  = new Date();
-  var results    = { saved: 0, errors: [], updatedBalances: {} };
+  var results    = { saved: 0, errors: [], updatedBalances: {}, recordOnly: 0 };
   var emailQueue = [];
 
   for (var i = 0; i < referrals.length; i++) {
@@ -1152,7 +1282,12 @@ function submitReferrals(referrals) {
         }
       }
 
-      var pointsAfter = pointsBefore + pointValue;
+      // Incident from an earlier term: record it, notify parents, but
+      // leave the current balance alone. Before === After marks it as
+      // record-only (see POINT BALANCE RULES above).
+      var recordOnly  = pointValue !== 0 && isPriorTermDate_(r.incidentDate);
+      var pointsAfter = recordOnly ? pointsBefore : pointsBefore + pointValue;
+      if (recordOnly) results.recordOnly++;
 
       var newRowNum = refSheet.appendRow([
         id, timestamp,
@@ -1180,7 +1315,7 @@ function submitReferrals(referrals) {
       timeCell.setNumberFormat('@STRING@');
       timeCell.setValue(r.incidentTime);
 
-      if (stuIdx >= 0) {
+      if (stuIdx >= 0 && !recordOnly) {
         stuSheet.getRange(stuIdx + 1, STU_COL_POINTS + 1).setValue(pointsAfter);
         stuSheet.getRange(stuIdx + 1, STU_COL_POINTS_DATE + 1).setValue(timestamp);
         stuData[stuIdx][STU_COL_POINTS]      = pointsAfter;
@@ -1328,7 +1463,9 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
 
     var existing  = existingPositiveTotal(sidStr);
     var wouldBe   = existing + pointValue;
-    var overCap   = wouldBe > cap;
+    // A note dated in an earlier term doesn't count toward this term's
+    // cap (and doesn't change the balance — see pass 2).
+    var overCap   = !isPriorTermDate_(r.incidentDate) && wouldBe > cap;
 
     if (overCap) {
       overCapDetails.push({
@@ -1357,7 +1494,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
   var lastId     = getLastId(refSheet);
   var timestamp  = new Date();
   var nowTimeStr = pad2(timestamp.getHours()) + ':' + pad2(timestamp.getMinutes());
-  var results    = { saved: 0, errors: [], needsConfirmation: false, overCapDetails: [] };
+  var results    = { saved: 0, errors: [], needsConfirmation: false, overCapDetails: [], recordOnly: 0 };
   var emailQueue = [];
 
   for (var p = 0; p < prepared.length; p++) {
@@ -1381,10 +1518,12 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
         }
       }
 
-      // Positive notes only ever add — no floor/ceiling applied,
-      // matching how positive infractions already behaved on the main
-      // form before this feature existed.
-      var pointsAfter = pointsBefore + pointValue;
+      // Positive notes only ever add — no floor/ceiling applied. A note
+      // dated in an earlier term is record-only, same rule as
+      // submitReferrals(): saved, but the current balance is unchanged.
+      var recordOnly  = isPriorTermDate_(r.incidentDate);
+      var pointsAfter = recordOnly ? pointsBefore : pointsBefore + pointValue;
+      if (recordOnly) results.recordOnly++;
 
       var adminNotes = '';
       var matchDetail = null;
@@ -1419,7 +1558,7 @@ function submitPositiveReferrals(referrals, overrideConfirmed) {
       timeCell.setNumberFormat('@STRING@');
       timeCell.setValue(nowTimeStr);
 
-      if (stuIdx >= 0) {
+      if (stuIdx >= 0 && !recordOnly) {
         stuSheet.getRange(stuIdx + 1, STU_COL_POINTS + 1).setValue(pointsAfter);
         stuSheet.getRange(stuIdx + 1, STU_COL_POINTS_DATE + 1).setValue(timestamp);
         stuData[stuIdx][STU_COL_POINTS]      = pointsAfter;
@@ -1482,7 +1621,10 @@ function sendTeacherConfirmation(referral, referralId, pointValue, pointsBefore,
       Logger.log('Teacher emails disabled in Config — skipping confirmation for #' + referralId);
       return;
     }
-    var ptLine = pointValue < 0
+    var ptLine = isRecordOnly_(pointValue, pointsBefore, pointsAfter)
+      ? 'Points:          ' + (pointValue > 0 ? '+' : '') + pointValue +
+        ' pts — recorded for a previous term; current balance not changed'
+      : pointValue < 0
       ? 'Points Deducted: ' + Math.abs(pointValue) + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')'
       : 'Points Added:    +' + pointValue + ' pts  (' + pointsBefore + ' → ' + pointsAfter + ')';
 
@@ -1543,6 +1685,7 @@ function sendDailyParentEmails() {
   var infIdx    = REFERRAL_HEADERS.indexOf('InfractionType');
   var ptIdx     = REFERRAL_HEADERS.indexOf('PointValue');
   var afIdx     = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
+  var bfIdx     = REFERRAL_HEADERS.indexOf('PointsBeforeReferral');
   var tchIdx    = REFERRAL_HEADERS.indexOf('TeacherName');
   var descIdx   = REFERRAL_HEADERS.indexOf('Description');
   var incEmIdx  = REFERRAL_HEADERS.indexOf('IncludeDescriptionInEmail');
@@ -1612,6 +1755,7 @@ function sendDailyParentEmails() {
       pointValue:     pts,
       pointsStr:      ptsStr,
       pointsAfter:    row[afIdx] !== undefined ? row[afIdx] : '',
+      recordOnly:     isRecordOnly_(pts, row[bfIdx], row[afIdx]),
       teacherName:    row[tchIdx] ? row[tchIdx].toString() : '',
       // Description only carried through if the teacher opted in at submit time.
       description:    includeDesc && row[descIdx] ? row[descIdx].toString() : ''
@@ -1659,7 +1803,9 @@ function sendDailyParentEmails() {
             'Location:    ' + ref.location + '\n' +
             'Infraction:  ' + ref.infractionType + '\n' +
             'Teacher:     ' + ref.teacherName + '\n' +
-            'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n';
+            (ref.recordOnly
+              ? 'Points:      ' + ref.pointsStr + '  (recorded for a previous term — current balance not changed)\n'
+              : 'Points:      ' + ref.pointsStr + '  (Balance: ' + ref.pointsAfter + ' pts)\n');
           if (ref.description) {
             bodyRefs += 'Notes:       ' + ref.description + '\n';
           }
@@ -2442,6 +2588,7 @@ function updateReferralDetails(referralId, updates) {
     var studentName   = '';
     var oldBefore     = 0;
     var oldDate = '', oldTime = '', oldLocation = '', oldInfraction = '';
+    var targetRow = null;
     for (var i = 1; i < refData.length; i++) {
       if (refData[i][idCol] == referralId) {
         targetRowNum  = i + 1;
@@ -2453,6 +2600,7 @@ function updateReferralDetails(referralId, updates) {
         oldTime       = formatTimeStr(refData[i][tmCol]);
         oldLocation   = refData[i][locCol] ? refData[i][locCol].toString() : '';
         oldInfraction = refData[i][infCol] ? refData[i][infCol].toString() : '';
+        targetRow     = refData[i];
         break;
       }
     }
@@ -2481,7 +2629,26 @@ function updateReferralDetails(referralId, updates) {
       return { success: false, error: 'Unknown infraction type: ' + infractionType };
     }
     var newPointValue = parseFloat(infMatch.pointValue) || 0;
-    var newAfter = oldBefore + newPointValue;
+
+    // Does this referral count toward the student's CURRENT balance —
+    // before the edit, and after it? (See POINT BALANCE RULES.)
+    //   - Submitted before the last reset: never. Its before/after
+    //     snapshot is historical; the live balance is left alone.
+    //   - Submitted since the reset: counts unless its incident date is
+    //     in a previous term (record-only). Changing the date can move it
+    //     into or out of the current term, so that's re-checked here.
+    var resetMs        = getLastResetMs_();
+    var tsMs           = timestampMs_(targetRow[REFERRAL_HEADERS.indexOf('Timestamp')]);
+    var submittedSince = tsMs === null ? !isPriorTermDate_(oldDate) : tsMs >= resetMs;
+    var wasApplied     = affectsCurrentBalance_(targetRow, resetMs);
+    var willApply      = submittedSince && !isPriorTermDate_(incidentDate);
+
+    var newAfter;
+    if (!submittedSince) {
+      newAfter = oldBefore + newPointValue;          // historical snapshot only
+    } else {
+      newAfter = willApply ? oldBefore + newPointValue : oldBefore; // before === after → record-only
+    }
 
     // IncidentDate through Description are contiguous columns — one
     // write instead of eight. PointsBeforeReferral is written back
@@ -2491,19 +2658,19 @@ function updateReferralDetails(referralId, updates) {
       newPointValue, oldBefore, newAfter, description
     ]]);
 
-    // Apply the net point-value change to the student's current
-    // balance — same net-delta approach deleteReferral() uses, so a
-    // student's live balance stays correct without needing to replay
-    // and rewrite every one of their other referrals.
+    // Apply only the net change in this referral's effect on the live
+    // balance (0 if it doesn't count before or after the edit).
+    var delta = (willApply ? newPointValue : 0) - (wasApplied ? oldPointValue : 0);
     var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
     var stuData  = stuSheet.getDataRange().getValues();
     var stuRowIdx = findStudentRow(stuData, studentId);
     var newBalance = null;
     if (stuRowIdx >= 0) {
       var curBalance = parseFloat(stuData[stuRowIdx][STU_COL_POINTS]) || 0;
-      var delta = newPointValue - oldPointValue;
       newBalance = curBalance + delta;
-      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[newBalance, new Date()]]);
+      if (delta !== 0) {
+        stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[newBalance, new Date()]]);
+      }
     }
 
     // Build a plain-language summary of what actually changed, for
@@ -2517,6 +2684,11 @@ function updateReferralDetails(referralId, updates) {
                    infractionType + '" (' + newPointValue + ' pts)');
     }
     var details = changes.length > 0 ? changes.join('; ') : 'No fields were actually different.';
+    if (stuRowIdx >= 0) {
+      details += delta !== 0
+        ? '. Current balance changed from ' + curBalance + ' to ' + newBalance + '.'
+        : '. Current balance not changed.';
+    }
 
     logChange_({
       action:         'Edited',
@@ -2547,24 +2719,17 @@ function updateReferralDetails(referralId, updates) {
 }
 
 
-// like the wrong student being entered, or a referral that legally
-// shouldn't have been given (e.g. an IEP protection). This is a real
-// delete, not a status change, so the affected student's point balance
-// must be corrected too, not just left as-is. A reason is required and
-// recorded in the ChangeLog sheet, along with who deleted it and
-// when — a paper trail for the deletion itself, without keeping the
-// original referral's full content lingering anywhere.
+// Permanently deletes a referral — for mistakes like the wrong student
+// being entered, or a referral that legally shouldn't have been given
+// (e.g. an IEP protection). A reason is required and recorded in the
+// ChangeLog sheet, along with who deleted it and when.
 //
-// Balance correction approach: rather than simply subtracting the
-// deleted row's PointValue back out, this REPLAYS every remaining
-// referral for that student in original submission order (oldest ID
-// first), starting from Term Start Points and re-applying the same
-// floor-at-zero rule used at submission time (see submitReferrals). A
-// simple subtraction can be wrong if the deleted referral's actual
-// effect was different from its raw point value because the student
-// was already near the floor when it was submitted — replaying the
-// full history is the only way to guarantee the resulting balance is
-// actually correct.
+// Balance correction: if the referral counts toward the student's
+// CURRENT balance (submitted since the last reset, and not record-only —
+// see POINT BALANCE RULES), its points are reversed. Otherwise the
+// balance is left alone. The previous version replayed every referral
+// the student ever had from Term Start Points, which silently undid
+// the term reset for any student with earlier-term referrals.
 function deleteReferral(referralId, reason) {
   var user = getCurrentUser();
   if (user.role !== 'admin') {
@@ -2575,9 +2740,7 @@ function deleteReferral(referralId, reason) {
     return { success: false, error: 'A reason is required to delete a referral.' };
   }
 
-  // See submitReferrals() for why this lock exists — deleteReferral()
-  // both reads and writes a student's point balance (via the replay
-  // described below), so it's just as exposed to the same race.
+  // See submitReferrals() for why this lock exists.
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(30000);
@@ -2600,7 +2763,7 @@ function deleteReferral(referralId, reason) {
     var tmCol   = REFERRAL_HEADERS.indexOf('IncidentTime');
 
     var targetRowNum = -1;
-    var targetStudentId = null;
+    var targetStudentId = '';
     var deletedRow = null;
     for (var i = 1; i < refData.length; i++) {
       if (refData[i][idCol] == referralId) {
@@ -2614,11 +2777,31 @@ function deleteReferral(referralId, reason) {
       return { success: false, error: 'Referral #' + referralId + ' not found.' };
     }
 
+    var pointValue = parseFloat(deletedRow[pvCol]) || 0;
+    var affects    = affectsCurrentBalance_(deletedRow, getLastResetMs_());
+
+    var stuRowIdx = -1, stuData = null;
+    var studentName = deletedRow[snCol] ? deletedRow[snCol].toString() : '';
+    var oldBalance = null, newBalance = null;
+    if (targetStudentId) {
+      stuData   = stuSheet.getDataRange().getValues();
+      stuRowIdx = findStudentRow(stuData, targetStudentId);
+      if (stuRowIdx >= 0) {
+        oldBalance  = parseFloat(stuData[stuRowIdx][STU_COL_POINTS]);
+        if (isNaN(oldBalance)) oldBalance = getConfig().termPoints;
+        newBalance  = affects ? oldBalance - pointValue : oldBalance;
+        studentName = displayName(stuData[stuRowIdx][STU_COL_FIRST], stuData[stuRowIdx][STU_COL_LAST]);
+      }
+    }
+    var balanceChanged = stuRowIdx >= 0 && affects && pointValue !== 0;
+
     refSheet.deleteRow(targetRowNum);
 
-    // Log the deletion regardless of whether a point recalculation
-    // happens below — the audit trail matters even if, say, the
-    // student record was itself since removed.
+    if (balanceChanged) {
+      // CurrentPoints and PointsLastUpdated are adjacent columns.
+      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[newBalance, new Date()]]);
+    }
+
     logChange_({
       action:         'Deleted',
       changedByName:  user.name  || user.email,
@@ -2627,58 +2810,23 @@ function deleteReferral(referralId, reason) {
       studentId:      targetStudentId,
       studentName:    deletedRow[snCol]  ? deletedRow[snCol].toString()  : '',
       infractionType: deletedRow[infCol] ? deletedRow[infCol].toString() : '',
-      pointValue:     parseFloat(deletedRow[pvCol]) || 0,
+      pointValue:     pointValue,
       incidentDate:   formatDateStr(deletedRow[dtCol]),
       incidentTime:   formatTimeStr(deletedRow[tmCol]),
-      details:        reason
+      details:        reason + (stuRowIdx < 0 ? '' : balanceChanged
+        ? ' — Current balance changed from ' + oldBalance + ' to ' + newBalance + '.'
+        : ' — Current balance not changed (referral was not part of the current balance).')
     });
-
-    if (!targetStudentId) {
-      return { success: true, recalculated: false };
-    }
-
-    // Recompute the student's balance from the remaining referrals.
-    // Reuses refData (already read above) rather than re-fetching the
-    // whole sheet again — the only thing that changed is the one row we
-    // just deleted, which we can just skip by ID while walking the data
-    // we already have in memory. Avoiding that second full-sheet read is
-    // the main thing keeping this fast even as the Referrals sheet grows
-    // over a school year.
-    var cfg = getConfig();
-    var remaining = [];
-    for (var r = 1; r < refData.length; r++) {
-      if (refData[r][idCol] == referralId) continue; // the row we just deleted
-      if ((refData[r][sidCol] || '').toString() === targetStudentId) {
-        remaining.push({
-          id:  parseInt(refData[r][idCol], 10) || 0,
-          pts: parseFloat(refData[r][pvCol]) || 0
-        });
-      }
-    }
-    remaining.sort(function(a, b) { return a.id - b.id; }); // original submission order
-
-    var balance = cfg.termPoints;
-    remaining.forEach(function(ref) {
-      balance = balance + ref.pts;
-    });
-
-    var stuData = stuSheet.getDataRange().getValues();
-    var stuRowIdx = findStudentRow(stuData, targetStudentId);
-    var studentName = '';
-    if (stuRowIdx >= 0) {
-      // CurrentPoints and PointsLastUpdated are adjacent columns, so this
-      // writes both in one call instead of two separate round trips.
-      stuSheet.getRange(stuRowIdx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[balance, new Date()]]);
-      studentName = displayName(stuData[stuRowIdx][STU_COL_FIRST], stuData[stuRowIdx][STU_COL_LAST]);
-    }
 
     SpreadsheetApp.flush();
 
     return {
-      success: true,
-      recalculated: stuRowIdx >= 0,
-      studentName: studentName,
-      newBalance: balance
+      success:        true,
+      balanceChanged: balanceChanged,
+      studentId:      targetStudentId,
+      studentName:    studentName,
+      oldBalance:     oldBalance,
+      newBalance:     newBalance
     };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2705,6 +2853,16 @@ function logChange_(entry) {
   var hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
     .map(function(h) { return h.toString().trim(); });
 
+  // Add any newer columns (e.g. OldBalance/NewBalance) that an older
+  // ChangeLog sheet doesn't have yet, at the end of the header row.
+  CHANGE_LOG_HEADERS.forEach(function(h) {
+    if (hdrs.indexOf(h) < 0) {
+      sheet.getRange(1, hdrs.length + 1).setValue(h)
+           .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
+      hdrs.push(h);
+    }
+  });
+
   var values = {
     Timestamp:      new Date(),
     Action:         entry.action,
@@ -2717,7 +2875,9 @@ function logChange_(entry) {
     PointValue:     entry.pointValue,
     IncidentDate:   entry.incidentDate,
     IncidentTime:   entry.incidentTime,
-    Details:        entry.details
+    Details:        entry.details,
+    OldBalance:     entry.oldBalance,
+    NewBalance:     entry.newBalance
   };
 
   var row = hdrs.map(function(h) { return values[h] !== undefined ? values[h] : ''; });
@@ -2768,26 +2928,32 @@ function getChangeLog() {
   return { success: true, rows: rows };
 }
 
-// One-time migration tool: referrals submitted before points stopped
-// being floored at 0 have their PointsAfterReferral (and every
-// downstream PointsBeforeReferral/CurrentPoints that followed from it)
-// permanently baked in with the old floor already applied. Changing
-// the calculation going forward doesn't reach back and fix rows that
-// were already written — this walks every student's referral history
-// in submission order and rewrites it without the floor.
+// Rebuilds every student's CURRENT balance from what has happened since
+// the last points reset, and rewrites the PointsBeforeReferral /
+// PointsAfterReferral snapshots on those referrals to match. Use it if
+// balances ever look wrong this term.
 //
-// Each student's *first* referral's existing PointsBeforeReferral is
-// used as the anchor to replay forward from, rather than assuming
-// everyone started at the current TermStartPoints — that value was
-// never itself subject to flooring (only the computed "after" ever
-// was), so it reliably reflects whatever starting balance a student
-// actually had, including a custom starting point set for a mid-year
-// transfer. Falls back to the current TermStartPoints only if that
-// field is somehow missing.
+// Reset-safe: referrals submitted BEFORE the last reset are never
+// touched, so running this can't undo a reset. For each student, events
+// since the reset are replayed in time order:
+//   - a referral adds its PointValue (record-only referrals add nothing)
+//   - a "Points Adjusted" Change Log entry sets the balance to the value
+//     the admin chose
+// The starting balance is the first post-reset referral's existing
+// PointsBeforeReferral (that keeps custom starting points for students
+// added mid-term), or Term Start Points if it's missing. Students with
+// nothing since the reset are left as they are.
 function recalculateAllPointBalances() {
   var user = getCurrentUser();
   if (user.role !== 'admin') {
     return { success: false, error: 'Admin access required.' };
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return { success: false, error: 'The system is busy processing another change — please try again in a moment.' };
   }
 
   try {
@@ -2795,52 +2961,80 @@ function recalculateAllPointBalances() {
     var refSheet = ss.getSheetByName(SHEET_REFERRALS);
     var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
     var cfg      = getConfig();
+    var resetMs  = getLastResetMs_();
 
     var refData = refSheet.getDataRange().getValues();
     var sidCol  = REFERRAL_HEADERS.indexOf('StudentID');
+    var tsCol   = REFERRAL_HEADERS.indexOf('Timestamp');
     var pvCol   = REFERRAL_HEADERS.indexOf('PointValue');
     var pbCol   = REFERRAL_HEADERS.indexOf('PointsBeforeReferral');
     var paCol   = REFERRAL_HEADERS.indexOf('PointsAfterReferral');
 
-    // Group referral row indices by student, preserving sheet order —
-    // rows are appended in submission order, so this is already
-    // chronological without needing to sort by anything else.
-    var byStudent = {};
+    // studentId -> [events]; seq keeps sheet order as the tie-breaker.
+    var events = {};
+    var seq = 0;
+    function addEvent(sid, ev) {
+      if (!events[sid]) events[sid] = [];
+      ev.seq = seq++;
+      events[sid].push(ev);
+    }
+
     for (var r = 1; r < refData.length; r++) {
       var sid = (refData[r][sidCol] || '').toString();
       if (!sid) continue;
-      if (!byStudent[sid]) byStudent[sid] = [];
-      byStudent[sid].push(r);
+      var ts = timestampMs_(refData[r][tsCol]);
+      if (ts === null || ts < resetMs) continue; // before the reset — historical, untouched
+      addEvent(sid, {
+        type:       'referral',
+        ts:         ts,
+        rowIdx:     r,
+        pv:         parseFloat(refData[r][pvCol]) || 0,
+        recordOnly: isRecordOnly_(refData[r][pvCol], refData[r][pbCol], refData[r][paCol]),
+        before:     parseFloat(refData[r][pbCol])
+      });
     }
 
-    // Recompute before/after for every referral, per student, without
-    // ever flooring at 0. Collected into a full-height array matching
-    // the sheet's existing row order so the whole PointsBefore/After
-    // range can be written back in one call instead of one per row.
+    var logSheet = ss.getSheetByName(SHEET_CHANGE_LOG);
+    if (logSheet && logSheet.getLastRow() > 1) {
+      var logData = logSheet.getDataRange().getValues();
+      var lh = logData[0].map(function(h) { return h.toString().trim(); });
+      var lAction = lh.indexOf('Action'), lTs = lh.indexOf('Timestamp'),
+          lSid = lh.indexOf('StudentID'), lNew = lh.indexOf('NewBalance');
+      if (lAction >= 0 && lTs >= 0 && lSid >= 0 && lNew >= 0) {
+        for (var l = 1; l < logData.length; l++) {
+          if ((logData[l][lAction] || '').toString() !== 'Points Adjusted') continue;
+          var lts = timestampMs_(logData[l][lTs]);
+          var nb  = parseFloat(logData[l][lNew]);
+          var lsid = (logData[l][lSid] || '').toString();
+          if (lts === null || lts < resetMs || isNaN(nb) || !lsid) continue;
+          addEvent(lsid, { type: 'adjust', ts: lts, newBalance: nb });
+        }
+      }
+    }
+
     var pbPaValues = [];
     for (var r2 = 1; r2 < refData.length; r2++) {
-      pbPaValues.push([refData[r2][pbCol], refData[r2][paCol]]); // unchanged unless recomputed below
+      pbPaValues.push([refData[r2][pbCol], refData[r2][paCol]]);
     }
 
-    var finalBalances = {}; // studentId -> corrected final balance
+    var finalBalances = {};
     var referralsChanged = 0;
 
-    Object.keys(byStudent).forEach(function(sid) {
-      var rows = byStudent[sid];
-      var anchor = parseFloat(refData[rows[0]][pbCol]);
-      var balance = isNaN(anchor) ? cfg.termPoints : anchor;
+    Object.keys(events).forEach(function(sid) {
+      var list = events[sid].sort(function(a, b) { return a.ts - b.ts || a.seq - b.seq; });
+      var firstRef = null;
+      for (var f = 0; f < list.length; f++) { if (list[f].type === 'referral') { firstRef = list[f]; break; } }
+      var balance = (firstRef && !isNaN(firstRef.before)) ? firstRef.before : cfg.termPoints;
 
-      rows.forEach(function(rowIdx) {
+      list.forEach(function(ev) {
+        if (ev.type === 'adjust') { balance = ev.newBalance; return; }
         var before = balance;
-        var after  = before + (parseFloat(refData[rowIdx][pvCol]) || 0);
-        var arrIdx = rowIdx - 1; // pbPaValues[0] corresponds to sheet row 2
-        if (pbPaValues[arrIdx][0] !== before || pbPaValues[arrIdx][1] !== after) {
-          referralsChanged++;
-        }
+        var after  = ev.recordOnly ? before : before + ev.pv;
+        var arrIdx = ev.rowIdx - 1;
+        if (pbPaValues[arrIdx][0] !== before || pbPaValues[arrIdx][1] !== after) referralsChanged++;
         pbPaValues[arrIdx] = [before, after];
         balance = after;
       });
-
       finalBalances[sid] = balance;
     });
 
@@ -2848,9 +3042,6 @@ function recalculateAllPointBalances() {
       refSheet.getRange(2, pbCol + 1, pbPaValues.length, 2).setValues(pbPaValues);
     }
 
-    // Write corrected final balances to the Students sheet. Students
-    // with no referrals at all are left untouched — there's nothing to
-    // recalculate for a clean record.
     var stuData = stuSheet.getDataRange().getValues();
     var now = new Date();
     var studentsChanged = 0;
@@ -2858,10 +3049,9 @@ function recalculateAllPointBalances() {
     for (var s = 1; s < stuData.length; s++) {
       var stuId = stuData[s][STU_COL_ID].toString();
       var oldBalance = parseFloat(stuData[s][STU_COL_POINTS]);
-      if (finalBalances.hasOwnProperty(stuId)) {
-        var newBalance = finalBalances[stuId];
-        if (newBalance !== oldBalance) studentsChanged++;
-        stuUpdates.push([newBalance, now]);
+      if (finalBalances.hasOwnProperty(stuId) && finalBalances[stuId] !== oldBalance) {
+        studentsChanged++;
+        stuUpdates.push([finalBalances[stuId], now]);
       } else {
         stuUpdates.push([stuData[s][STU_COL_POINTS], stuData[s][STU_COL_POINTS_DATE]]);
       }
@@ -2875,19 +3065,34 @@ function recalculateAllPointBalances() {
       success: true,
       referralsChanged: referralsChanged,
       studentsChanged: studentsChanged,
-      totalStudents: Object.keys(byStudent).length
+      totalStudents: Object.keys(events).length,
+      sinceReset: formatResetTime_(resetMs)
     };
   } catch (e) {
     return { success: false, error: e.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
+// Resets every student's balance to Term Start Points, records the
+// reset time (so delete/edit/recalculate know which referrals are part
+// of the current balance), and logs it in the Change Log.
 function resetTermPoints() {
+  var user = getCurrentUser();
+  if (!user || user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+
+  // Blocks a referral submission from landing mid-reset.
+  var lock = LockService.getScriptLock();
   try {
-    var user = getCurrentUser();
-    if (!user || user.role !== 'admin') {
-      return { success: false, error: 'Admin access required.' };
-    }
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return { success: false, error: 'The system is busy processing another change — please try again in a moment.' };
+  }
+
+  try {
     var ss    = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName(SHEET_STUDENTS);
     var data  = sheet.getDataRange().getValues();
@@ -2895,17 +3100,90 @@ function resetTermPoints() {
     var now   = new Date();
     var count = data.length - 1;
     if (count > 0) {
-      // One bulk write for every student's balance + timestamp, instead
-      // of two separate API calls per row — matters a lot at real
-      // roster sizes (a 600-student reset was previously 1,200 calls).
+      // One bulk write for every student's balance + timestamp.
       var values = [];
       for (var i = 0; i < count; i++) values.push([cfg.termPoints, now]);
       sheet.getRange(2, STU_COL_POINTS + 1, count, 2).setValues(values);
     }
+    setLastResetMs_(now.getTime());
     SpreadsheetApp.flush();
-    return { success: true, count: count };
+
+    logChange_({
+      action:         'Points Reset',
+      changedByName:  user.name || user.email,
+      changedByEmail: user.email,
+      details:        'Reset ' + count + ' student balance' + (count === 1 ? '' : 's') +
+                      ' to ' + cfg.termPoints + ' points. Referral history was not changed.'
+    });
+
+    return { success: true, count: count, resetAt: formatResetTime_(now.getTime()) };
   } catch (e) {
     return { success: false, error: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Sets one student's current balance directly, with a required reason.
+// Logged in the Change Log as "Points Adjusted" with the old and new
+// balance, so recalculateAllPointBalances() can honor it later.
+function adjustStudentPoints(studentId, newBalance, reason) {
+  var user = getCurrentUser();
+  if (user.role !== 'admin') {
+    return { success: false, error: 'Admin access required.' };
+  }
+  reason = (reason || '').toString().trim();
+  if (!reason) {
+    return { success: false, error: 'A reason is required.' };
+  }
+  var nb = Number(newBalance);
+  if (newBalance === '' || newBalance === null || isNaN(nb) || Math.floor(nb) !== nb) {
+    return { success: false, error: 'New balance must be a whole number.' };
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (lockErr) {
+    return { success: false, error: 'The system is busy processing another change — please try again in a moment.' };
+  }
+
+  try {
+    var ss       = SpreadsheetApp.getActiveSpreadsheet();
+    var stuSheet = ss.getSheetByName(SHEET_STUDENTS);
+    var stuData  = stuSheet.getDataRange().getValues();
+    var idx      = findStudentRow(stuData, studentId.toString().trim());
+    if (idx < 0) {
+      return { success: false, error: 'Student ' + studentId + ' not found.' };
+    }
+
+    var oldBalance = parseFloat(stuData[idx][STU_COL_POINTS]);
+    if (isNaN(oldBalance)) oldBalance = getConfig().termPoints;
+    if (oldBalance === nb) {
+      return { success: false, error: 'The balance is already ' + nb + ' points.' };
+    }
+
+    stuSheet.getRange(idx + 1, STU_COL_POINTS + 1, 1, 2).setValues([[nb, new Date()]]);
+    SpreadsheetApp.flush();
+
+    var name = displayName(stuData[idx][STU_COL_FIRST], stuData[idx][STU_COL_LAST]);
+    logChange_({
+      action:         'Points Adjusted',
+      changedByName:  user.name || user.email,
+      changedByEmail: user.email,
+      studentId:      stuData[idx][STU_COL_ID].toString(),
+      studentName:    name,
+      pointValue:     nb - oldBalance,
+      oldBalance:     oldBalance,
+      newBalance:     nb,
+      details:        'Balance changed from ' + oldBalance + ' to ' + nb + '. Reason: ' + reason
+    });
+
+    return { success: true, oldBalance: oldBalance, newBalance: nb };
+  } catch (e) {
+    return { success: false, error: e.message };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -2974,6 +3252,8 @@ function startNewYear() {
     clearSheetDataRows_(refSheet);
     clearSheetDataRows_(stuSheet);
     clearSheetDataRows_(pcSheet);
+    // Every balance starts fresh with next year's roster import.
+    setLastResetMs_(new Date().getTime());
     SpreadsheetApp.flush();
 
     return {

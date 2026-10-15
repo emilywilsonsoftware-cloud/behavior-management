@@ -181,7 +181,13 @@ function buildNotificationBody_(cfg, displayNameForParent, grade, refs) {
     lines.push(padLabel_('Location:') + ref.location);
     lines.push(padLabel_('Infraction:') + ref.infractionType);
     lines.push(padLabel_('Teacher:') + ref.teacherName);
-    lines.push(padLabel_('Points:') + ptsStr + '  (' + ref.pointsBefore + ' -> ' + ref.pointsAfter + ' pts)');
+    // Record-only referral (incident from a previous term, entered late):
+    // say so rather than showing a misleading "100 -> 100".
+    if (isRecordOnly_(ref.pointValue, ref.pointsBefore, ref.pointsAfter)) {
+      lines.push(padLabel_('Points:') + ptsStr + '  (recorded for a previous term - current balance not changed)');
+    } else {
+      lines.push(padLabel_('Points:') + ptsStr + '  (' + ref.pointsBefore + ' -> ' + ref.pointsAfter + ' pts)');
+    }
     if (ref.description) lines.push(padLabel_('Notes:') + ref.description);
     lines.push('');
     lines.push('');

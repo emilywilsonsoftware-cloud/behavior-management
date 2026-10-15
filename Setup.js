@@ -37,6 +37,7 @@ function onOpen() {
     .addItem('Clear All Staff Role Caches', 'clearAllUserCachesMenu')
     .addSeparator()
     .addItem('Reset Term Points (NEW TERM)', 'resetTermPointsMenu')
+    .addItem('Recalculate Current Balances', 'recalculateBalancesMenu')
     .addToUi();
 }
 
@@ -210,8 +211,8 @@ function _setupReferrals(ss) {
 }
 
 // ── Deletion log ──────────────────────────────────────────────
-// Audit trail written by deleteReferral() in Code.gs — records who
-// deleted a referral, when, and why, without keeping the deleted
+// Audit trail written by Code.gs — deletions, edits, point resets and
+// point adjustments: who did it, when, and why, without keeping the deleted
 // referral's full original content (location, description, etc.)
 // lingering anywhere.
 function _setupChangeLog(ss) {
@@ -220,7 +221,8 @@ function _setupChangeLog(ss) {
   var headers = [
     'Timestamp', 'Action', 'ChangedByName', 'ChangedByEmail',
     'ReferralID', 'StudentID', 'StudentName',
-    'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Details'
+    'InfractionType', 'PointValue', 'IncidentDate', 'IncidentTime', 'Details',
+    'OldBalance', 'NewBalance'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
        .setFontWeight('bold').setBackground('#1e3a5f').setFontColor('#ffffff');
@@ -361,8 +363,34 @@ function resetTermPointsMenu() {
   if (response !== ui.Button.YES) return;
   var result = resetTermPoints();
   if (result.success) {
-    ui.alert('Done', 'Reset ' + result.count + ' student balances.', ui.ButtonSet.OK);
+    ui.alert('Done', 'Reset ' + result.count + ' student balances at ' + result.resetAt + '.', ui.ButtonSet.OK);
   } else {
     ui.alert('Error', result.error || 'Unknown error.', ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu wrapper for recalculateAllPointBalances() (Code.gs). Rebuilds
+ * current balances from referrals and point adjustments made since the
+ * last reset. Referrals from before the reset are never touched.
+ */
+function recalculateBalancesMenu() {
+  var ui = SpreadsheetApp.getUi();
+  var response = ui.alert(
+    'Recalculate Current Balances',
+    'This rebuilds every student\'s current point balance from the referrals ' +
+    'and point adjustments made since the last reset' +
+    ' (' + formatResetTime_(getLastResetMs_()) + ').\n\n' +
+    'Referrals from before that reset are not touched.\n\nContinue?',
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) return;
+  var r = recalculateAllPointBalances();
+  if (r.success) {
+    ui.alert('Done',
+      r.studentsChanged + ' student balance(s) corrected; ' +
+      r.referralsChanged + ' referral snapshot(s) updated.', ui.ButtonSet.OK);
+  } else {
+    ui.alert('Error', r.error || 'Unknown error.', ui.ButtonSet.OK);
   }
 }

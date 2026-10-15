@@ -75,6 +75,12 @@
                    font-weight: 600; margin-top: 8px; display: none; }
     .max-warning.show { display: block; }
 
+    /* ── Previous-term notice (under the date) ── */
+    .prior-term-notice { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+                         border-radius: 6px; padding: 8px 11px; font-size: 0.8rem;
+                         font-weight: 600; margin-top: 6px; display: none; line-height: 1.45; }
+    .prior-term-notice.show { display: block; }
+
     /* ── Term positive-points panel (mirrors Index.html's
          term referral panel) ── */
     #pos-cap-panel { margin-top: 14px; }
@@ -276,7 +282,11 @@
     <div class="form-grid">
       <div>
         <label for="pos-date">Date <span class="req">*</span></label>
-        <input type="date" id="pos-date">
+        <input type="date" id="pos-date" onchange="updatePriorTermNotice()" oninput="updatePriorTermNotice()">
+        <div class="prior-term-notice" id="prior-term-notice">
+          This date is in a previous term. The note will be saved, but it will <u>not</u>
+          add points to the student's current balance or count toward this term's cap.
+        </div>
       </div>
       <div>
         <label for="pos-type-sel">Type <span class="req">*</span></label>
@@ -324,7 +334,8 @@ var state = {
                                       // holds the ADMIN's name/email here.
   allStudents: [],   // full roster loaded once
   semPts:      100,
-  pointTiers:  []    // admin-configured point-balance color tiers
+  pointTiers:  [],   // admin-configured point-balance color tiers
+  termStart:   ''    // YYYY-MM-DD start of the current term ('' if not configured)
 };
 
 var posState = {
@@ -360,6 +371,8 @@ function onBootstrap(data) {
   state.allStudents  = data.students   || [];
   state.semPts       = data.termPoints || 100;
   state.pointTiers   = data.pointTiers || [];
+  state.termStart    = data.currentTerm ? data.currentTerm.start : '';
+  updatePriorTermNotice();
 
   document.getElementById('admin-name').value  = state.teacherName;
   document.getElementById('admin-email').value = state.teacherEmail;
@@ -648,6 +661,13 @@ function cssEsc(s) {
   return String(s).replace(/["\\]/g, '\\$&');
 }
 
+// Matches isPriorTermDate_() in Code.gs, which is what actually decides.
+function updatePriorTermNotice() {
+  var d = document.getElementById('pos-date').value;
+  var prior = !!(state.termStart && d && d < state.termStart);
+  document.getElementById('prior-term-notice').classList.toggle('show', prior);
+}
+
 function onPosTypeChange() {
   var sel = document.getElementById('pos-type-sel');
   var t   = posState.typeMap[sel.value];
@@ -728,7 +748,10 @@ function onPositiveSubmitOk(result, referrals) {
     showPosErr('Saved ' + result.saved + ' referral(s) with errors:\n' + result.errors.join('\n'));
   } else {
     clearPosStatus();
-    showToast('Awarded points to ' + result.saved + ' student' + (result.saved > 1 ? 's' : '') + '.');
+    showToast(result.recordOnly
+      ? 'Saved ' + result.saved + ' note' + (result.saved > 1 ? 's' : '') + ' for a previous term — current balance not changed.'
+      : 'Awarded points to ' + result.saved + ' student' + (result.saved > 1 ? 's' : '') + '.',
+      false, result.recordOnly ? 5000 : undefined);
     resetPositiveForm();
     requestAnimationFrame(function() {
       document.documentElement.scrollTop = 0;
@@ -753,6 +776,7 @@ function resetPositiveForm() {
 
   var now = new Date();
   document.getElementById('pos-date').value = dateStr(now);
+  updatePriorTermNotice();
   document.getElementById('pos-type-sel').value = '';
   document.getElementById('pos-description').value = '';
   document.getElementById('pos-point-preview').innerHTML = '';

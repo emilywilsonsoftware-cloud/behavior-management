@@ -891,6 +891,8 @@
       <div class="card danger-card" id="card-resetpoints">
         <div class="section-title">Reset Term Points</div>
         <p class="section-desc">Resets all student point balances to the current Term Start Points value. Referral history is not deleted. Use this for a mid-year or new-term reset — for a full year-end reset with archiving, use "Start New Year" below.</p>
+        <p class="section-desc" style="margin-top:-8px;">Last reset: <strong id="last-reset-time">—</strong>.
+          Only referrals submitted after this time count toward current balances; deleting or editing an older referral won't change a student's balance.</p>
         <div class="save-row" style="justify-content:center;">
           <span class="save-msg" id="msg-reset"></span>
           <button class="btn-danger" onclick="confirmReset()">Reset Term Points</button>
@@ -1037,6 +1039,7 @@ function onBootstrap(data) {
   populateGeneral(data.config);
   populateAddStudentContactTypes();
   populateArchiveTermSelect();
+  document.getElementById('last-reset-time').textContent = data.lastPointsReset || 'not recorded yet';
 }
 
 // ── Tab switching ──────────────────────────────────────────────
@@ -1742,7 +1745,10 @@ function confirmReset() {
     onConfirm: function() {
       google.script.run
         .withSuccessHandler(function(r) {
-          if (r.success) showToast('Reset ' + r.count + ' students.');
+          if (r.success) {
+            showToast('Reset ' + r.count + ' students.');
+            document.getElementById('last-reset-time').textContent = r.resetAt;
+          }
           else showToast(r.error || 'Reset failed.', true);
         })
         .withFailureHandler(function(err) { showToast(err.message || err, true); })
